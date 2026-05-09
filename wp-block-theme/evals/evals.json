@@ -1,0 +1,89 @@
+{
+  "skill_name": "wp-block-theme",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I've got a static HTML page for our new 'Research Hub' landing page — it has a hero section, a 3-column features grid, an FAQ accordion, and a footer CTA. The HTML, CSS, and JS are all in one file. I need this inside WordPress so editors can assign it to a page and it shows up in the Site Editor. The theme is egnitech-one-child. Here's the file: [user pastes HTML]",
+      "expected_output": "A complete set of files: templates/research-hub.html, patterns/research-hub.php (master, Inserter: false), sub-pattern PHP files for each section, scoped CSS files under patterns/{section}/style.css, JS files under patterns/{section}/index.js, a theme.json customTemplates entry, and functions.php additions (register_block_style binding the css to the outermost wrapper block). All complex HTML wrapped in registered **Native PHP-only Blocks** and CSS fully scoped to .is-style-research-hub-wrapper.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "template-html-exists",
+          "description": "templates/research-hub.html is created and calls the master pattern"
+        },
+        {
+          "name": "master-pattern-has-inserter-false",
+          "description": "patterns/research-hub.php has Inserter: false in its header comment"
+        },
+        {
+          "name": "raw-html-wrapped",
+          "description": "All complex HTML sections in sub-patterns are wrapped in registered Native PHP-only Blocks (avoid wp:html)"
+        },
+        {
+          "name": "css-scoped",
+          "description": "Every CSS rule in style.css files is prefixed with .is-style-research-hub-wrapper"
+        },
+        {
+          "name": "theme-json-registered",
+          "description": "theme.json gets a customTemplates entry with name: research-hub"
+        },
+        {
+          "name": "asset-registry-updated",
+          "description": "functions.php register_block_style is used to bind pattern CSS to its wrapper block style variation"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I need to add a new header variant — a slim top bar that shows a regulatory warning message and a phone number on the right. The warning icon should be registered in the native theme registry (WP_Icons_Registry). It should be editable in the Site Editor and swappable like the other header parts. Theme is egnitech-one-child, existing header parts are in parts/ and already registered in theme.json.",
+      "expected_output": "Two files: parts/header-top-bar-variant-b.html (thin pointer to a pattern) and patterns/header-top-bar-variant-b.php (real content with PHP). The pattern must NOT have Inserter: false. theme.json templateParts array gets a new entry. The functions.php asset loader uses register_block_style to bind the CSS to the template part's wrapper block variation.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "two-file-architecture",
+          "description": "A .html template part and a .php pattern file are both created"
+        },
+        {
+          "name": "no-inserter-false",
+          "description": "The PHP pattern does NOT contain 'Inserter: false'"
+        },
+        {
+          "name": "php-in-pattern-not-html",
+          "description": "PHP code (get_stylesheet_directory_uri or native core/icon Registry) appears in the .php file, not the .html file"
+        },
+        {
+          "name": "template-part-css-registered",
+          "description": "functions.php uses register_block_style to tie the template part CSS to its root block"
+        },
+        {
+          "name": "theme-json-template-parts",
+          "description": "theme.json templateParts array includes the new variant with area: header"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "My hero section looks fine on the frontend but the Site Editor is showing the old version even though I updated the template file. Also, the CSS I added for the hero isn't showing up inside the editor — it only loads on the actual page. How do I fix both of these?",
+      "expected_output": "Two clear fixes: (1) Site Editor cache — tell user to go to Appearance → Editor, find the template, click ⋮ menu, select 'Clear Customizations' / 'Reset to defaults' to remove the database override. (2) Editor CSS — the CSS must be loaded via register_block_style() targeting the component's wrapper block, which automatically handles editor iframe injection without needing add_editor_style(). Explanation of why both happen.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "explains-database-override",
+          "description": "Response explains that the Site Editor stores customisations in the database and those take precedence over file changes"
+        },
+        {
+          "name": "gives-clear-customizations-steps",
+          "description": "Response gives specific steps: Appearance → Editor → ⋮ → Reset/Clear Customizations"
+        },
+        {
+          "name": "explains-block-style-injection",
+          "description": "Response explains that register_block_style() natively handles CSS injection inside the editor iframe"
+        },
+        {
+          "name": "code-example-for-editor-style",
+          "description": "Response includes a concrete register_block_style() call tied to a core block variation"
+        }
+      ]
+    }
+  ]
+}
