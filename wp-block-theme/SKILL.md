@@ -28,8 +28,10 @@ underlying building blocks used during that process.
 
 1. **Identify the deliverable** — Is this an HTML→template conversion, a new template from
    scratch, a pattern, a template part, a theme.json change, or an asset pipeline fix?
-2. **Read the project context first** — Always read `AI_CONTEXT-Child.md` (and the parent's
-   equivalent if it exists) before writing any files. This prevents violating child-theme rules.
+2. **Determine Target Theme & Read Context** — Identify if you are developing the **Core (Parent Theme)** or an **Extension (Child Theme)**. 
+   - Read `AI_CONTEXT-Child.md` if working on a child theme.
+   - Read `AI_CONTEXT.md` if working on the parent theme core.
+   - Always prioritize child themes for project-specific features unless you are building foundational capabilities into the parent.
 3. **Follow the architecture rules** in `references/architecture.md`. If the user is on **WordPress 6.9**, prioritize the fallback patterns in `references/compatibility-6.9.md`.
 4. **Execute** using the implementation checklists below.
 5. **Verify** — run a quick filesystem audit and remind the user of the Site Editor "Clear
@@ -39,7 +41,9 @@ underlying building blocks used during that process.
 
 ## Core Architectural Rules (memorise these)
 
-- **Never touch the parent theme directory.** All work goes in the child theme.
+- **Identify the Target Context:** All work must respect the **Parent/Child boundary**.
+  - **Child Theme Context:** If `AI_CONTEXT-Child.md` exists and is the active focus, **never touch the parent theme directory**. All modifications go in the child theme.
+  - **Parent Theme Context:** If you are explicitly developing the parent core (active folder is `egnitech-one` and task is foundational), you may modify parent files. Maintain a "Child-Theme-First" mindset: if a feature is project-specific, suggest moving it to a child theme instead.
 - **Native-First Architecture (The 1% Rule):** Recreate designs using Core Blocks. In 2026, this means using **Native Grid Layouts** (`core/group` with grid type) and **Native Component Blocks** (e.g., `core/accordion`) instead of custom CSS/JS. Avoid `wp:html` entirely; use **Native PHP-only Blocks** (mapped via `block.json`) for complex layouts that cannot be represented by core blocks.
 - **Every custom template must be registered** via the **Template Registration API (PHP)** to enable A/B testing segments and AI-driven layout variants.
 - **Content-Only Locking (Phase 3 Standard):** Use `"templateLock": "contentOnly"` on structural patterns to allow multi-user collaboration without breaking layouts.
@@ -55,6 +59,7 @@ underlying building blocks used during that process.
 - **System vs. Functional Patterns:** Use `Inserter: false` for "assembler" patterns (logic only). However, **Synced Patterns with Overrides** must have `Inserter: true` so clients can re-add them if accidentally deleted.
 - **theme.json Token Inheritance (The 1% Rule):** In child themes, arrays like `palette` overwrite the parent. To preserve inheritance while adding colors, use the `defaultPalette: true` flag strategically or reference parent tokens using `--wp--preset--color--{slug}`.
 - **Fluid Design Tokens**: Use Fluid Typography and Fluid Spacing in `theme.json` to ensure designs scale perfectly across screen sizes without manual media queries.
+- **Slugs and Text Domains:** Always prefix pattern slugs and categories with the current theme's directory name (e.g., `egnitech-one/` for parent, `egnitech-one-child/` for child). Use the corresponding text domain for localization.
 - **Zero-CSS Layouts (The 1% Rule):** If it can be done in `theme.json`, it must not be in `style.css`. Use **Section Styles** (Variations inside `theme.json`) to define padding, margins, and layout values.
 
 ---
@@ -127,7 +132,7 @@ Before handing off, verify every item:
   > **UX Warning:** Hardcoding layout patterns (like a Hero) inside this `.html` template locks them to the Site Editor. Content creators using the normal Page Editor will only see a blank box for `wp:post-content`. If editors need to easily modify the Hero text natively in the Page Editor, do not include the layout pattern here—instruct them to insert the pattern directly into the page content itself instead.
   ```html
   <!-- wp:template-part {"slug":"header","tagName":"header","area":"header"} /-->
-  <!-- wp:pattern {"slug":"egnitech-one-child/{slug}"} /-->
+  <!-- wp:pattern {"slug":"{theme-slug}/{slug}"} /-->
   <!-- wp:post-content {"layout":{"type":"constrained"}} /-->
   <!-- wp:template-part {"slug":"footer","tagName":"footer","area":"footer"} /-->
   ```
@@ -145,15 +150,15 @@ Before handing off, verify every item:
 <?php
 /**
  * Title: My Landing Page
- * Slug: egnitech-one-child/{slug}
- * Categories: egnitech-one-child
+ * Slug: {theme-slug}/{slug}
+ * Categories: {theme-slug}
  * Keywords: landing, page, {keywords}
  * Inserter: false
  */
 ?>
 <!-- No global wrapper. Master patterns only assemble sub-patterns to prevent CSS bleed. -->
-<!-- wp:pattern {"slug":"egnitech-one-child/hero-section"} /-->
-<!-- wp:pattern {"slug":"egnitech-one-child/another-section"} /-->
+<!-- wp:pattern {"slug":"{theme-slug}/hero-section"} /-->
+<!-- wp:pattern {"slug":"{theme-slug}/another-section"} /-->
 ```
 
 See `references/architecture.md` (Asset Pipeline section) for the full `functions.php` template.
@@ -182,7 +187,7 @@ approach**: a thin `.html` template part that delegates to a PHP pattern.
 
 **`parts/header-top-bar-variant-a.html`** — just a pointer:
 ```html
-<!-- wp:pattern {"slug":"egnitech-one-child/header-top-bar-variant-a"} /-->
+<!-- wp:pattern {"slug":"{theme-slug}/header-top-bar-variant-a"} /-->
 ```
 
 **`patterns/header-top-bar-variant-a.php`** — the real content with PHP:
@@ -190,8 +195,8 @@ approach**: a thin `.html` template part that delegates to a PHP pattern.
 <?php
 /**
  * Title: Header Top Bar Variant A
- * Slug: egnitech-one-child/header-top-bar-variant-a
- * Categories: egnitech-one-child
+ * Slug: {theme-slug}/header-top-bar-variant-a
+ * Categories: {theme-slug}
  * Inserter: false
  */
 ?>
@@ -256,8 +261,8 @@ Patterns are reusable sections inserted via the Block Inserter or called from te
 <?php
 /**
  * Title: Hero Section
- * Slug: egnitech-one-child/hero-section
- * Categories: egnitech-one-child
+ * Slug: {theme-slug}/hero-section
+ * Categories: {theme-slug}
  * Keywords: hero, banner, header
  * Block Types: core/group
  */
