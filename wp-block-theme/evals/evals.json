@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "I've got a static HTML page for our new 'Research Hub' landing page — it has a hero section, a 3-column features grid, an FAQ accordion, and a footer CTA. The HTML, CSS, and JS are all in one file. I need this inside WordPress so editors can assign it to a page and it shows up in the Site Editor. The theme is egnitech-one-child. Here's the file: [user pastes HTML]",
+      "prompt": "I've got a static HTML page for our new 'Research Hub' landing page — it has a hero section, a 3-column features grid, an FAQ accordion, and a footer CTA. The HTML, CSS, and JS are all in one file. I need this inside WordPress so editors can assign it to a page and it shows up in the Site Editor. The theme is {{THEME_SLUG}}. Here's the file: [user pastes HTML]",
       "expected_output": "A complete set of files: templates/research-hub.html, patterns/research-hub.php (master, Inserter: false), sub-pattern PHP files for each section, scoped CSS files under patterns/{section}/style.css, JS files under patterns/{section}/index.js, a theme.json customTemplates entry, and functions.php additions (register_block_style binding the css to the outermost wrapper block). All complex HTML wrapped in registered **Native PHP-only Blocks** and CSS fully scoped to .is-style-research-hub-wrapper.",
       "files": [],
       "assertions": [
@@ -35,7 +35,7 @@
     },
     {
       "id": 2,
-      "prompt": "I need to add a new header variant — a slim top bar that shows a regulatory warning message and a phone number on the right. The warning icon should be registered in the native theme registry (WP_Icons_Registry). It should be editable in the Site Editor and swappable like the other header parts. Theme is egnitech-one-child, existing header parts are in parts/ and already registered in theme.json.",
+      "prompt": "I need to add a new header variant — a slim top bar that shows a regulatory warning message and a phone number on the right. The warning icon should be registered in the native theme registry (WP_Icons_Registry). It should be editable in the Site Editor and swappable like the other header parts. Theme is {{THEME_SLUG}}, existing header parts are in parts/ and already registered in theme.json.",
       "expected_output": "Two files: parts/header-top-bar-variant-b.html (thin pointer to a pattern) and patterns/header-top-bar-variant-b.php (real content with PHP). The pattern must NOT have Inserter: false. theme.json templateParts array gets a new entry. The functions.php asset loader uses register_block_style to bind the CSS to the template part's wrapper block variation.",
       "files": [],
       "assertions": [

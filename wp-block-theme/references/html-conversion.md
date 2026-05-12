@@ -42,7 +42,7 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Peptide Landing</title>
+  <title>example Landing</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background: #0a0a1a; color: #fff; }
@@ -58,7 +58,7 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 <body>
   <section class="hero">
     <h1>Unlock Peak Performance</h1>
-    <p>Science-backed peptides, delivered to your door.</p>
+    <p>Science-backed examples, delivered to your door.</p>
     <a href="/shop" class="btn-primary">Shop Now</a>
   </section>
 
@@ -78,65 +78,65 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 </html>
 ```
 
-### Slug: `peptide-landing`
+### Slug: `example-landing`
 
 ---
 
-### Output: `templates/peptide-landing.html`
+### Output: `templates/example-landing.html`
 
 > **Note: Site Editor Only Layout**
-> The example below hardcodes the `peptide-landing` pattern directly into the `.html` template. This means the Hero and Features sections can only be edited via the global Site Editor (Appearance > Editor), not the standard Page Editor. 
+> The example below hardcodes the `example-landing` pattern directly into the `.html` template. This means the Hero and Features sections can only be edited via the global Site Editor (Appearance > Editor), not the standard Page Editor. 
 > To allow content creators to edit this natively in the Page Editor instead, remove the `wp:pattern` from this file, set `Inserter: true` in your pattern header, and instruct the user to insert the pattern dynamically into the page content.
 
 ```html
 <!-- wp:template-part {"slug":"header","tagName":"header","area":"header"} /-->
-<!-- wp:pattern {"slug":"egnitech-one-child/peptide-landing"} /-->
+<!-- wp:pattern {"slug":"{{THEME_SLUG}}/example-landing"} /-->
 <!-- wp:post-content {"layout":{"type":"constrained"}} /-->
 <!-- wp:template-part {"slug":"footer","tagName":"footer","area":"footer"} /-->
 ```
 
 ---
 
-### Output: `patterns/peptide-landing.php` (master)
+### Output: `patterns/example-landing.php` (master)
 
 ```php
 <?php
 /**
- * Title: Peptide Landing Page
- * Slug: egnitech-one-child/peptide-landing
- * Categories: egnitech-one-child
- * Keywords: peptide, landing, performance
+ * Title: example Landing Page
+ * Slug: {{THEME_SLUG}}/example-landing
+ * Categories: {{THEME_SLUG}}
+ * Keywords: example, landing, performance
  * Inserter: false
  */
 ?>
-  <!-- wp:pattern {"slug":"egnitech-one-child/peptide-landing-hero"} /-->
-  <!-- wp:pattern {"slug":"egnitech-one-child/peptide-landing-features"} /-->
+  <!-- wp:pattern {"slug":"{{THEME_SLUG}}/example-landing-hero"} /-->
+  <!-- wp:pattern {"slug":"{{THEME_SLUG}}/example-landing-features"} /-->
 ```
 
 ---
 
-### Output: `patterns/peptide-landing-hero.php`
+### Output: `patterns/example-landing-hero.php`
 
 ```php
 <?php
 /**
- * Title: Peptide Landing — Hero
- * Slug: egnitech-one-child/peptide-landing-hero
+ * Title: example Landing — Hero
+ * Slug: {{THEME_SLUG}}/example-landing-hero
  * Inserter: false
  */
 ?>
 <!-- wp:group {
     "tagName": "section",
-    "className": "is-style-peptide-landing-hero",
+    "className": "is-style-example-landing-hero",
     "lock": {"move": true, "remove": true}
 } -->
-<section class="wp-block-group is-style-peptide-landing-hero">
+<section class="wp-block-group is-style-example-landing-hero">
     <!-- wp:heading {"level":1} -->
     <h1 class="wp-block-heading">Unlock Peak Performance</h1>
     <!-- /wp:heading -->
 
     <!-- wp:paragraph -->
-    <p>Science-backed peptides, delivered to your door.</p>
+    <p>Science-backed examples, delivered to your door.</p>
     <!-- /wp:paragraph -->
 
     <!-- wp:buttons -->
@@ -152,22 +152,22 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 
 ---
 
-### Output: `patterns/peptide-landing-features.php`
+### Output: `patterns/example-landing-features.php`
 
 ```php
 <?php
 /**
- * Title: Peptide Landing — Features
- * Slug: egnitech-one-child/peptide-landing-features
+ * Title: example Landing — Features
+ * Slug: {{THEME_SLUG}}/example-landing-features
  * Inserter: false
  */
 ?>
 <!-- wp:group {
     "tagName": "section",
     "layout": { "type": "grid", "columnCount": 3 },
-    "className": "is-style-peptide-landing-features"
+    "className": "is-style-example-landing-features"
 } -->
-<section class="wp-block-group is-style-peptide-landing-features">
+<section class="wp-block-group is-style-example-landing-features">
     <!-- wp:group {"className":"card"} -->
     <div class="wp-block-group card">
         <!-- wp:heading {"level":3} -->
@@ -195,34 +195,34 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 
 ---
 
-### Output: `patterns/peptide-landing-hero/style.css`
+### Output: `patterns/example-landing-hero/style.css`
 
 ```css
 /* ============================================================
    Scoped styles for the Hero pattern.
-   ALL rules are prefixed with .is-style-peptide-landing-hero
+   ALL rules are prefixed with .is-style-example-landing-hero
    ============================================================ */
 
-.is-style-peptide-landing-hero {
+.is-style-example-landing-hero {
   text-align: center;
   background: linear-gradient(135deg, #1a1a2e, #16213e);
 }
 
 /* Note: Padding/Margin are now handled in theme.json Section Styles */
 
-.is-style-peptide-landing-hero h1 {
+.is-style-example-landing-hero h1 {
   font-size: 3.5rem;
   margin-bottom: 1rem;
   color: #fff;
 }
 
-.is-style-peptide-landing-hero p {
+.is-style-example-landing-hero p {
   font-size: 1.25rem;
   opacity: 0.8;
   color: #fff;
 }
 
-.is-style-peptide-landing-hero .btn-primary {
+.is-style-example-landing-hero .btn-primary {
   display: inline-block;
   margin-top: 2rem;
   padding: 1rem 2.5rem;
@@ -235,10 +235,10 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 
 ---
 
-### Output: `patterns/peptide-landing-features/style.css`
+### Output: `patterns/example-landing-features/style.css`
 
 ```css
-.is-style-peptide-landing-features .card {
+.is-style-example-landing-features .card {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   padding: 2rem;
@@ -256,9 +256,9 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 
 When you need reactive logic (e.g., a "Save to Favorites" toggle), use the Interactivity API with **Reactive State**:
 
-**1. Markup (`patterns/peptide-landing-hero.php`):**
+**1. Markup (`patterns/example-landing-hero.php`):**
 ```html
-<div data-wp-interactive="peptide-landing/hero" data-wp-context='{ "isSaved": false }'>
+<div data-wp-interactive="example-landing/hero" data-wp-context='{ "isSaved": false }'>
     <button 
         data-wp-on--click="actions.toggleSave"
         data-wp-class--is-active="context.isSaved"
@@ -268,11 +268,11 @@ When you need reactive logic (e.g., a "Save to Favorites" toggle), use the Inter
 </div>
 ```
 
-**2. Logic (`patterns/peptide-landing-hero/index.js`):**
+**2. Logic (`patterns/example-landing-hero/index.js`):**
 ```js
 import { store } from '@wordpress/interactivity';
 
-store('peptide-landing/hero', {
+store('example-landing/hero', {
     state: {
         get saveLabel() {
             const { isSaved } = context;
@@ -296,7 +296,7 @@ Replace static FAQ HTML with the native `core/accordion` block:
 <div class="wp-block-accordion">
     <!-- wp:accordion-item {"title":"What is the purity?"} -->
     <div class="wp-block-accordion-item">
-        <p>Our peptides are 99% certified purity.</p>
+        <p>Our examples are 99% certified purity.</p>
     </div>
     <!-- /wp:accordion-item -->
 </div>
@@ -310,8 +310,8 @@ Replace static FAQ HTML with the native `core/accordion` block:
 ```json
 "customTemplates": [
   {
-    "name": "peptide-landing",
-    "title": "Peptide Landing Page",
+    "name": "example-landing",
+    "title": "example Landing Page",
     "postTypes": ["page"]
   }
 ]
@@ -323,49 +323,49 @@ Replace static FAQ HTML with the native `core/accordion` block:
 
 ```php
 // New pattern asset registration:
-function egnitech_one_child_peptide_landing_assets() {
+function {{THEME_SLUG}}_example_landing_assets() {
     // 1. Register and bind Hero CSS
     wp_register_style(
-        'peptide-landing-hero-style',
-        get_stylesheet_directory_uri() . '/patterns/peptide-landing-hero/style.css',
+        'example-landing-hero-style',
+        get_stylesheet_directory_uri() . '/patterns/example-landing-hero/style.css',
         array(),
         '1.0.0'
     );
-    wp_style_add_data( 'peptide-landing-hero-style', 'path', get_stylesheet_directory() . '/patterns/peptide-landing-hero/style.css' );
+    wp_style_add_data( 'example-landing-hero-style', 'path', get_stylesheet_directory() . '/patterns/example-landing-hero/style.css' );
     register_block_style( 'core/group', array(
-        'name'         => 'peptide-landing-hero',
-        'style_handle' => 'peptide-landing-hero-style',
+        'name'         => 'example-landing-hero',
+        'style_handle' => 'example-landing-hero-style',
     ));
 
     // 2. Register and bind Features CSS
     wp_register_style(
-        'peptide-landing-features-style',
-        get_stylesheet_directory_uri() . '/patterns/peptide-landing-features/style.css',
+        'example-landing-features-style',
+        get_stylesheet_directory_uri() . '/patterns/example-landing-features/style.css',
         array(),
         '1.0.0'
     );
-    wp_style_add_data( 'peptide-landing-features-style', 'path', get_stylesheet_directory() . '/patterns/peptide-landing-features/style.css' );
+    wp_style_add_data( 'example-landing-features-style', 'path', get_stylesheet_directory() . '/patterns/example-landing-features/style.css' );
     register_block_style( 'core/group', array(
-        'name'         => 'peptide-landing-features',
-        'style_handle' => 'peptide-landing-features-style',
+        'name'         => 'example-landing-features',
+        'style_handle' => 'example-landing-features-style',
     ));
 
     // 3. Register Script Module for Interactivity logic
     wp_register_script_module(
-        'peptide-landing/hero-logic',
-        get_stylesheet_directory_uri() . '/patterns/peptide-landing-hero/index.js',
+        'example-landing/hero-logic',
+        get_stylesheet_directory_uri() . '/patterns/example-landing-hero/index.js',
         array( '@wordpress/interactivity' ),
         '1.0.0'
     );
 
     // 4. Bind Script Module to the Hero block style
     register_block_style( 'core/group', array(
-        'name'                 => 'peptide-landing-hero',
-        'style_handle'         => 'peptide-landing-hero-style',
-        'script_module_handle' => 'peptide-landing/hero-logic',
+        'name'                 => 'example-landing-hero',
+        'style_handle'         => 'example-landing-hero-style',
+        'script_module_handle' => 'example-landing/hero-logic',
     ));
 }
-add_action( 'init', 'egnitech_one_child_peptide_landing_assets' );
+add_action( 'init', '{{THEME_SLUG}}_example_landing_assets' );
 ```
 
 ---
@@ -393,8 +393,8 @@ html { scroll-behavior: smooth; }
 
 ```css
 /* Keep layout, color, spacing — just prefix */
-.is-style-peptide-landing-hero { ... }
-.is-style-peptide-landing-features .card { ... }
+.is-style-example-landing-hero { ... }
+.is-style-example-landing-features .card { ... }
 ```
 
 ### Handling `:root` variables
@@ -407,7 +407,7 @@ html { scroll-behavior: smooth; }
 }
 
 /* Converted — move to theme.json color palette OR scope under the component */
-.is-style-peptide-landing-hero {
+.is-style-example-landing-hero {
   --accent: #e94560;
   --bg: #0a0a1a;
 }
@@ -454,7 +454,7 @@ to the template wrapper to avoid accidental matches in the editor sidebar:
 document.querySelectorAll('.card').forEach(...);
 
 // Safer — scoped to the component
-const wrapper = document.querySelector('.is-style-peptide-landing-features');
+const wrapper = document.querySelector('.is-style-example-landing-features');
 if (!wrapper) return;
 wrapper.querySelectorAll('.card').forEach(...);
 ```
@@ -521,10 +521,10 @@ Keep these in the scoped CSS file — no PHP needed there since the CSS is loade
 `wp_enqueue_style` which resolves relative URLs relative to the stylesheet:
 
 ```css
-.is-style-peptide-landing-hero .hero {
+.is-style-example-landing-hero .hero {
   background-image: url('../../../assets/images/bg.jpg');
   /* Path is relative to the CSS file location */
-  /* patterns/peptide-landing/style.css → ../../.. = theme root */
+  /* patterns/example-landing/style.css → ../../.. = theme root */
 }
 ```
 
@@ -614,7 +614,7 @@ Move CSS `@keyframes` and `animation` properties into the scoped stylesheet. The
   to   { opacity: 1; transform: translateY(0);    }
 }
 
-.is-style-peptide-landing-hero .hero h1 {
+.is-style-example-landing-hero .hero h1 {
   animation: fadeUp 0.6s ease forwards;
 }
 ```
@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }, { threshold: 0.15 });
 
-  const wrapper = document.querySelector('.is-style-peptide-landing-features');
+  const wrapper = document.querySelector('.is-style-example-landing-features');
   if (!wrapper) return;
   wrapper.querySelectorAll('[data-animate]').forEach(el => observer.observe(el));
 });
@@ -688,7 +688,7 @@ body { ... }
 h1, h2, h3, h4, h5, h6 { margin: 0; }
 
 /* Safe IF scoped */
-.is-style-peptide-landing-hero h1 { margin: 0; }
+.is-style-example-landing-hero h1 { margin: 0; }
 ```
 
 ### Transition for designers new to WordPress
@@ -707,7 +707,7 @@ When the user provides separate HTML, CSS, and JS files:
 
 ```php
 // Example: user's HTML had <link href="https://fonts.googleapis.com/css2?family=Inter...">
-function egnitech_one_child_my_template_fonts( $block_content, $block ) {
+function {{THEME_SLUG}}_my_template_fonts( $block_content, $block ) {
     if ( isset( $block['attrs']['className'] ) && strpos( $block['attrs']['className'], 'is-style-my-template' ) !== false ) {
         wp_enqueue_style(
             'my-template-google-fonts',
@@ -718,7 +718,7 @@ function egnitech_one_child_my_template_fonts( $block_content, $block ) {
     }
     return $block_content;
 }
-add_filter( 'render_block', 'egnitech_one_child_my_template_fonts', 10, 2 );
+add_filter( 'render_block', '{{THEME_SLUG}}_my_template_fonts', 10, 2 );
 ```
 
 Better: download the fonts locally and register them in `theme.json fontFamilies` instead.
@@ -780,7 +780,7 @@ If a section needs the latest posts, a product list, or a custom field value, it
 These work as-is inside scoped CSS:
 
 ```css
-.is-style-peptide-landing-hero h1 {
+.is-style-example-landing-hero h1 {
   font-size: clamp(2rem, 5vw, 4rem);
 }
 ```

@@ -101,9 +101,9 @@ For enterprise themes, register templates in PHP instead of `theme.json` to enab
 
 ```php
 add_action( 'init', function() {
-    register_block_template( 'egnitech-one-child//my-landing-page', array(
-        'title'       => __( 'Elite Landing Page', 'egnitech-one-child' ),
-        'description' => __( 'A high-performance landing page template.', 'egnitech-one-child' ),
+    register_block_template( '{{THEME_SLUG}}//my-landing-page', array(
+        'title'       => __( 'Elite Landing Page', '{{TEXT_DOMAIN}}' ),
+        'description' => __( 'A high-performance landing page template.', '{{TEXT_DOMAIN}}' ),
         'post_types'  => array( 'page' ),
         'is_ai_ready' => true, // Enables Abilities API integration
     ) );
@@ -307,9 +307,9 @@ In WordPress 7.0, themes register "AI Abilities" to provide premium editorial to
 
 ```php
 add_action( 'init', function() {
-    register_block_ability( 'egnitech-one-child/peptide-landing', 'tone-shift', array(
-        'label'       => __( 'Scientific Tone Shift', 'egnitech-one-child' ),
-        'description' => __( 'Converts marketing copy to scientific research tone.', 'egnitech-one-child' ),
+    register_block_ability( '{{THEME_SLUG}}/example-landing', 'tone-shift', array(
+        'label'       => __( 'Scientific Tone Shift', '{{TEXT_DOMAIN}}' ),
+        'description' => __( 'Converts marketing copy to scientific research tone.', '{{TEXT_DOMAIN}}' ),
         'intent'      => 'scientific_validation', // Elite: Add intent for AI discovery
     ) );
 } );
@@ -346,7 +346,7 @@ For mandatory pattern logic that should never be missed by clients, use Block Ho
 
 ```php
 add_filter( 'hooked_block_types', function( $hooked_blocks, $relative_block_type, $section, $context ) {
-    if ( 'egnitech-one-child/my-pattern' === $relative_block_type && 'after' === $section ) {
+    if ( '{{THEME_SLUG}}/my-pattern' === $relative_block_type && 'after' === $section ) {
         $hooked_blocks[] = 'my-theme/logic-provider-block';
     }
     return $hooked_blocks;
@@ -538,8 +538,8 @@ add_action( 'wp_enqueue_scripts', 'mytheme_child_enqueue_styles', 9 );
  */
 function mytheme_child_setup() {
     register_block_pattern_category(
-        'egnitech-one-child',
-        array( 'label' => __( 'Egnitech One Child', 'egnitech-one-child' ) )
+        '{{THEME_SLUG}}',
+        array( 'label' => __( '{{THEME_NAME}}', '{{TEXT_DOMAIN}}' ) )
     );
 }
 add_action( 'after_setup_theme', 'mytheme_child_setup' );

@@ -9,7 +9,7 @@ Use this guide when the user specifically mentions they are on WordPress 6.9 or 
 |---|---|---|
 | **theme.json** | Version 4 (Schema 7.0) | Version 3 (Schema 6.6) |
 | **Complex Sections** | Native PHP-only Blocks | `<!-- wp:html -->` wrappers |
-| **Icons** | `WP_Icons_Registry` | PHP helper (e.g. `peptide_beacon_get_icon`) |
+| **Icons** | `WP_Icons_Registry` | PHP helper (e.g. `{{THEME_SLUG}}_get_icon`) |
 | **Templates** | `is_ai_ready` / PHP Registration | `customTemplates` in `theme.json` |
 | **Metadata** | `intent` AI tags | Standard keywords / PHP comments |
 | **Dashboards** | `dataviews.json` | Default Site Editor views |
@@ -56,8 +56,8 @@ The native `core/icon` block is not available or lacks the registry in 6.9. Use 
 ```php
 <div class="top-bar-icon">
     <?php 
-    if ( function_exists('peptide_beacon_get_icon') ) {
-        echo peptide_beacon_get_icon('warning'); 
+    if ( function_exists('{{THEME_SLUG}}_get_icon') ) {
+        echo {{THEME_SLUG}}_get_icon('warning'); 
     }
     ?>
 </div>
