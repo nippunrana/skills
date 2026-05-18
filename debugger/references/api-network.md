@@ -14,6 +14,7 @@ API/network bugs almost always involve **two sides** — the client view and the
 - `db-query` — is the query (or ORM call) returning what you expect?
 - `response-shape` — does the response payload match what the client parser expects?
 - `auth-cors` — is the request being blocked or rejected before it hits the handler?
+- `trace-correlation` — bridge client and server logs by following an existing trace/correlation ID across the network boundary
 
 ---
 
@@ -33,6 +34,70 @@ curl -X POST 'https://api.example.com/v1/checkout' \
 ```
 
 If the in-app call ≠ this curl, diff the headers and body. The in-app call is what DevTools "Copy as cURL" actually captures from the real request.
+
+### Trace correlation (`trace-correlation`)
+
+Modern distributed systems propagate a request ID across the network boundary so the same logical request can be tracked from browser → gateway → service → worker. **Check for these headers first** — if they're present, you can skip injecting your own correlation tag and pivot straight to the server logs for the exact failing invocation.
+
+**Where to look (Network tab → Headers, both Request and Response):**
+
+| Header | Source | Notes |
+|---|---|---|
+| `traceparent`, `tracestate` | W3C Trace Context | Format: `00-<trace-id>-<span-id>-<flags>`. Used by OpenTelemetry, Datadog, Honeycomb, Sentry, Jaeger. |
+| `X-Request-ID`, `X-Correlation-ID`, `Request-Id` | Custom / framework default | Often added by gateways (Cloudflare, Nginx, Heroku, AWS ALB) or frameworks (Rails `ActionDispatch::RequestId`, ASP.NET `TraceIdentifier`, Express `express-request-id`). |
+| `X-Amzn-Trace-Id` | AWS X-Ray | Set by ALB / API Gateway. |
+| `X-Cloud-Trace-Context` | GCP Cloud Trace | Set by GCP load balancers. |
+| `X-B3-TraceId`, `X-B3-SpanId` | B3 / Zipkin | Common in service meshes (Istio, Linkerd). |
+
+**How to use:**
+
+1. In DevTools → Network → click the failing request → Headers. Scan both request and response headers for any of the above.
+2. Copy the trace/correlation value. For W3C `traceparent`, extract the **middle segment** — that's the searchable trace-id:
+   ```
+   traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+                   └──────── trace-id (search this) ────────┘
+   ```
+3. Search wherever your server logs land — exact match on the ID:
+   ```bash
+   # Plain log files
+   grep '4bf92f3577b34da6a3ce929d0e0e4736' /var/log/app/*.log
+   grep -r '4bf92f3577b34da6a3ce929d0e0e4736' wp-content/debug.log
+
+   # Aggregators (query syntax varies)
+   # Datadog:    @trace_id:4bf92f3577b34da6a3ce929d0e0e4736
+   # Sentry:     trace:4bf92f3577b34da6a3ce929d0e0e4736
+   # Honeycomb:  trace.trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+   # Loki:       {app="api"} |= "4bf92f3577b34da6a3ce929d0e0e4736"
+   # CloudWatch: fields @timestamp, @message | filter @message like /4bf92f35.../
+   ```
+4. The matching lines pin the exact handler invocation, with surrounding context (timing, errors, downstream DB queries, queued jobs, third-party calls) — without injecting a single probe.
+
+**If no trace ID is present** (system isn't propagating context), in order of preference:
+
+1. **Enable the framework's built-in instrumentation.** Most have it dormant: Rails `config.log_tags = [:request_id]`, Express + `express-request-id`, FastAPI middleware, ASP.NET `TraceIdentifier`. Configure once, get correlation forever.
+2. **Inject a one-off debug trace header** for this investigation only. Tag both client and server sides per `[DEBUG-<id>]` protocol; remove both in Phase 7.
+
+```javascript
+// Client — paste in console to attach a per-session debug header to every fetch
+const DEBUG_TRACE = 'dbg-' + Math.random().toString(36).slice(2, 10);
+const orig = window.fetch;
+window.fetch = (url, opts = {}) => {
+  opts.headers = { ...(opts.headers || {}), 'X-Debug-Trace': DEBUG_TRACE };
+  return orig(url, opts);
+};
+console.log('[DEBUG-<id>] session trace:', DEBUG_TRACE);
+```
+
+```javascript
+// Server (Express) — log inbound trace at handler boundary
+app.use((req, _res, next) => {
+  const t = req.headers['x-debug-trace'];
+  if (t) console.log(`[DEBUG-<id>] trace=${t} ${req.method} ${req.url}`); // [DEBUG-<id>]
+  next();
+});
+```
+
+**Worker / queue boundaries** (BullMQ, Celery, Sidekiq, SQS, RabbitMQ) are where trace context usually gets dropped — the producer enqueues a job without attaching the trace, so the consumer's logs are orphaned. If the bug spans a job, verify the producer writes the trace into the job payload and the consumer reads it back into its logging context. This handoff is a common defect site, not just an observability gap.
 
 ### Client-side request snippet (no source edits)
 
@@ -148,6 +213,9 @@ For auth failures, check whether `Authorization` / `Cookie` headers are actually
 - **Status 200 but response body is `null` / `{}`** → handler returned before populating the response. The probe at the handler exit will show what was about to be returned.
 - **CORS preflight 4xx** → server-side CORS config, not client code.
 - **`Authorization` header missing** → fetch credentials mode or token-injection middleware.
+- **Trace ID found in server logs** → you have the exact handler invocation; read the surrounding lines for branch decisions, downstream calls, and the final response.
+- **Trace ID present on the request but absent from server logs** → the request never reached the logging code path. Either an upstream layer (gateway, proxy, auth middleware) rejected it, or the trace isn't being propagated into the logger's context — check middleware order.
+- **Trace propagates browser → API but disappears at a worker/job boundary** → the producer isn't attaching trace context to the job payload. The bug may *be* the missing propagation, not a downstream defect.
 
 ---
 
