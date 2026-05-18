@@ -132,8 +132,36 @@ class _TrapDescriptor:
 | You can reproduce the bug but the codebase is server-side or hard to attach a debugger to | **Injected logs** with `[DEBUG-<id>]` tags |
 | The bug is intermittent (happens 1 in 20 times) | **Injected logs** plus a counter, so the user can run it many times and you get aggregate data |
 | The bug is reproducible by a specific test that fails | **Write a failing test first**, then debug inside the test runner |
+| The bug is a regression (it worked before) and there's a command that reliably reproduces it | **`git bisect`** — algorithmically finds the first bad commit in O(log n) tries; see git bisect section below |
 
 If a project has Jest/Vitest/Pytest/PHPUnit configured, prefer making the bug reproduce in a test. That gives you a tight feedback loop and the test becomes the permanent regression case.
+
+### Git bisect (`git-bisect`)
+
+When a regression has a known-bad commit and a known-good one, git bisect finds the first bad commit by binary-searching the history — O(log n) test runs regardless of how many commits exist.
+
+**Manual flow:**
+```bash
+git bisect start
+git bisect bad                      # current commit is broken
+git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
+# git checks out the midpoint; test manually, then:
+git bisect bad   # or: git bisect good
+# repeat until git prints: "abc123 is the first bad commit"
+git bisect reset
+```
+
+**Automated flow (preferred when a test command exists):**
+```bash
+git bisect start
+git bisect bad
+git bisect good <last-known-good>
+git bisect run npm test -- --testPathPattern=the-failing-test
+# git bisect run exits when found; prints the first bad commit
+git bisect reset
+```
+
+Use `git bisect run` with any command that exits 0 for "good" and non-zero for "bad" — a shell one-liner, a curl health check, or a Python script. Once the first bad commit is identified, `git show <sha>` to see exactly what changed. The root cause is almost always in that diff.
 
 ---
 

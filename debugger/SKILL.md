@@ -49,12 +49,37 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 Every debugging session walks through these seven phases. **Don't advance until the checkpoint is met.** Each phase has a purpose; understanding the purpose lets you handle edge cases without breaking the workflow.
 
 ### Phase 1 — Observe
-State the symptom and the expectation in one sentence each, in your own words. This forces precision early — vague problems lead to vague fixes.
+
+**1a — Check existing signals first (before adding anything new)**
+
+Probes are for filling gaps in what's already observable. Before generating any instrumentation, scan what's already there:
+
+- Browser console — any errors, warnings, or logged values?
+- Network tab — any failed requests, unexpected status codes, wrong payloads?
+- Server / application logs — tail the log file or check the log aggregator (Sentry, Datadog, Papertrail, `wp-content/debug.log`, etc.)
+- Existing monitoring dashboards — error rate spike? Latency anomaly?
+
+If existing signals already identify the failure point, go directly to Phase 5 with that data. Don't add probes for things you can already see.
+
+**1b — Delta check: is this a regression?**
+
+Ask or infer: did this ever work? If yes, narrow the window immediately:
+
+```bash
+git log --oneline -20          # what shipped recently?
+git diff HEAD~5 -- package.json composer.json requirements.txt  # dependency bumps?
+```
+
+If it's a confirmed regression with a reliable reproduction step, `git bisect` eliminates entire suspect ranges without any probes — see `references/code-logic.md` for the workflow. It's almost always faster than instrumenting.
+
+**1c — State the symptom and expectation**
+
+Now state both in one sentence each, in your own words. Vague problems lead to vague fixes.
 
 > Symptom: The Save button stays disabled even after all required fields are filled.
 > Expectation: It should enable as soon as the form is valid.
 
-**Checkpoint:** symptom + expectation written down. User confirms (implicitly via continuing, or explicitly).
+**Checkpoint:** existing signals checked, delta check done, symptom + expectation written. User confirms (implicitly via continuing, or explicitly).
 
 ### Phase 2 — Hypothesize
 List **2–3 ranked hypotheses** for the root cause. For each, name the **cheapest probe** that could disprove it.
@@ -75,9 +100,12 @@ If you inject code, every line MUST follow the tagging protocol in `references/i
 **Checkpoint:** probe artifact shown to the user with clear "what this collects" + "how to use" instructions.
 
 ### Phase 4 — Collect
-The user runs the probe and pastes the output back. If the output is missing or noisy, refine the probe before moving on — don't try to draw conclusions from bad data.
 
-**Checkpoint:** usable data received.
+**Agentic execution:** In Claude Code or Antigravity AI environments, run probes directly — execute bash commands, read log files, run the test suite — rather than waiting for the user to paste output back. Prefer `Bash` tool execution whenever the environment allows it. Only ask the user to run the probe manually when the environment is inaccessible (browser DevTools console, remote production server, device under test).
+
+**Otherwise:** The user runs the probe and pastes the output back. If the output is missing or noisy, refine the probe before moving on — don't try to draw conclusions from bad data.
+
+**Checkpoint:** usable data received (collected directly or pasted by user).
 
 ### Phase 5 — Confirm or refute
 Match the data against the ranked hypotheses:
