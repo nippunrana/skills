@@ -362,18 +362,60 @@ Apply this to the outermost wrapper of your Patterns and Template Parts.
 
 **When to opt OUT (allow structure editing on an unsynced pattern):**
 
-```json
-"__experimentalSettings": {
-  "disableContentOnlyForUnsyncedPatterns": true
-}
-```
+Two scopes, choose the right one:
 
-Add this to a pattern's outermost block `attributes` when the pattern is a developer scaffold, consumed by an external tool, or the user explicitly needs to rearrange sections.
+| Scope | Mechanism | Stability |
+|---|---|---|
+| Per-pattern (one pattern only) | Add `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` to the outermost block's `attributes` | Experimental — prefix may change |
+| Site-wide (all unsynced patterns) | PHP filter `disableContentOnlyForUnsyncedPatterns` or the equivalent JS `addFilter` | Stable WP 7.0 API |
+
+Use the per-pattern approach when one specific assembler pattern needs full structure editing (e.g. a developer scaffold). Use the site-wide filter only when the client has explicitly opted the entire site out of content-only defaults — this is rare.
 
 **Decision tree:**
 1. Unsynced pattern → do nothing; `contentOnly` is already active.
 2. Synced pattern or template part with locked structure → add `"templateLock": "contentOnly"` explicitly.
-3. Unsynced pattern where structure editing is intentional → set `"disableContentOnlyForUnsyncedPatterns": true`.
+3. One specific unsynced pattern needs structure editing → add `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` to its outermost block attributes.
+4. All unsynced patterns on the site need structure editing → use the `disableContentOnlyForUnsyncedPatterns` PHP/JS filter (see `api-allowlist.md`).
+
+### Block Author Requirements for contentOnly Compatibility (WP 7.0)
+
+**This applies to every custom block you register.** When a custom block is nested inside a `contentOnly` pattern or template part, WordPress uses `"role": "content"` declarations in `block.json` to decide which attributes (and therefore which blocks) are visible to editors in List View.
+
+Without these declarations, the block is **hidden from List View and non-selectable** in content-only containers — a silent breakage with no console error.
+
+**Required in `block.json`:** Add `"role": "content"` to every attribute that editors need to see or edit:
+
+```json
+{
+  "attributes": {
+    "heading":     { "type": "string", "role": "content" },
+    "description": { "type": "string", "role": "content" },
+    "url":         { "type": "string", "role": "content" }
+  }
+}
+```
+
+**Alternative (when no suitable attribute exists):** Add `"contentRole": true` to the block's `supports` object. This makes the block itself visible in List View without requiring a specific content attribute, but `"role": "content"` on attributes is preferred because it exposes fine-grained overridability:
+
+```json
+{
+  "supports": {
+    "contentRole": true
+  }
+}
+```
+
+**`"listView": true` block support (WP 7.0):** For container blocks (blocks with `InnerBlocks`), declaring `"listView": true` in `supports` adds a dedicated **List View tab** to the block inspector, allowing editors to rearrange and insert inner blocks from the sidebar. Recommended for any block that wraps multiple children:
+
+```json
+{
+  "supports": {
+    "listView": true
+  }
+}
+```
+
+**Blocks to audit when working inside contentOnly patterns:** `core/buttons`, `core/list`, `core/social-links`, `core/navigation`. These core blocks already declare content roles — verify your custom wrappers that contain them do the same.
 
 ---
 
@@ -649,7 +691,9 @@ After this filter is registered, a synced pattern containing a `{{THEME_SLUG}}/p
 
 ## Viewport Block Visibility (WP 7.0)
 
-Control which device types see a block using `metadata.blockVisibility.viewport`. This is the WordPress-native mechanism — do not use CSS `display: none` on device breakpoints for this purpose; the viewport key removes the block from the DOM entirely on excluded devices.
+Control which device types see a block using `metadata.blockVisibility.viewport`. This is the WordPress-native mechanism — do not use CSS `display: none` on device breakpoints for this purpose.
+
+**Important (WP 7.0):** Viewport hiding is **CSS-based**. Hidden blocks are still rendered in the DOM on all devices — they are visually suppressed via an injected CSS class. This means: server-side DOM parsers will still see the block, JavaScript querying the DOM will still find it, and search engines may still index the content. Use this feature for visual responsive layout only, not for access control or security gating.
 
 ### Decision rule
 
@@ -690,7 +734,7 @@ To enable only for a specific block type:
   }
 } -->
 <div class="wp-block-group">
-  <!-- This block is hidden on mobile. Not present in mobile DOM. -->
+  <!-- Visually hidden on mobile via injected CSS class; block still present in DOM. -->
 </div>
 <!-- /wp:group -->
 ```
@@ -851,6 +895,45 @@ add_action( 'init', 'mytheme_register_pattern_categories' );
 ---
 
 ## Asset Pipeline (functions.php)
+
+### Build Toolchain: `@wordpress/build` (WP 7.0)
+
+WP 7.0 ships a rewritten `@wordpress/build` package that replaces the webpack + Babel pipeline with **esbuild**. For block theme development, this matters when you maintain a build step for:
+
+- Custom block JavaScript (Script Modules, Interactivity API stores)
+- TypeScript source files
+- SCSS/PostCSS stylesheets compiled to CSS
+
+**Key changes from WP 6.x `@wordpress/scripts`:**
+
+| Before (webpack) | After (esbuild via `@wordpress/build`) |
+|---|---|
+| `npx wp-scripts build` | `npx wp-build` |
+| Manual `block.json` registration | PHP registration files auto-generated from `package.json` `exports` map |
+| Slow cold builds (webpack) | ~10–20× faster cold builds (esbuild) |
+| Babel config required | Zero config for modern JS; TypeScript supported natively |
+
+**Minimal `package.json` for a theme with one Script Module:**
+
+```json
+{
+  "name": "{{THEME_SLUG}}",
+  "scripts": {
+    "build": "wp-build",
+    "start": "wp-build --watch"
+  },
+  "exports": {
+    "./patterns/my-section/index": "./patterns/my-section/index.js"
+  },
+  "devDependencies": {
+    "@wordpress/build": "^1.0.0"
+  }
+}
+```
+
+When `wp-build` runs, it compiles each entry listed under `exports` and writes a companion PHP file (`patterns/my-section/index.asset.php`) with the module's dependency array and version hash — ready to pass directly to `wp_register_script_module()`.
+
+**When you do NOT need a build step:** Pure block themes that use only PHP patterns, `theme.json`, and vanilla JS (no imports, no TypeScript, no SCSS) have no need for `@wordpress/build`. The `autoRegister` flag on dynamic blocks also eliminates JS compilation for simple server-rendered blocks.
 
 ### Full functions.php Template
 

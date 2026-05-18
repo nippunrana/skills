@@ -30,6 +30,8 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 | `<div class="card">` | `core/group` | Child of native Grid |
 | `SVG Icon` | `core/icon` (WP 7.0) | Register the icon against the new Icon Registration API so it appears in the inserter. |
 | Mobile nav close button | `core/navigation-overlay-close` (WP 7.0) | Place inside `core/navigation` with `"overlayMenu": "always"` or `"overlayMenu": "mobile"`. |
+| `<div class="gallery">` / custom lightbox grid | `core/gallery` | WP 7.0 ships native lightbox support — no custom JS needed. Set `"lightbox": {"enabled": true}` on the `core/gallery` block. Clicking any image opens it fullscreen. If the design uses a custom lightbox JS library, replace it entirely with this native feature. |
+| `<nav class="breadcrumbs">` | `core/breadcrumbs` (WP 7.0) | Native breadcrumbs block. Filter the trail via `block_core_breadcrumbs_items` to add/remove/reorder crumbs server-side. Never hand-roll a breadcrumb pattern for a WP 7.0 target. |
 
 Using Core Blocks lets editors change colors, typography, and spacing via the Site Editor's global styles instead of editing CSS. Only fall back to a dynamic block (`register_block_type()` + `render_callback`) for sections that genuinely cannot be expressed with core.
 
@@ -435,7 +437,7 @@ within:
 
 ### Viewport Visibility (WP 7.0)
 
-Use `metadata.blockVisibility.viewport` to show or hide blocks by device type. Do not use CSS `display: none` for device visibility — the viewport key removes the block from the DOM entirely on excluded devices (better for performance and SEO).
+Use `metadata.blockVisibility.viewport` to show or hide blocks by device type. Do not use CSS `display: none` on breakpoints for this — WordPress handles the suppression automatically via an injected CSS class. **Note (WP 7.0):** viewport hiding is CSS-based; hidden blocks remain in the DOM on all devices. Do not use this feature for access control or security gating — the content is still present in the page source.
 
 **Before (CSS approach — do not use in WP 7.0):**
 

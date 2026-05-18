@@ -39,6 +39,22 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | Built-in sources | `core/post-meta`, `core/post-title`, `core/post-excerpt`, `core/post-date`, `core/post-author-name`, `core/site-title`, `core/site-tagline`, `core/pattern-overrides`. |
 | Filter: `block_bindings_supported_attributes` | WP 7.0+. Allows any custom block to expose attributes to the Pattern Overrides UI. Return an array of attribute names the block exposes. Use this instead of `metadata.bindings` for fully custom blocks. Signature: `apply_filters( 'block_bindings_supported_attributes', array $supported, string $block_name )`. |
 
+## contentOnly Pattern Opt-Out (WP 7.0+)
+
+| API | Notes |
+|---|---|
+| `disableContentOnlyForUnsyncedPatterns` PHP filter | WP 7.0+. Stable site-wide opt-out. Hook on `block_editor_settings_all` to return `true` for this key in the settings array to disable the contentOnly default globally. Use only when the entire site must bypass contentOnly — rare. |
+| `disableContentOnlyForUnsyncedPatterns` JS filter | WP 7.0+. Equivalent client-side opt-out via `wp.hooks.addFilter`. Same scope as the PHP filter. |
+| `"__experimentalSettings": { "disableContentOnlyForUnsyncedPatterns": true }` | Experimental per-block attribute. Set on the outermost block's attributes to opt out for one specific pattern only. Preferred for per-pattern developer scaffolds. |
+
+## Block Supports: contentOnly & List View (WP 7.0+)
+
+| Support key | Notes |
+|---|---|
+| `"role": "content"` on `attributes` | WP 7.0+. Set on individual attribute definitions in `block.json` to mark them as content-editable in contentOnly mode. Without this, the attribute (and possibly the block) is hidden from List View inside contentOnly containers. |
+| `"contentRole": true` in `supports` | WP 7.0+. Alternative when no specific content attribute exists. Makes the block visible in List View inside contentOnly containers without tying visibility to a particular attribute. Prefer `"role": "content"` on attributes when possible. |
+| `"listView": true` in `supports` | WP 7.0+. Adds a dedicated List View tab to the block inspector for container blocks (blocks with `InnerBlocks`). Allows editors to rearrange and insert inner blocks from the sidebar. Recommended for any custom block wrapping multiple children. |
+
 ## Viewport Block Visibility (WP 7.0+)
 
 | Key | Notes |
@@ -106,6 +122,7 @@ Block markup example (hidden on mobile):
 |---|---|
 | `@wordpress/boot` | Enables plugins to register custom Site Editor pages with route validation. Import `boot` from this package and call it once during editor initialisation. WP 7.0+. |
 | `@wordpress/grid` | Standardised grid toolkit for editor interfaces. Provides `GridLayout`, `GridItem`, and related components. WP 7.0+. |
+| `@wordpress/build` | WP 7.0+ build toolchain. Replaces `@wordpress/scripts` webpack+Babel pipeline with esbuild. Run via `npx wp-build`. Auto-generates `.asset.php` registration files from `package.json` `exports` map. Use for themes that compile Script Modules or TypeScript. Not needed for pure-PHP themes. |
 
 ## Block Hooks
 
