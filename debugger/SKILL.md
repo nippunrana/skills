@@ -1,241 +1,193 @@
 ---
-name: ui-debug-console
-description: Generates a targeted, paste-ready browser console snippet to diagnose UI layout and styling problems. Use this skill whenever the user is stuck on a visual issue — misaligned elements, CSS not applying, flexbox/grid layout broken, responsive breakage, z-index stacking, WordPress global styles overriding custom ones, or any mismatch between expected and actual rendering. The skill reads the ongoing conversation to understand the stuck point, identifies the relevant element(s), classifies the issue type, and produces a single JavaScript snippet the user can paste into DevTools console and hit Enter. No extra input needed — the conversation is the context. Trigger this whenever a screenshot alone is not enough to debug a UI problem and you need real computed data from the live page.
+name: debugger
+description: Hypothesis-driven multi-domain debugger that finds the ROOT CAUSE of any bug — visual/CSS layout, code logic, async/race conditions, API/network failures, backend errors, performance issues, build/tooling problems. Use this skill whenever the user is stuck on a bug or unexpected behavior, regardless of stack or language. The skill auto-routes based on chat context, picks the lightest-weight probe (paste-ready browser-console snippet, injected debug instrumentation in source, or both), follows a strict phase-gated scientific workflow (observe → hypothesize → probe → measure → confirm → fix → cleanup), and auto-removes every line of debug code it injects so nothing leaks into production. Trigger this skill aggressively — for phrases like "why isn't this working", "this is broken", "weird bug", "it doesn't behave right", "the page looks wrong", "this useEffect runs twice", "my API returns 500", "something's slow", "I can't figure out why X" — not only when the user literally says "debug".
 ---
 
-# UI Debug Console Snippet Generator
+# Debugger
 
-You generate a single, targeted, paste-ready JavaScript snippet to collect diagnostic data from a live browser page. The user will paste it into their browser's DevTools console, hit Enter, and paste the output back to you so you can identify the root cause.
+A general-purpose, hypothesis-driven debugging assistant. You generate the *cheapest probe that can disprove the leading hypothesis*, collect data, narrow the infection chain, and fix the bug at its root — then clean up after yourself.
 
-This skill always runs mid-conversation. The context of the problem is already in the chat — your job is to read it and generate the right snippet without asking redundant questions.
+This skill is designed around the scientific method (Zeller, *Why Programs Fail*): a bug is a deviation between expected and observed behavior, and finding the root cause means tracing the **infection chain** from the visible failure back to the defect that started it. Guesswork is not allowed — every fix must be backed by data.
 
-## Step 1: Read the Conversation and Extract Diagnostic Context
+## Why this matters
 
-Before writing any code, silently identify:
+LLMs often "fix" bugs by pattern-matching on symptoms — adding null checks, wrapping things in try/catch, tweaking CSS until things look right. That makes bugs vanish without making them *understood*. This skill forces you to identify the actual cause before changing anything, which:
 
-1. **The stuck point** — What is visually wrong? What was expected vs. what is happening?
-2. **The element(s)** — Extract CSS selectors, class names, IDs, or element descriptions from the conversation. If multiple files are open, check the active document for relevant class names.
-3. **The issue category** — Classify into one or more of:
-   - `positioning` — wrong position, offset, overlap, z-index, transform
-   - `layout` — flexbox/grid not behaving, items not aligning, wrapping unexpectedly
-   - `spacing` — margin/padding/gap wrong, box model issues
-   - `responsive` — mobile layout broken, media queries not triggering
-   - `cascade` — a rule exists but is being overridden (common with WordPress global styles)
-   - `visibility` — element hidden, clipped, zero-size, or behind something
-
-4. **The tech stack** — If the user mentioned WordPress, or file paths contain `wp-content`, include WP-specific probes. Otherwise the snippet auto-detects.
-
-If you cannot determine a specific element, generate a **click-to-inspect** snippet (see Step 2).
-
-## Step 2: Build the Snippet
-
-Assemble the snippet as a self-contained IIFE. Structure it in clearly commented sections. Always include the **Core** sections. Then add the **Targeted** sections that match the classified issue category.
-
-Keep the final snippet under ~100 lines. Focus on signal, not noise.
-
-### Core Sections (always include)
-
-**Environment Detection**
-```javascript
-const env = {
-  isWordPress: !!(window.wp || document.querySelector('link[href*="wp-content"]') ||
-    Array.from(document.body.classList).some(c => c.startsWith('wp-'))),
-  viewport: { w: window.innerWidth, h: window.innerHeight },
-  dpr: window.devicePixelRatio,
-  url: location.href,
-};
-if (env.isWordPress) {
-  env.wpBodyClasses = Array.from(document.body.classList);
-  env.wpStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-    .map(l => ({ id: l.id, file: l.href.split('?')[0].split('/').slice(-2).join('/') }));
-}
-```
-
-**Element Targeting**
-- Replace `SELECTOR` with the actual selector from context. Never leave a placeholder.
-- If no selector is identifiable, use the click-to-inspect pattern (see below).
-```javascript
-const sel = 'SELECTOR';
-const el = document.querySelector(sel);
-if (!el) { console.warn('[UI Debug] Not found:', sel); return; }
-```
-
-**Box Model**
-```javascript
-const rect = el.getBoundingClientRect();
-const box = {
-  offsetW: el.offsetWidth, offsetH: el.offsetHeight,
-  scrollW: el.scrollWidth, scrollH: el.scrollHeight,
-  rect: { top: +rect.top.toFixed(1), right: +rect.right.toFixed(1), bottom: +rect.bottom.toFixed(1), left: +rect.left.toFixed(1), w: +rect.width.toFixed(1), h: +rect.height.toFixed(1) },
-  inViewport: rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight && rect.bottom > 0,
-};
-```
-
-**DOM Ancestry** (up to 5 levels — layout context almost always lives in a parent)
-```javascript
-const ancestry = [];
-let node = el.parentElement;
-while (node && node !== document.body && ancestry.length < 5) {
-  const s = getComputedStyle(node);
-  ancestry.push({
-    tag: node.tagName.toLowerCase(), id: node.id || null,
-    classes: Array.from(node.classList).slice(0, 6).join(' ') || null,
-    display: s.display, position: s.position,
-    overflow: [s.overflow, s.overflowX, s.overflowY].join('/'),
-    flex: s.display.includes('flex') ? { dir: s.flexDirection, align: s.alignItems, justify: s.justifyContent, wrap: s.flexWrap, gap: s.gap } : null,
-    grid: s.display.includes('grid') ? { cols: s.gridTemplateColumns, rows: s.gridTemplateRows, gap: s.gap } : null,
-  });
-  node = node.parentElement;
-}
-```
-
-**CSS Cascade** (which rules are actually matching this element and from where)
-```javascript
-const cascade = [];
-for (const sheet of document.styleSheets) {
-  let rules; try { rules = sheet.cssRules; } catch(e) { continue; }
-  const src = (sheet.href || 'inline').split('/').slice(-2).join('/');
-  for (const rule of rules) {
-    try {
-      if (rule.selectorText && el.matches(rule.selectorText))
-        cascade.push({ selector: rule.selectorText, source: src, css: rule.style.cssText });
-    } catch(e) {}
-  }
-}
-```
-
-**Report + Auto-copy**
-```javascript
-const report = { env, selector: sel, box, computed, ancestry, cascade };
-console.log('%c[UI Debug Report]', 'font-size:13px;font-weight:bold;color:#4ade80;background:#111;padding:4px 8px;border-radius:4px');
-console.log(JSON.stringify(report, null, 2));
-try { copy(JSON.stringify(report, null, 2)); console.log('%c✓ Copied to clipboard', 'color:#60a5fa'); } catch(e) {}
-```
+- Prevents the same bug from coming back in a different form
+- Avoids piling on defensive code that adds complexity without value
+- Builds a reusable test/regression case for every fix
 
 ---
 
-### Targeted Sections by Issue Category
+## Step 1 — Read context & route to a domain
 
-Add the relevant `computed` object based on the classified issue. Populate it with `getComputedStyle(el)` calls.
+Before generating any output, silently scan the conversation and the user's open files for:
 
-**`positioning`**
-```javascript
-const computed = {
-  position: cs.position, top: cs.top, right: cs.right, bottom: cs.bottom, left: cs.left,
-  inset: cs.inset, transform: cs.transform, zIndex: cs.zIndex,
-  margin: [cs.marginTop, cs.marginRight, cs.marginBottom, cs.marginLeft],
-  float: cs.float, clear: cs.clear,
-};
-```
+1. **The symptom** — what is wrong, exactly? Wrong output? Wrong layout? No response? Slow? Crashes?
+2. **The expectation** — what should happen instead?
+3. **Locality hints** — file paths, class names, function names, endpoints, route patterns, error messages, framework names
+4. **Stack inference** — frontend/backend/full-stack/WordPress/Node/Python/PHP/etc. (from file extensions, imports, open IDE files, mentions)
 
-**`layout`**
-```javascript
-const computed = {
-  display: cs.display, flexDirection: cs.flexDirection, alignItems: cs.alignItems,
-  justifyContent: cs.justifyContent, flexWrap: cs.flexWrap, gap: cs.gap,
-  alignSelf: cs.alignSelf, justifySelf: cs.justifySelf,
-  flexGrow: cs.flexGrow, flexShrink: cs.flexShrink, flexBasis: cs.flexBasis,
-  gridColumn: cs.gridColumn, gridRow: cs.gridRow, order: cs.order,
-};
-```
+Then classify the bug into **one primary domain**. Each domain has a dedicated reference file with diagnostic patterns, snippet templates, and signals to look for:
 
-**`spacing`**
-```javascript
-const computed = {
-  boxSizing: cs.boxSizing,
-  width: cs.width, minWidth: cs.minWidth, maxWidth: cs.maxWidth,
-  height: cs.height, minHeight: cs.minHeight, maxHeight: cs.maxHeight,
-  padding: [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft],
-  margin: [cs.marginTop, cs.marginRight, cs.marginBottom, cs.marginLeft],
-  gap: cs.gap,
-};
-```
+| Domain | When to choose | Reference |
+|---|---|---|
+| **visual-ui** | Layout/CSS issues, misalignment, z-index, responsive breakage, WordPress style cascade, visual mismatch | `references/visual-ui.md` |
+| **code-logic** | Wrong return value, off-by-one, conditional fails, state-management glitch, async/race condition, infinite loop, useEffect firing twice | `references/code-logic.md` |
+| **api-network** | Failing fetch/AJAX/cURL, wrong payload shape, CORS, timeouts, 4xx/5xx, server-side route handler, DB query returning wrong rows | `references/api-network.md` |
+| **perf-build** | Slow renders, jank, memory leaks, hot loops, plus Webpack/Vite errors, missing modules, env-var misconfig, build fatals | `references/perf-build.md` |
 
-**`responsive`** — include spacing + layout computed props, and add:
-```javascript
-const mq = {
-  currentWidth: window.innerWidth,
-  active: [375,480,640,768,1024,1280,1440].filter(bp => window.matchMedia(`(min-width:${bp}px)`).matches),
-  isMobile: window.innerWidth < 768,
-};
-// add mq to report
-```
-
-**`cascade`** (specificity conflicts, especially WordPress) — after building `cascade`, add specificity scores:
-```javascript
-function specificity(s) {
-  return (s.match(/#[\w-]+/g)||[]).length * 100 +
-         (s.match(/\.[\w-]+|:[\w-]+|\[[\w-]+/g)||[]).length * 10 +
-         (s.match(/^[a-z][\w-]*|\s[a-z][\w-]*/g)||[]).length;
-}
-cascade.forEach(r => r.score = specificity(r.selector));
-cascade.sort((a,b) => b.score - a.score);
-```
-
-**`visibility`**
-```javascript
-const computed = {
-  display: cs.display, visibility: cs.visibility, opacity: cs.opacity,
-  overflow: cs.overflow, clip: cs.clip, clipPath: cs.clipPath,
-  pointerEvents: cs.pointerEvents, zIndex: cs.zIndex, position: cs.position,
-  width: cs.width, height: cs.height,
-};
-```
+**Routing rules:**
+- If the context is **clear** → pick the domain silently and proceed to Step 2.
+- If **two domains apply** (e.g., "API returns wrong data AND the UI doesn't render it") → start with the *upstream* domain. Fix the cause before the consequence.
+- If the context is **unclear** → use `AskUserQuestion` with the four domains above as options. Don't guess.
 
 ---
 
-### Click-to-Inspect Pattern (when no selector is identifiable from context)
+## Step 2 — Run the phase-gated workflow
 
-Use this instead of a fixed selector when the user hasn't named a specific element:
-```javascript
-console.log('%cClick the element you want to inspect...', 'color:#fbbf24;font-weight:bold');
-document.addEventListener('click', function handler(e) {
-  e.preventDefault(); e.stopPropagation();
-  document.removeEventListener('click', handler, true);
-  const el = e.target;
-  // ... rest of inspection using el
-}, { capture: true, once: true });
+Every debugging session walks through these seven phases. **Don't advance until the checkpoint is met.** Each phase has a purpose; understanding the purpose lets you handle edge cases without breaking the workflow.
+
+### Phase 1 — Observe
+State the symptom and the expectation in one sentence each, in your own words. This forces precision early — vague problems lead to vague fixes.
+
+> Symptom: The Save button stays disabled even after all required fields are filled.
+> Expectation: It should enable as soon as the form is valid.
+
+**Checkpoint:** symptom + expectation written down. User confirms (implicitly via continuing, or explicitly).
+
+### Phase 2 — Hypothesize
+List **2–3 ranked hypotheses** for the root cause. For each, name the **cheapest probe** that could disprove it.
+
+> H1 (most likely): the validation function returns false because one field uses a stale ref. Probe: log the field values + validation result on each keystroke.
+> H2: the disabled prop is bound to an unrelated piece of state. Probe: log the disabled prop's source on render.
+> H3: a parent component is re-rendering and resetting the form state. Probe: render-count counter on the parent.
+
+Cheapest = least invasive, fastest to run, easiest to interpret. Console snippets are cheaper than source edits. Source edits are cheaper than database changes.
+
+**Checkpoint:** ≥ 2 hypotheses listed with probes, top one chosen.
+
+### Phase 3 — Probe
+Generate the instrumentation for the chosen probe. Decision rules below ("Step 3 — Pick the probe mode") tell you whether to use a console snippet, inject debug code into source files, or both.
+
+If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later.
+
+**Checkpoint:** probe artifact shown to the user with clear "what this collects" + "how to use" instructions.
+
+### Phase 4 — Collect
+The user runs the probe and pastes the output back. If the output is missing or noisy, refine the probe before moving on — don't try to draw conclusions from bad data.
+
+**Checkpoint:** usable data received.
+
+### Phase 5 — Confirm or refute
+Match the data against the ranked hypotheses:
+
+- **Confirmed?** Trace the infection chain *upstream*. The first wrong value is closer to the root than the visible failure. Keep going until you find the defect that caused it.
+- **Refuted?** Pivot to H2 or generate a new hypothesis. Loop back to Phase 3.
+
+**Don't fix yet.** Premature fixes are how patches end up next to bugs instead of replacing them.
+
+**Checkpoint:** root cause identified — a specific file, line, and reason.
+
+### Phase 6 — Fix
+Apply the fix **at the root**, not at the symptom. If the validation function is wrong, fix the validation function — don't add an extra setState in the parent.
+
+When the project has a test suite, write a failing test that reproduces the bug, then make it pass with the fix. This converts the bug into a permanent regression case.
+
+**Checkpoint:** fix written; if tests exist, a new test covers the bug.
+
+### Phase 7 — Cleanup (NEVER SKIP THIS)
+Remove every line of debug instrumentation injected during Phases 3–5. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them, then verify with:
+
+```bash
+grep -rn "\[DEBUG-" <project-root>
 ```
 
-## Step 3: Present the Snippet to the User
+The grep must return **zero matches**. Console snippets and the ledger entry are both discarded.
 
-After the fenced code block, add a brief instruction section:
+**Checkpoint:** grep returns nothing. Tell the user "all debug instrumentation removed."
 
+---
+
+## Step 3 — Pick the probe mode
+
+In Phase 3, choose how to deliver the instrumentation:
+
+| Situation | Mode |
+|---|---|
+| Bug observable in the live browser without changing files (visible layout, broken click handler the user can trigger, missing element) | **Console snippet** — paste-ready, read-only, runs in DevTools |
+| Bug is server-side, in async flow, or otherwise invisible from the browser (wrong DB write, race between two awaits, scheduled job misfires) | **Injected debug code** in source files, tagged per protocol |
+| Bug spans browser ↔ server (API integration, auth flow, hydration mismatch) | **Both** — snippet for the client side, injected logs on the server side |
+| User explicitly says "don't touch my files" or you're in a read-only environment | **Console snippet only**. If physically impossible to diagnose without source edits, stop and explain why |
+
+You decide. The user can always override.
+
+---
+
+## Step 4 — Instrumentation protocol (when injecting debug code)
+
+Read `references/instrumentation-protocol.md` for the full spec. The non-negotiables:
+
+1. **Tag every line.** Format: `// [DEBUG-<4char-id>] <one-line purpose>` (use `# [DEBUG-<id>]` for Python/Ruby/shell, `/* [DEBUG-<id>] */` for CSS/SCSS, `<!-- [DEBUG-<id>] -->` for HTML/templates).
+2. **Use the same `<id>` for one investigation.** All probes from the same hypothesis share an id, so a single grep removes them all.
+3. **Maintain a debug ledger** in the conversation — a running list of `<file>:<line>: [DEBUG-<id>] <purpose>`.
+4. **Never inject probes that have side effects** — no DB writes, no extra network calls, no state mutations. Probes observe; they don't change.
+
+---
+
+## Step 5 — Present output to the user
+
+Whatever the mode, follow the same friendly format:
+
+````
+```<language>
+<the snippet or code>
 ```
+
 **What this collects:**
-- Environment: [WordPress / plain HTML] (auto-detected)
-- Element: `SELECTOR` — [describe what it is from context]
-- Issue focus: [list the specific properties being checked]
-- Auto-copies result to clipboard (Chrome DevTools)
+- <bullet 1>
+- <bullet 2>
 
 **How to use:**
-1. Open the page in your browser
-2. Open DevTools → Console (F12 / Cmd+Option+J)
-3. Paste the snippet and press Enter
-4. Paste the console output (or clipboard contents) back here
-```
+1. <step 1>
+2. <step 2>
+3. Paste the output back here.
+````
 
-Keep this section short — one sentence per bullet is enough.
+Keep it tight. One sentence per bullet. No filler.
 
-## Step 4: Analyze the Output When Returned
+---
 
-When the user pastes the console output back:
+## Step 6 — Analyze the returned data
 
-1. Parse the JSON mentally and look for the root cause signal:
-   - **Cascade conflicts**: Check `cascade` — is a higher-specificity rule overriding the expected one? What is its `source`?
-   - **Layout parent**: Check `ancestry` — is a parent's `display`, `overflow`, or `flex`/`grid` property the actual problem?
-   - **Box model**: Is the element zero-sized, off-viewport (`rect`), or clipped?
-   - **WordPress overrides**: Check `wpStyles` — is a WordPress global stylesheet (e.g., `global-styles-inline-css`, `wp-block-library`) in the cascade with a higher specificity score?
-   - **Responsive**: Check `active` breakpoints — is the expected media query not firing?
+Each domain reference file ends with a "**Signals to look for**" section. Use it. Common cross-domain signals:
 
-2. Identify the exact fix — file, selector, property, and value.
-3. Confirm it matches what the user expected, and make the change.
+- An expected log line never fires → execution doesn't reach that code path → look upstream for the gate.
+- A value is `undefined`/`null` where it shouldn't be → trace where it should have been set.
+- Timestamps show wrong order → race condition; you need ordering, not retry logic.
+- A higher-specificity CSS rule wins → cascade conflict (see visual-ui.md).
+- An API returns 200 but the DB row is missing → handler short-circuited silently; instrument the handler.
+
+---
 
 ## Rules
 
-- **No side effects** — never mutate the DOM, storage, or cookies
-- **Always wrap** `styleSheets` access in try/catch (cross-origin sheets throw)
-- **Always include** `copy(...)` at the end — Chrome DevTools supports it natively
-- **Never leave `SELECTOR` as a placeholder** — always resolve it from context
-- **Multiple elements?** — `querySelectorAll` and loop, or target the primary one first
-- **Keep it lean** — one IIFE, no imports, no dependencies, runs in any browser console
+- **No guess-fixes.** If you don't have data confirming the cause, don't change code. Generate another probe instead.
+- **No side-effect probes.** Diagnostic code observes, never mutates.
+- **Never leave a placeholder** like `SELECTOR`, `ENDPOINT`, or `FILE_PATH` unresolved in the artifact you hand the user. Resolve it from context first.
+- **Never skip Phase 7 cleanup.** Leaked debug logs in production are a real incident risk.
+- **When in doubt, ask** — `AskUserQuestion` is cheap; a wrong domain wastes the user's time.
+- **Fix at the root, not the symptom.** If you find yourself adding defensive code around the visible failure, you haven't found the root yet.
+- **Wrap risky access in try/catch** for browser snippets — cross-origin stylesheets, missing globals, etc., should warn, not throw.
+
+---
+
+## Reference files
+
+- `references/visual-ui.md` — browser-console snippet templates for CSS, layout, cascade, visibility, responsive issues. Preserves the full toolkit from the original ui-debug-console skill.
+- `references/code-logic.md` — print-trace bisection, state snapshots, async/race probes, conditional-breakpoint hints, when to use logs vs. interactive debugger vs. failing test.
+- `references/api-network.md` — curl repro from network-tab data, server-log probes, DB query logging hooks per framework, JSON shape-diff helper.
+- `references/perf-build.md` — `performance.mark/measure`, render-count counters, profiler hints, build-error triage (first error in cascade, not last), env-var diffing.
+- `references/instrumentation-protocol.md` — `[DEBUG-<id>]` tag spec, ledger template, cleanup checklist.
+
+Read the relevant domain file *before* generating the probe in Phase 3 — it has the snippet patterns and analysis signals you'll need.
