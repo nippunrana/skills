@@ -15,7 +15,7 @@ The default target for the skill is WP 7.0. Do not load this file by default —
 | **Pattern overrides syntax** | `metadata.bindings` + `metadata.name` (works on any block) | Same syntax (the `__experimentalRole` form was the pre-6.6 experiment and should not be used) |
 | **Viewport block visibility** | `metadata.blockVisibility.viewport` on block metadata | Not available. Use CSS `@media` queries with scoped `.is-style-*` selectors instead (`display: none` at the appropriate breakpoint). |
 | **`contentOnly` default for unsynced patterns** | Default in WP 7.0 — no explicit `templateLock` needed. Opt-out via `"disableContentOnlyForUnsyncedPatterns": true`. | NOT default on 6.9. Must explicitly set `"templateLock": "contentOnly"` on unsynced patterns where that behaviour is required. `disableContentOnlyForUnsyncedPatterns` has no effect on 6.9 (the feature it opts out of doesn't exist there). |
-| **`core/headings` block** | `core/headings` with H1–H6 level variations | Not available. Use `core/heading` with a fixed `level` attribute. |
+| **`core/heading` level variations (WP 7.0)** | H1–H6 as named inserter-level variations of `core/heading` | Not available on 6.9. Use `core/heading` with a fixed `level` attribute. The block name is always `core/heading` on both versions. |
 | **`core/navigation-overlay-close`** | Native mobile nav close block | Not available. Render a close button via a dynamic block's `render_callback`. |
 | **`watch()` / `data-wp-watch`** | Interactivity API reactive signal subscriptions | Available from WP 6.9.4+ — no fallback needed. |
 | **`@wordpress/boot`** | Custom Site Editor pages with route validation | Not available. Use `add_menu_page()` for custom admin pages on 6.9. |
@@ -89,7 +89,7 @@ Supported since 6.6 with the same syntax used in WP 7.0: `metadata.bindings` poi
 
 - **Abilities API** (`wp_register_ability`, `wp_register_ability_category`): not available — these functions ship with 7.0. Do not call them.
 - **`core/breadcrumbs` and `core/icon`**: new in 7.0. Use a PHP helper for breadcrumbs (e.g. `{{THEME_SLUG}}_breadcrumbs()`) and SVG helpers for icons.
-- **`core/headings` and `core/navigation-overlay-close`**: new in 7.0. Use `core/heading` (fixed level) and a dynamic block close button respectively.
+- **`core/heading` level variations and `core/navigation-overlay-close`**: WP 7.0 adds H1–H6 as named inserter-level variations to `core/heading` (block name stays `core/heading`). On 6.9 there are no named variations — use `core/heading` with a fixed `level`. `core/navigation-overlay-close` is new in 7.0; use a dynamic block close button on 6.9.
 - **`'autoRegister' => true`** on `register_block_type()`: new in 7.0. Register dynamic blocks the long way (`block.json` + `render.php`).
 - **WP AI Client / Settings → Connectors**: not present on 6.9. Skip any UI that depends on the AI Client.
 - **`@wordpress/boot` and `@wordpress/grid`**: new in 7.0. Not available on 6.9.

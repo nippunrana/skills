@@ -28,7 +28,7 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | `register_block_style( $block, $args )` | Registers a block style variation. `$args` accepts `name`, `label`, `style_handle`, `script_module_handle` (since 6.7). |
 | `unregister_block_style()` | Removes a previously-registered variation. |
 | `wp_enqueue_block_style( $block, $args )` | Enqueues a stylesheet only when the named block is on the page. |
-| `core/headings` | WP 7.0. Container block with H1–H6 as variations, toggled via the block toolbar. Use when editors need to change the heading level. `core/heading` (singular) is used when the level is fixed by design. |
+| `core/heading` (WP 7.0 level variations) | WP 7.0 registers H1–H6 as named inserter-level variations of `core/heading`. The block name in markup is always `core/heading` — never `core/headings`. Use `level: 1–6` in attributes; editors can switch levels via the toolbar at any time. |
 | `core/navigation-overlay-close` | WP 7.0. Close button for mobile navigation overlays. Must be placed inside a `core/navigation` block that has `overlayMenu` set to `"always"` or `"mobile"`. |
 
 ## Block Bindings

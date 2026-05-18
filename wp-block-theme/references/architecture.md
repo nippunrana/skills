@@ -210,12 +210,11 @@ Map every part of the design to a Core Block first. Only fall back to a dynamic 
 |---|---|---|
 | `<div>` (wrapper) | `core/group` | `tagName: "div"`, `layout: { "type": "constrained" }` |
 | `<section>` | `core/group` | `tagName: "section"` |
-| `<h1>` – `<h6>` (fixed level) | `core/heading` | `level: 1-6`. Use when the heading level is fixed by design. |
-| `<h1>` – `<h6>` (editor-togglable level) | `core/headings` (WP 7.0) | Use when editors need to change the heading level via the block toolbar. |
+| `<h1>` – `<h6>` | `core/heading` | `level: 1-6`. Editors can always change the level via the block toolbar. WP 7.0 also registers H1–H6 as named inserter-level variations, but the block name in markup is always `core/heading`. |
 | `<p>` | `core/paragraph` | |
 | `<ul>` / `<ol>` | `core/list` | |
 | `<img>` | `core/image` | |
-| SVG icon | `core/icon` (WP 7.0) | Register theme icons against the new Icon Registration API; see the Bindings section above. |
+| SVG icon (core/built-in) | `core/icon` (WP 7.0) | Use `{"icon":"core/..."}` for built-in icons — always safe. For custom theme icons see the `core/icon` decision rule in the Block Bindings section. |
 | 2–3 columns | `core/columns` | For 4+ columns or auto-fitting layouts, use `core/group` with `layout.type = "grid"` instead. |
 | Breadcrumb trail | `core/breadcrumbs` (WP 7.0) | Auto-renders the page hierarchy. Use `block_core_breadcrumbs_items` to customise the trail (e.g. inject a custom segment, hide ancestors). |
 | Video background `<section>` | `core/cover` with embedded video (WP 7.0) | Cover block accepts YouTube/Vimeo URLs as background, not just locally uploaded files. |
@@ -228,8 +227,7 @@ When mapping a design element to a block, walk this tree in order. Stop at the f
 
 ```
 Is it text content?
-  → Fixed heading level?          → core/heading  (level: 1–6)
-  → Editor-togglable heading level? → core/headings  (WP 7.0)
+  → Heading (any level)?          → core/heading  (level: 1–6; toolbar always allows level switching)
   → Paragraph?                    → core/paragraph (add textIndent / textColumns if needed)
   → List?                         → core/list + core/list-item
 
@@ -243,7 +241,7 @@ Is it media?
   → Single image?                 → core/image
   → Gallery?                      → core/gallery
   → Video embed (YT/Vimeo)?       → core/embed
-  → Inline SVG icon?              → core/icon (WP 7.0) + Icon Registration API
+  → Inline SVG icon (core set)?   → core/icon (WP 7.0); for custom theme icons see decision rule in Block Bindings section
 
 Is it navigation?
   → Site menu?                    → core/navigation
@@ -458,7 +456,17 @@ See developer.wordpress.org/reference/functions/register_block_bindings_source/.
 
 ### `core/icon` block and theme icons (WP 7.0)
 
-WP 7.0 ships a new `core/icon` block backed by a REST endpoint at `/wp/v2/icons`. The Icon block is rendered server-side; icons supplied by themes and plugins appear in the inserter alongside core's curated set. Until the final 7.0 icon registration helper lands in stable docs, register theme icons via the documented filter approach (see the developer notes at make.wordpress.org/core for the latest signature). When in doubt, fall back to the helper-function approach documented in `compatibility-6.9.md`.
+WP 7.0 ships a new `core/icon` block backed by a REST endpoint at `/wp/v2/icons`. The Icon block is rendered server-side; icons supplied by themes and plugins appear in the inserter alongside core's curated set.
+
+**Decision rule — core/icon vs. inline SVG:**
+
+| Scenario | Approach |
+|---|---|
+| Built-in core icons (e.g. `core/star`, `core/close`) | Use `<!-- wp:icon {"icon":"core/..."} /-->` — stable and always works |
+| Custom theme icons, registration API confirmed in stable docs | Use `<!-- wp:icon {"icon":"{{THEME_SLUG}}/..."} /-->` after registering via the documented filter (see make.wordpress.org/core for the final WP 7.0 helper signature) |
+| Custom theme icons, registration API not yet in stable docs | Fall back: output the SVG inside a dynamic block's `render_callback` or via an `<img>` tag pointing to an SVG asset in `get_stylesheet_directory_uri()`. Do NOT use `core/icon` with an unregistered custom icon — the block will render empty. |
+
+Until the final 7.0 icon registration helper lands in stable docs, fall back to the helper-function approach documented in `compatibility-6.9.md`.
 
 ---
 
@@ -832,7 +840,7 @@ add_filter( 'block_editor_rest_api_get_items_query_params', function( $params, $
 Every PHP file emitted by this skill must pass all ten gates below before writing. These are pre-write checks — missing any one means the code is rejected and rewritten.
 
 1. `<?php` on line 1.
-2. `declare(strict_types=1);` on line 2 (full files only — not excerpt snippets that begin mid-function or with a bare `add_action(` call).
+2. `declare(strict_types=1);` on line 2 (full files only — not excerpt snippets that begin mid-function or with a bare `add_action(` call). **PHP block pattern files that contain only the docblock header and block markup with no function definitions are also exempt** — strict_types has no effect without typed function signatures, so omit it to keep the header uncluttered.
 3. Every named function has typed parameters and a return type: `function my_fn( string $arg ): void {}`.
 4. Anonymous callbacks in `add_action`, `add_filter`, and `register_block_type` have typed parameters and return types.
 5. Use `??` (null coalescing) instead of `isset($x) ? $x : ''`.

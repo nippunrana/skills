@@ -23,7 +23,7 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 |---|---|---|
 | `<section class="hero">` | `core/group` | Use `tagName: "section"` |
 | `<h1>Title</h1>` (fixed level) | `core/heading` | Use `level: 1`. Level is fixed and cannot be changed by editors. |
-| `<h1>–<h6>` (editor-togglable level) | `core/headings` (WP 7.0) | Use when editors must be able to change the heading level via the block toolbar. Set default with `"level": 2` in block attributes. |
+| `<h1>–<h6>` (any level) | `core/heading` | Editors can always change the level via the block toolbar. Set the default with `"level": 2` in block attributes. The block name is always `core/heading`. |
 | `<div class="features">` | `core/group` | Use `layout: { "type": "grid" }` |
 | `<a class="btn">` | `core/button` | Use `className: "btn-primary"` |
 | `<div class="accordion">` | `core/accordion` | (WP 6.9+) Native component |
