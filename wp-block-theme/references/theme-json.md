@@ -1,5 +1,5 @@
 # theme.json Reference — WordPress Block Themes
-*Standard: WordPress 7.0 Enterprise (May 2026)*
+*Default target: WordPress 7.0. Uses `"version": 3` (introduced in 6.6, still current in 7.0).*
 
 ## Table of Contents
 1. [Root Structure](#root-structure)
@@ -18,14 +18,16 @@
 
 ```json
 {
-  "$schema": "https://schemas.wp.org/wp/7.0/theme.json",
-  "version": 4,
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 3,
   "settings": {},
   "styles": {},
   "customTemplates": [],
   "templateParts": []
 }
 ```
+
+`"version": 3` is the current schema as of WordPress 6.6 and is still current in 7.0. There is no version 4. If you need to pin to a specific release schema, use `https://schemas.wp.org/wp/6.6/theme.json` instead of `trunk`.
 
 **Critical:** JSON must be perfectly valid. A single extra comma causes WordPress to silently
 ignore the entire file. Always validate before saving.
@@ -324,7 +326,7 @@ root element.
 
 ## Section Styles (Variations)
 
-In 2026, we define scoped "Section Styles" inside `theme.json` instead of external CSS files. This allows the Site Editor to control tokens within that section natively.
+Define scoped block variations inside `theme.json` so the Site Editor can control their tokens natively. Each entry under `styles.blocks.{block}.variations.{name}` corresponds to a block style variation that a designer can apply by adding `is-style-{name}` to a block's class list.
 
 ```json
 "styles": {
@@ -377,15 +379,15 @@ consistent and allows future theme changes to propagate everywhere automatically
 The child theme's `theme.json` **merges with** (not replaces) the parent's `theme.json`.
 
 - Array-type settings (e.g. `palette`, `fontFamilies`) are **overwritten** entirely by the child theme.
-- **Token Inheritance (The 1% Rule):** To preserve parent tokens without copying the entire array, set `"defaultPalette": true`. This allows you to reference parent colors via `var(--wp--preset--color--{slug})` even while defining your own child palette.
+- **Token inheritance:** to preserve parent tokens without copying the entire array, set `"defaultPalette": true`. You can then reference parent colors via `var(--wp--preset--color--{slug})` while defining your own child palette.
 - Scalar settings (e.g. `contentSize`, `custom`) are **overridden** by the child.
 
 **Practical child theme.json example:**
 
 ```json
 {
-  "$schema": "https://schemas.wp.org/wp/7.0/theme.json",
-  "version": 4,
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 3,
   "settings": {
     "appearanceTools": true,
     "color": {

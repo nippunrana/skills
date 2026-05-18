@@ -1,5 +1,5 @@
 # HTML → Block Theme Template: Conversion Reference
-*Standard: WordPress 7.0 Enterprise (May 2026)*
+*Default target: WordPress 7.0.*
 
 ## Table of Contents
 1. [Block Mapping (Native-First)](#block-mapping-native-first)
@@ -27,9 +27,9 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 | `<a class="btn">` | `core/button` | Use `className: "btn-primary"` |
 | `<div class="accordion">` | `core/accordion` | (WP 6.9+) Native component |
 | `<div class="card">` | `core/group` | Child of native Grid |
-| `SVG Icon` | `core/icon` | Register in **WP_Icons_Registry** |
+| `SVG Icon` | `core/icon` (WP 7.0) | Register the icon against the new Icon Registration API so it appears in the inserter. |
 
-**Why?** Using Core Blocks allows the user to change colors, typography, and spacing via the Site Editor's global styles, which is the hallmark of a "Top 1%" block theme.
+Using Core Blocks lets editors change colors, typography, and spacing via the Site Editor's global styles instead of editing CSS. Only fall back to a dynamic block (`register_block_type()` + `render_callback`) for sections that genuinely cannot be expressed with core.
 
 ---
 
@@ -250,7 +250,7 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 
 ---
 
-> **Elite 2026 Shift:** In 2026, we follow the **Zero-CSS Layout Rule**. Layout properties (padding, margins, gap) must be defined in `theme.json` Section Styles (Variations). Reserve `style.css` only for non-JSON properties like `background: linear-gradient` or complex transforms. Pure CSS hover effects on native Grid items are preferred for performance over JS.
+> **Push layout to theme.json.** Padding, margin, and gap belong in `theme.json` Section Styles (variations under `styles.blocks.{block}.variations.{name}`). Reserve `style.css` for things JSON cannot express — gradients, complex transforms, scoped overrides. Pure CSS hover effects on native Grid items are preferred over JS for performance.
 
 ### Interactivity API (Modern Logic Example)
 
@@ -470,23 +470,27 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 ```
 
-### Native Icon Conversion (Elite 2026)
+### Icon Conversion (WP 7.0)
 
-Instead of raw SVGs or bindings, register icons in the native registry in `functions.php` and use the `core/icon` block.
-
-```php
-add_action( 'init', function() {
-    WP_Icons_Registry::get_instance()->register( 'my-theme/warning', [
-        'svg' => '<svg>...</svg>'
-    ]);
-});
-```
+WordPress 7.0 ships a `core/icon` block backed by an Icon Registration API and a REST endpoint at `/wp/v2/icons`. Register theme icons via the documented filter/registration call (see the developer notes at make.wordpress.org/core for the exact 7.0 signature) and reference them in markup as:
 
 ```html
-<!-- wp:icon {"icon":"my-theme/warning"} /-->
+<!-- wp:icon {"icon":"{{THEME_SLUG}}/warning"} /-->
 ```
 
-This makes icons searchable and swappable in the Site Editor.
+If you are on WP 6.9 or earlier — or the 7.0 Icon Registration API signature is not yet final in your environment — fall back to a PHP helper as documented in `compatibility-6.9.md`:
+
+```php
+function {{THEME_SLUG}}_get_icon( $name ) {
+    $icons = array(
+        'warning' => '<svg viewBox="0 0 24 24"><path d="..."/></svg>',
+    );
+    return $icons[ $name ] ?? '';
+}
+```
+
+```php
+<?php echo {{THEME_SLUG}}_get_icon( 'warning' ); ?>
 ```
 
 ---
@@ -539,7 +543,7 @@ A static `<nav>` bar in the HTML design should be evaluated case-by-case:
 
 | Scenario | Recommended approach |
 |---|---|
-| Template is a full-page landing (no WP nav needed) | Keep as raw HTML in **Native PHP-only Block**, style as-is |
+| Template is a full-page landing (no WP nav needed) | Render the static nav from a dynamic block registered via `register_block_type()` + `render_callback`. |
 | Template should use the site's WP menus | Replace with `<!-- wp:navigation /-->` block |
 | Template needs a custom fixed nav | Keep in a dedicated `{slug}-nav.php` sub-pattern |
 
@@ -567,21 +571,18 @@ Do **not** paste raw form HTML into a block. Use a shortcode block instead:
 
 ### iframes (Google Maps, Calendly, etc.)
 
-Iframes are valid inside **PHP-only Blocks**:
+Render iframes from a dynamic block. The block's `render_callback` returns the iframe markup, and the editor shows a placeholder via `ServerSideRender`:
 
 ```html
-<!-- wp:my-theme/iframe-wrapper -->
-<div class="map-wrapper">
-  <iframe
-    src="https://maps.google.com/..."
-    width="100%"
-    height="400"
-    frameborder="0"
-    allowfullscreen
-    loading="lazy"
-  ></iframe>
-</div>
-<!-- /wp:my-theme/iframe-wrapper -->
+<!-- wp:{{THEME_SLUG}}/map-embed /-->
+```
+
+```php
+register_block_type( '{{THEME_SLUG}}/map-embed', array(
+    'render_callback' => function() {
+        return '<div class="map-wrapper"><iframe src="https://maps.google.com/..." width="100%" height="400" loading="lazy" allowfullscreen></iframe></div>';
+    },
+) );
 ```
 
 ### Video embeds
@@ -598,7 +599,7 @@ Prefer the native WP embed block for YouTube/Vimeo:
 <!-- /wp:embed -->
 ```
 
-For `<video>` tags with local sources, use a **PHP-only Block**.
+For `<video>` tags with local sources, render the markup from a dynamic block's `render_callback`.
 
 ---
 
@@ -734,14 +735,10 @@ Only take content from within the `<body>` tag.
 
 ### Inline SVGs
 
-Inline SVGs work inside **PHP-only Blocks** with no changes (but favor the **Icon Registry**):
+Prefer the `core/icon` block plus the Icon Registration API (see the icon conversion section above). If you must keep an inline SVG (e.g. a one-off decorative shape), emit it from a dynamic block's `render_callback` rather than pasting it raw into a template:
 
 ```html
-<!-- wp:my-theme/svg-wrapper -->
-<svg viewBox="0 0 24 24" fill="none" ...>
-  <path d="..." />
-</svg>
-<!-- /wp:my-theme/svg-wrapper -->
+<!-- wp:{{THEME_SLUG}}/decorative-svg /-->
 ```
 
 ### `<script type="application/ld+json">` (structured data)

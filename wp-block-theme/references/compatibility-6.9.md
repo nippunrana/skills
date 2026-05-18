@@ -1,24 +1,24 @@
 # WordPress 6.9 Compatibility Reference
-*Standard: WordPress 6.9.x (Stable Standard - Early 2026)*
+*Use only when the user explicitly states they are on WordPress 6.9 or earlier, or when WP 7.0 features (the `core/icon` block, the `'autoRegister'` flag on `register_block_type()`, the Abilities API) are not available in the target environment.*
 
-Use this guide when the user specifically mentions they are on WordPress 6.9 or lower, or if the 7.0 features (Icons Registry, PHP-only Blocks) are not rendering as expected.
+The default target for the skill is WP 7.0. Do not load this file by default — substitute these fallbacks only when 7.0 APIs are unavailable.
 
 ## Summary of Fallback Patterns
 
-| Feature | WP 7.0 Elite Pattern | WP 6.9 Fallback Pattern |
+| Feature | WP 7.0 pattern | WP 6.9 fallback |
 |---|---|---|
-| **theme.json** | Version 4 (Schema 7.0) | Version 3 (Schema 6.6) |
-| **Complex Sections** | Native PHP-only Blocks | `<!-- wp:html -->` wrappers |
-| **Icons** | `WP_Icons_Registry` | PHP helper (e.g. `{{THEME_SLUG}}_get_icon`) |
-| **Templates** | `is_ai_ready` / PHP Registration | `customTemplates` in `theme.json` |
-| **Metadata** | `intent` AI tags | Standard keywords / PHP comments |
-| **Dashboards** | `dataviews.json` | Default Site Editor views |
+| **theme.json** | `"version": 3` + `https://schemas.wp.org/trunk/theme.json` | Same — `"version": 3` + `https://schemas.wp.org/wp/6.6/theme.json` |
+| **Complex sections** | Dynamic block via `register_block_type()` with `'supports' => ['autoRegister' => true]` + `render_callback` | `register_block_type()` still works, but `autoRegister` is unavailable — register a `block.json` + `render.php` pair, or use `<!-- wp:html -->` wrappers |
+| **Icons** | `core/icon` block + Icon Registration API | PHP helper (e.g. `{{THEME_SLUG}}_get_icon`) |
+| **Templates** | `register_block_template()` (also available in 6.7+) | Same, or `customTemplates` in `theme.json` |
+| **Abilities API** | `wp_register_ability()` on `wp_abilities_api_init` | Not available — skip; do not call these functions |
+| **Pattern overrides syntax** | `metadata.bindings` + `metadata.name` (works on any block) | Same syntax (the `__experimentalRole` form was the pre-6.6 experiment and should not be used) |
 
 ---
 
-## 1. theme.json (Version 3)
+## 1. theme.json schema
 
-In 6.9, use **Version 3**. The Version 4 schema may cause WordPress to ignore the file.
+Same shape as WP 7.0 — use `"version": 3`. Pin the schema URL to 6.6 if you want stability:
 
 ```json
 {
@@ -30,9 +30,9 @@ In 6.9, use **Version 3**. The Version 4 schema may cause WordPress to ignore th
 }
 ```
 
-## 2. Converting Complex HTML (The wp:html Fallback)
+## 2. Complex sections without `autoRegister`
 
-Since 6.9 does not support native PHP-only blocks (which map `block.json` to PHP), you must use the `wp:html` comment wrapper for any design elements that cannot be mapped to core blocks.
+WP 7.0 lets `register_block_type()` register a block from PHP alone using `'supports' => ['autoRegister' => true]`. On 6.9, register the block the long way (a `block.json` next to a `render.php` callback), or as a last resort wrap raw HTML in a `<!-- wp:html -->` comment block.
 
 **`patterns/my-complex-section.php`**
 ```php
@@ -48,9 +48,9 @@ Since 6.9 does not support native PHP-only blocks (which map `block.json` to PHP
 <!-- /wp:group -->
 ```
 
-## 3. Dynamic Icons (PHP Helpers)
+## 3. Dynamic Icons (PHP helpers)
 
-The native `core/icon` block is not available or lacks the registry in 6.9. Use a PHP helper function to inject SVGs.
+The `core/icon` block and Icon Registration API are new in 7.0. On 6.9, register a PHP helper and emit SVGs directly in pattern files.
 
 **`patterns/header-top-bar.php`**
 ```php
@@ -69,16 +69,11 @@ The **Script Modules API** and **Interactivity API** are fully supported in 6.9.
 
 ## 5. Synced Pattern Overrides
 
-Supported in 6.6+. Use the same `__experimentalRole: content` attribute in your block markup.
+Supported since 6.6 with the same syntax used in WP 7.0: `metadata.bindings` pointing at `core/pattern-overrides`, plus a stable `metadata.name`. See the Synced Pattern Overrides section of `architecture.md`. The pre-6.6 experimental `__experimentalRole` form was removed and should not be used.
 
-```html
-<!-- wp:paragraph {"__experimentalRole":"content"} -->
-<p>This text is overridable in 6.9.4.</p>
-<!-- /wp:paragraph -->
-```
+## 6. What to skip on 6.9
 
-## 6. What to Skip
-
-*   **Abilities API**: Do not register block abilities or intents. They will be ignored.
-*   **Data Views**: Do not create `dataviews.json`. Site-level data management must be done via standard admin screens.
-*   **Speculation Rules (Complex)**: Use basic `prerender` rules; avoid the multi-step dynamic injection logic which may be too heavy for 6.9.x cores.
+- **Abilities API** (`wp_register_ability`, `wp_register_ability_category`): not available — these functions ship with 7.0. Do not call them.
+- **`core/breadcrumbs` and `core/icon`**: new in 7.0. Use a PHP helper for breadcrumbs (e.g. `{{THEME_SLUG}}_breadcrumbs()`) and SVG helpers for icons.
+- **`'autoRegister' => true`** on `register_block_type()`: new in 7.0. Register dynamic blocks the long way (`block.json` + `render.php`).
+- **WP AI Client / Settings → Connectors**: not present on 6.9. Skip any UI that depends on the AI Client.

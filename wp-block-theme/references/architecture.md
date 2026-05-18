@@ -1,5 +1,5 @@
 # FSE Architecture Reference — WordPress Block Themes
-*Standard: WordPress 7.0 Enterprise (May 2026)*
+*Default target: WordPress 7.0 (released 2026-05-20). For WP 6.9 or earlier, substitute the fallbacks in `compatibility-6.9.md`.*
 
 ## Table of Contents
 1. [Theme Initialization Requirements](#theme-initialization-requirements)
@@ -95,20 +95,22 @@ Custom Template (page attribute)
   → index.html
 ```
 
-### Template Registration API (WP 7.0+)
+### Template Registration API (PHP)
 
-For enterprise themes, register templates in PHP instead of `theme.json` to enable A/B testing, AI-driven variations, and dynamic segments:
+`register_block_template()` (introduced in 6.7) registers a template from PHP. This is useful for plugins or for themes that need templates to ship as code rather than as `.html` files inside `templates/`.
 
 ```php
 add_action( 'init', function() {
     register_block_template( '{{THEME_SLUG}}//my-landing-page', array(
-        'title'       => __( 'Elite Landing Page', '{{TEXT_DOMAIN}}' ),
+        'title'       => __( 'My Landing Page', '{{TEXT_DOMAIN}}' ),
         'description' => __( 'A high-performance landing page template.', '{{TEXT_DOMAIN}}' ),
+        'content'     => '<!-- wp:pattern {"slug":"{{THEME_SLUG}}/my-landing-page"} /-->',
         'post_types'  => array( 'page' ),
-        'is_ai_ready' => true, // Enables Abilities API integration
     ) );
 } );
 ```
+
+The template name must be in the form `namespace//template_name` (two slashes). Supported `$args` keys are `title`, `description`, `content`, and `post_types`. See developer.wordpress.org/reference/functions/register_block_template/ for the full reference.
 
 For archives:
 ```
@@ -133,12 +135,8 @@ Every piece of raw HTML inside a template or pattern MUST be wrapped in block co
 WordPress strips any content outside recognized block boundaries when saving through the editor.
 
 ```html
-<!-- Correct: raw HTML wrapped in Native PHP-only Block -->
-<!-- wp:my-theme/legacy-section -->
-<section class="hero">
-  <h1>Welcome</h1>
-</section>
-<!-- /wp:my-theme/legacy-section -->
+<!-- Correct: raw HTML rendered by a dynamic block registered via register_block_type() -->
+<!-- wp:my-theme/legacy-section /-->
 
 <!-- Correct: native WP block — no wrapper needed -->
 <!-- wp:heading {"level":1} -->
@@ -206,20 +204,97 @@ Block attributes go in the opening comment, not as HTML attributes:
 
 ## Native-First Conversion & Block Mapping
 
-Top 1% developers avoid "Black Boxes." Instead of wrapping raw HTML, map your design to Core Blocks or **Native PHP-only Blocks**.
+Map every part of the design to a Core Block first. Only fall back to a dynamic block (`register_block_type()` + `render_callback`) when no core block fits — that keeps colors, typography, and spacing under Site Editor control.
 
 | HTML Tag | Core Block | Attributes to use |
 |---|---|---|
 | `<div>` (wrapper) | `core/group` | `tagName: "div"`, `layout: { "type": "constrained" }` |
 | `<section>` | `core/group` | `tagName: "section"` |
-| `<h1>` - `<h6>` | `core/heading` | `level: 1-6` |
+| `<h1>` – `<h6>` | `core/heading` | `level: 1-6` |
 | `<p>` | `core/paragraph` | |
 | `<ul>` / `<ol>` | `core/list` | |
 | `<img>` | `core/image` | |
-| `SVG Icon` | `core/icon` | Register in **WP_Icons_Registry** |
-| `2-3 Columns` | `core/columns` | Use **Native Grid** for complex layouts |
+| SVG icon | `core/icon` (WP 7.0) | Register theme icons against the new Icon Registration API; see the Bindings section above. |
+| 2–3 columns | `core/columns` | For 4+ columns or auto-fitting layouts, use `core/group` with `layout.type = "grid"` instead. |
+| Breadcrumb trail | `core/breadcrumbs` (WP 7.0) | Auto-renders the page hierarchy. Use `block_core_breadcrumbs_items` to customise the trail (e.g. inject a custom segment, hide ancestors). |
+| Video background `<section>` | `core/cover` with embedded video (WP 7.0) | Cover block accepts YouTube/Vimeo URLs as background, not just locally uploaded files. |
+| Gallery with full-screen view | `core/gallery` with lightbox (WP 7.0) | Set `lightbox: true`; in 7.0 the lightbox supports arrow-key navigation between images. |
 
-**Why?** This allows the Site Editor to control typography, colors, and spacing natively, making the theme much more valuable to the client.
+### Core Blocks new in WP 7.0
+
+- **`core/breadcrumbs`** — automatic page hierarchy. The shipped trail is filterable via `block_core_breadcrumbs_items`:
+
+  ```php
+  add_filter( 'block_core_breadcrumbs_items', function( $items, $block ) {
+      // $items is an ordered array of trail segments. Modify, add, or remove entries here.
+      return $items;
+  }, 10, 2 );
+  ```
+
+- **`core/icon`** — server-side rendered, backed by `/wp/v2/icons`. Register theme icons against the new Icon Registration API so they appear in the inserter alongside core's curated set. Until the final 7.0 helper signature is documented in stable, fall back to a PHP icon helper (see `compatibility-6.9.md`).
+
+- **`core/cover` enhancements** — embedded YouTube/Vimeo videos as background; focal-point control on fixed backgrounds.
+
+- **`core/gallery` enhancements** — lightbox now navigates between images with the arrow keys.
+
+### Native Grid layout (WP 7.0 hybrid mode)
+
+WordPress 7.0 lets the Grid layout use `columnCount` and `minimumColumnWidth` at the same time. Set both to get a responsive grid that respects a maximum column count but reflows on narrow viewports.
+
+```html
+<!-- wp:group {
+  "tagName": "section",
+  "layout": {
+    "type": "grid",
+    "columnCount": 3,
+    "minimumColumnWidth": "280px"
+  }
+} -->
+<section class="wp-block-group">
+  <!-- cards go here -->
+</section>
+<!-- /wp:group -->
+```
+
+On 6.9 and earlier, only one of the two could be set; the WP 7.0 hybrid mode removes that limitation.
+
+---
+
+## Dynamic Blocks (PHP-only) — WP 7.0
+
+If no Core Block fits a section of the design, register a dynamic block instead of pasting raw HTML. WordPress 7.0 introduces the `autoRegister` flag, which lets you register a block entirely from PHP — no `block.json`, no JavaScript, no build step.
+
+```php
+add_action( 'init', function() {
+    register_block_type( '{{THEME_SLUG}}/legacy-section', array(
+        'title'       => __( 'Legacy Section', '{{TEXT_DOMAIN}}' ),
+        'description' => __( 'A custom layout that does not fit core blocks.', '{{TEXT_DOMAIN}}' ),
+        'category'    => 'theme',
+        'supports'    => array(
+            'autoRegister' => true,
+            'html'         => false,
+        ),
+        'attributes'  => array(
+            'heading' => array(
+                'type'    => 'string',
+                'default' => '',
+            ),
+        ),
+        'render_callback' => function( $attributes, $content, $block ) {
+            $heading = isset( $attributes['heading'] ) ? esc_html( $attributes['heading'] ) : '';
+            return sprintf(
+                '<section class="legacy-section"><h2>%s</h2>%s</section>',
+                $heading,
+                wp_kses_post( $content )
+            );
+        },
+    ) );
+} );
+```
+
+With `autoRegister => true`, WordPress generates the inserter UI from the `attributes` array (it supports `string`, `integer`, `boolean`, and `enum`) and renders the block via `ServerSideRender` in the editor. Use this for static or mostly-static dynamic markup that does not need interactive React controls.
+
+For 6.9 and earlier, register the block the long way with a `block.json` + `render.php` pair; the `autoRegister` flag is silently ignored on older cores.
 
 ---
 
@@ -239,21 +314,23 @@ Prevent clients from accidentally deleting or moving critical structural element
 
 Apply this to the outermost wrapper of your Patterns and Template Parts.
 
-### Content-Only Locking (Phase 3 Standard)
+### Content-Only Locking
 
-For patterns that allow multi-user collaboration in 2026, use `contentOnly` locking. This prevents users from moving blocks or changing layouts while allowing them to edit all text and images.
+For client-safe patterns, use `contentOnly` locking. Editors can change text and images but cannot move, remove, or change the structure of blocks.
 
 ```json
 "templateLock": "contentOnly"
 ```
 
-This is the gold standard for "Client-Safe" patterns in WordPress 7.0.
+Apply this to the outermost wrapper of a master pattern when you want a fixed layout with editable content.
 
 ---
 
 ## Block Bindings API (Dynamic Data)
 
-Introduced in WP 6.5, this allows you to connect Core Blocks to dynamic data without custom PHP patterns.
+Introduced in 6.5, the Block Bindings API connects Core Blocks to dynamic data without writing custom patterns or React. In WP 7.0, any block attribute that supports bindings also supports Pattern Overrides.
+
+Built-in sources: `core/post-meta`, `core/post-title`, `core/post-excerpt`, `core/post-date`, `core/post-author-name`, `core/site-title`, `core/site-tagline`, `core/pattern-overrides`.
 
 ```html
 <!-- wp:paragraph {
@@ -268,58 +345,106 @@ Introduced in WP 6.5, this allows you to connect Core Blocks to dynamic data wit
 } -->
 <p>Fallback content shown if meta is empty.</p>
 <!-- /wp:paragraph -->
-
-### Icon Registry (Elite 2026 Standard)
-
-Instead of custom PHP bindings or raw SVGs, register your theme's icon library into the native `WP_Icons_Registry`. This provides a searchable UI in the Site Editor.
-
-```php
-add_action( 'init', function() {
-    $registry = WP_Icons_Registry::get_instance();
-    $registry->register( 'my-theme/warning', array(
-        'label' => __( 'Warning Icon', 'my-theme' ),
-        'svg'   => '<svg>...</svg>',
-    ) );
-} );
 ```
 
-### UI Support (Elite 2026 Standard)
+### Registering a Custom Binding Source
 
-To make custom bindings (Post Meta, Site Data) visible in the Site Editor's sidebar, you must register the source in PHP:
+To expose theme-specific data to the binding UI:
 
 ```php
 add_action( 'init', function() {
-    register_block_bindings_source( 'my-theme/custom-source', array(
-        'label'              => __( 'Custom Source', 'my-theme' ),
-        'get_value_callback' => 'my_theme_get_binding_value',
+    register_block_bindings_source( '{{THEME_SLUG}}/custom-source', array(
+        'label'              => __( 'Custom Source', '{{TEXT_DOMAIN}}' ),
+        'get_value_callback' => '{{THEME_SLUG}}_get_binding_value',
         'uses_context'       => array( 'postId' ),
     ) );
 } );
 ```
 
-Supported sources: `core/post-meta`, `core/site-title`, `core/site-tagline`.
+See developer.wordpress.org/reference/functions/register_block_bindings_source/.
+
+### `core/icon` block and theme icons (WP 7.0)
+
+WP 7.0 ships a new `core/icon` block backed by a REST endpoint at `/wp/v2/icons`. The Icon block is rendered server-side; icons supplied by themes and plugins appear in the inserter alongside core's curated set. Until the final 7.0 icon registration helper lands in stable docs, register theme icons via the documented filter approach (see the developer notes at make.wordpress.org/core for the latest signature). When in doubt, fall back to the helper-function approach documented in `compatibility-6.9.md`.
 
 ---
 
-## AI Abilities API (AI Editorial intents)
+## Abilities API (WP 7.0)
 
-In WordPress 7.0, themes register "AI Abilities" to provide premium editorial tools (Tone Shift, Summarize) for specific patterns.
+The Abilities API is stable in WordPress 7.0. Themes and plugins register named "abilities" — server-side callbacks with JSON Schema input/output contracts — that the WP AI Client and other tools can discover and invoke.
+
+The registration sequence is: register an ability **category** first, then register the ability itself. Both calls must happen on the `wp_abilities_api_init` action.
 
 ```php
-add_action( 'init', function() {
-    register_block_ability( '{{THEME_SLUG}}/example-landing', 'tone-shift', array(
-        'label'       => __( 'Scientific Tone Shift', '{{TEXT_DOMAIN}}' ),
-        'description' => __( 'Converts marketing copy to scientific research tone.', '{{TEXT_DOMAIN}}' ),
-        'intent'      => 'scientific_validation', // Elite: Add intent for AI discovery
+add_action( 'wp_abilities_api_init', function() {
+    // 1. Register a category that groups related abilities.
+    wp_register_ability_category( '{{THEME_SLUG}}/editorial', array(
+        'label'       => __( 'Editorial Tools', '{{TEXT_DOMAIN}}' ),
+        'description' => __( 'AI-assisted writing helpers for this theme.', '{{TEXT_DOMAIN}}' ),
+    ) );
+
+    // 2. Register the ability inside that category.
+    wp_register_ability( '{{THEME_SLUG}}/tone-shift', array(
+        'label'              => __( 'Tone Shift', '{{TEXT_DOMAIN}}' ),
+        'description'        => __( 'Rewrites the selected copy in a chosen tone.', '{{TEXT_DOMAIN}}' ),
+        'category'           => '{{THEME_SLUG}}/editorial',
+        'input_schema'       => array(
+            'type'       => 'object',
+            'properties' => array(
+                'text' => array( 'type' => 'string' ),
+                'tone' => array(
+                    'type' => 'string',
+                    'enum' => array( 'scientific', 'casual', 'formal' ),
+                ),
+            ),
+            'required'   => array( 'text', 'tone' ),
+        ),
+        'output_schema'      => array(
+            'type'       => 'object',
+            'properties' => array(
+                'rewritten' => array( 'type' => 'string' ),
+            ),
+        ),
+        'permission_callback' => function() {
+            return current_user_can( 'edit_posts' );
+        },
+        'execute_callback'    => function( $input ) {
+            // Call the WP AI Client (or any provider) here and return the result.
+            return array( 'rewritten' => $input['text'] );
+        },
     ) );
 } );
 ```
+
+The ability name must be lowercase, namespaced (`prefix/name`), and may contain only letters, digits, dashes, and forward slashes. See developer.wordpress.org/reference/functions/wp_register_ability/ for the full reference. Categories are documented at developer.wordpress.org/apis/abilities-api/.
+
+### WP AI Client + Connectors (WP 7.0)
+
+The WP AI Client (`WP_AI_Client_Prompt_Builder`) is a provider-agnostic PHP wrapper around the AI providers configured at **Settings → Connectors**. Out of the box, WP 7.0 ships connectors for OpenAI, Anthropic (Claude), and Google (Gemini); third-party providers can register their own.
+
+Inside an ability's `execute_callback`, you can call the AI Client to fulfil the request:
+
+```php
+'execute_callback' => function( $input ) {
+    $prompt = ( new WP_AI_Client_Prompt_Builder() )
+        ->add_system_message( 'You are an editorial assistant.' )
+        ->add_user_message( sprintf( 'Rewrite this text in a %s tone:\n\n%s', $input['tone'], $input['text'] ) );
+
+    $response = $prompt->send();
+    if ( is_wp_error( $response ) ) {
+        return $response;
+    }
+    return array( 'rewritten' => $response['text'] );
+}
+```
+
+The user must enable at least one provider at Settings → Connectors for `send()` to succeed. If no connector is configured, `send()` returns a `WP_Error` — surface that to the user rather than swallowing it.
 
 ---
 
 ## Interactivity API: Native Asset Loading (Script Modules)
 
-In 2026, we use the **Script Modules API** to handle Interactivity API assets.
+Use the **Script Modules API** to ship Interactivity API code so it loads only when the relevant block is on the page.
 
 **Step 1: Register the script module in PHP**
 ```php
@@ -381,15 +506,32 @@ The Interactivity API is the modern standard for frontend logic. It uses declara
 
 ---
 
-## Synced Pattern Overrides (WP 7.0+)
+## Synced Pattern Overrides
 
-For sections like Heroes or CTAs used across multiple pages, **Synced Patterns with Overrides** are the 2026 gold standard. They allow you to:
-1.  **Sync the Design**: Changing the layout/CSS in the pattern updates every instance.
-2.  **Override Content**: Users can change the text/images on a per-page basis without breaking the sync.
+For sections like Heroes or CTAs reused across multiple pages, use Synced Patterns with Overrides:
 
-**Nested Overrides**: Elite 2026 patterns support overrides inside nested structures. You can override a button's text inside a synced card that is itself part of a synced grid.
+1. **Sync the design** — changing the layout/CSS in the pattern updates every instance.
+2. **Override the content** — editors change text/images on a per-page basis without breaking the sync.
 
-**Requirement**: In the pattern's block attributes, set `"__experimentalRole": "content"` on the blocks you want to allow overrides for.
+In WP 7.0, any block attribute that supports Block Bindings also supports Pattern Overrides, including custom blocks.
+
+**How to mark a block as overridable.** Inside the pattern, set `metadata.bindings` to point at the `core/pattern-overrides` source and give the binding a stable `metadata.name`:
+
+```html
+<!-- wp:heading {
+  "level": 1,
+  "metadata": {
+    "name": "hero-headline",
+    "bindings": {
+      "content": { "source": "core/pattern-overrides" }
+    }
+  }
+} -->
+<h1 class="wp-block-heading">Default headline</h1>
+<!-- /wp:heading -->
+```
+
+**Editor UI.** In the editor, editors select the block, open the block sidebar, expand **Advanced**, and click **Enable overrides**. Once enabled, instances of the synced pattern can override the marked attributes while keeping the rest of the design in sync.
 
 ---
 
@@ -418,47 +560,38 @@ add_action( 'wp_head', function() {
 }, 1 );
 
 /**
- * Elite 2026: Multi-step pre-rendering.
- * Automatically pre-renders the next page in a sequence based on user hover patterns.
+ * Optional: inject additional speculation rules based on the current page.
  */
 add_action( 'wp_footer', function() {
     if ( is_page( 'multi-step-form' ) ) {
-        // Logic to dynamically inject speculation rules based on current step
+        // Inject extra speculation rules for the next step in the flow.
     }
 } );
 ```
 
 ---
 
-## Data Views (Client Dashboards)
+## Data Views
 
-Top developers provide custom Data View configurations in the Site Editor for Custom Post Types, creating a "SaaS-like" content management experience for clients.
+For custom post types, you can customise the Site Editor's Data View by filtering the REST query parameters. This gives editors a tailored grid/list/table view of their content.
 
 ```php
-// Register custom data view for lab results
 add_filter( 'block_editor_rest_api_get_items_query_params', function( $params, $post_type ) {
     if ( 'lab_result' === $post_type ) {
-        // Custom logic to modify how items appear in the Site Editor Data Views
+        // Adjust how items are fetched/displayed in the Site Editor Data View.
     }
     return $params;
 }, 10, 2 );
-
-/**
- * Elite 2026: dataviews.json
- * Define the default view (List, Grid, Table) and visible fields for clients.
- */
 ```
 
 ---
 
-## Accessibility (A11y) Standards
+## Accessibility (A11y)
 
-A Top 1% theme is an accessible theme.
-
-1. **Semantic Landmarks**: Use `tagName: "header"`, `"footer"`, `"main"`, `"section"` in Group blocks.
-2. **Aria Labels**: Add `aria-label` to navigation blocks and interactive buttons.
-3. **Alt Text**: Ensure all `core/image` blocks have `alt` attributes or are bound to dynamic alt text.
-4. **Focus States**: Never disable focus outlines in CSS without providing a high-contrast alternative.
+1. **Semantic landmarks**: use `tagName: "header"`, `"footer"`, `"main"`, `"section"` on Group blocks.
+2. **ARIA labels**: add `aria-label` to navigation blocks and any unlabelled interactive buttons.
+3. **Alt text**: every `core/image` block needs an `alt` attribute, or a binding that supplies dynamic alt text.
+4. **Focus states**: never disable focus outlines without providing a visible, high-contrast alternative.
 
 ---
 
@@ -548,8 +681,7 @@ add_action( 'after_setup_theme', 'mytheme_child_setup' );
  * Register block styles and assets for patterns.
  */
 function mytheme_child_pattern_assets() {
-    // Elite 2026 Standard: Use wp_enqueue_block_style for global child resets
-    // This ensures child overrides load after core block styles.
+    // Use wp_enqueue_block_style for global child resets so they load after core block styles.
     wp_enqueue_block_style(
         'core/group',
         array(
@@ -697,7 +829,7 @@ or CSS-level (part renders but is invisible):
 
 **Interpreting results:**
 - `headerChildren` with `visible: false` + empty `innerHTML` → template part not rendering
-  → check `Inserter: false` on the pattern / PHP-only block nesting of `wp:template-part`
+  → check `Inserter: false` on the backing pattern, and confirm `wp:template-part` is not nested inside a dynamic block's render output
 - `headerChildren` with `visible: false` + non-empty `innerHTML` → CSS not loading
   → check that `register_block_style()` is firing and the block has the `is-style-...` class
 - `headerChildren` with `visible: true` → working correctly
