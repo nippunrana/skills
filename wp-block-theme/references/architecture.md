@@ -100,7 +100,7 @@ Custom Template (page attribute)
 `register_block_template()` (introduced in 6.7) registers a template from PHP. This is useful for plugins or for themes that need templates to ship as code rather than as `.html` files inside `templates/`.
 
 ```php
-add_action( 'init', function() {
+add_action( 'init', function(): void {
     register_block_template( '{{THEME_SLUG}}//my-landing-page', array(
         'title'       => __( 'My Landing Page', '{{TEXT_DOMAIN}}' ),
         'description' => __( 'A high-performance landing page template.', '{{TEXT_DOMAIN}}' ),
@@ -210,7 +210,8 @@ Map every part of the design to a Core Block first. Only fall back to a dynamic 
 |---|---|---|
 | `<div>` (wrapper) | `core/group` | `tagName: "div"`, `layout: { "type": "constrained" }` |
 | `<section>` | `core/group` | `tagName: "section"` |
-| `<h1>` – `<h6>` | `core/heading` | `level: 1-6` |
+| `<h1>` – `<h6>` (fixed level) | `core/heading` | `level: 1-6`. Use when the heading level is fixed by design. |
+| `<h1>` – `<h6>` (editor-togglable level) | `core/headings` (WP 7.0) | Use when editors need to change the heading level via the block toolbar. |
 | `<p>` | `core/paragraph` | |
 | `<ul>` / `<ol>` | `core/list` | |
 | `<img>` | `core/image` | |
@@ -219,13 +220,50 @@ Map every part of the design to a Core Block first. Only fall back to a dynamic 
 | Breadcrumb trail | `core/breadcrumbs` (WP 7.0) | Auto-renders the page hierarchy. Use `block_core_breadcrumbs_items` to customise the trail (e.g. inject a custom segment, hide ancestors). |
 | Video background `<section>` | `core/cover` with embedded video (WP 7.0) | Cover block accepts YouTube/Vimeo URLs as background, not just locally uploaded files. |
 | Gallery with full-screen view | `core/gallery` with lightbox (WP 7.0) | Set `lightbox: true`; in 7.0 the lightbox supports arrow-key navigation between images. |
+| Mobile nav close button | `core/navigation-overlay-close` (WP 7.0) | Place inside a `core/navigation` block with `"overlayMenu": "always"` or `"overlayMenu": "mobile"`. |
+
+### Native-First Decision Algorithm
+
+When mapping a design element to a block, walk this tree in order. Stop at the first match. Only fall back to `register_block_type()` when no branch above applies.
+
+```
+Is it text content?
+  → Fixed heading level?          → core/heading  (level: 1–6)
+  → Editor-togglable heading level? → core/headings  (WP 7.0)
+  → Paragraph?                    → core/paragraph (add textIndent / textColumns if needed)
+  → List?                         → core/list + core/list-item
+
+Is it a layout wrapper?
+  → 1–3 equal columns?            → core/columns + core/column
+  → 4+ columns OR auto-fit grid?  → core/group  layout.type = "grid"
+  → Full-bleed section (bg image/video)?  → core/cover
+  → Any other div/section?        → core/group  (tagName: "section"/"div"/"article" etc.)
+
+Is it media?
+  → Single image?                 → core/image
+  → Gallery?                      → core/gallery
+  → Video embed (YT/Vimeo)?       → core/embed
+  → Inline SVG icon?              → core/icon (WP 7.0) + Icon Registration API
+
+Is it navigation?
+  → Site menu?                    → core/navigation
+  → Mobile overlay close button?  → core/navigation-overlay-close (WP 7.0)
+  → Breadcrumbs?                  → core/breadcrumbs (WP 7.0)
+
+Is it interactive / dynamic?
+  → Reads post data (title, content, meta)?  → Block Bindings (core/post-meta etc.)
+  → Needs frontend JS reactivity?            → Interactivity API + store() + data-wp-* directives
+  → Must react to state changes sans user event?  → watch() or data-wp-watch
+  → None of the above?                       → register_block_type() + render_callback
+  → Truly cannot be expressed as any block?  → <!-- wp:html --> only on WP 6.9 targets
+```
 
 ### Core Blocks new in WP 7.0
 
 - **`core/breadcrumbs`** — automatic page hierarchy. The shipped trail is filterable via `block_core_breadcrumbs_items`:
 
   ```php
-  add_filter( 'block_core_breadcrumbs_items', function( $items, $block ) {
+  add_filter( 'block_core_breadcrumbs_items', function( array $items, WP_Block $block ): array {
       // $items is an ordered array of trail segments. Modify, add, or remove entries here.
       return $items;
   }, 10, 2 );
@@ -265,7 +303,7 @@ On 6.9 and earlier, only one of the two could be set; the WP 7.0 hybrid mode rem
 If no Core Block fits a section of the design, register a dynamic block instead of pasting raw HTML. WordPress 7.0 introduces the `autoRegister` flag, which lets you register a block entirely from PHP — no `block.json`, no JavaScript, no build step.
 
 ```php
-add_action( 'init', function() {
+add_action( 'init', function(): void {
     register_block_type( '{{THEME_SLUG}}/legacy-section', array(
         'title'       => __( 'Legacy Section', '{{TEXT_DOMAIN}}' ),
         'description' => __( 'A custom layout that does not fit core blocks.', '{{TEXT_DOMAIN}}' ),
@@ -280,8 +318,8 @@ add_action( 'init', function() {
                 'default' => '',
             ),
         ),
-        'render_callback' => function( $attributes, $content, $block ) {
-            $heading = isset( $attributes['heading'] ) ? esc_html( $attributes['heading'] ) : '';
+        'render_callback' => function( array $attributes, string $content, WP_Block $block ): string {
+            $heading = esc_html( $attributes['heading'] ?? '' );
             return sprintf(
                 '<section class="legacy-section"><h2>%s</h2>%s</section>',
                 $heading,
@@ -316,13 +354,26 @@ Apply this to the outermost wrapper of your Patterns and Template Parts.
 
 ### Content-Only Locking
 
-For client-safe patterns, use `contentOnly` locking. Editors can change text and images but cannot move, remove, or change the structure of blocks.
+**WP 7.0: `contentOnly` is the default for unsynced patterns.** Do NOT add `"templateLock": "contentOnly"` to unsynced patterns — it is already active, and adding it redundantly has no effect but signals a misunderstanding of the default.
+
+**When to still apply `"templateLock": "contentOnly"` explicitly:**
+- Synced patterns (where the default behaviour differs)
+- Template parts where you want to prevent editors from restructuring internal layout
+
+**When to opt OUT (allow structure editing on an unsynced pattern):**
 
 ```json
-"templateLock": "contentOnly"
+"__experimentalSettings": {
+  "disableContentOnlyForUnsyncedPatterns": true
+}
 ```
 
-Apply this to the outermost wrapper of a master pattern when you want a fixed layout with editable content.
+Add this to a pattern's outermost block `attributes` when the pattern is a developer scaffold, consumed by an external tool, or the user explicitly needs to rearrange sections.
+
+**Decision tree:**
+1. Unsynced pattern → do nothing; `contentOnly` is already active.
+2. Synced pattern or template part with locked structure → add `"templateLock": "contentOnly"` explicitly.
+3. Unsynced pattern where structure editing is intentional → set `"disableContentOnlyForUnsyncedPatterns": true`.
 
 ---
 
@@ -352,7 +403,7 @@ Built-in sources: `core/post-meta`, `core/post-title`, `core/post-excerpt`, `cor
 To expose theme-specific data to the binding UI:
 
 ```php
-add_action( 'init', function() {
+add_action( 'init', function(): void {
     register_block_bindings_source( '{{THEME_SLUG}}/custom-source', array(
         'label'              => __( 'Custom Source', '{{TEXT_DOMAIN}}' ),
         'get_value_callback' => '{{THEME_SLUG}}_get_binding_value',
@@ -405,10 +456,10 @@ add_action( 'wp_abilities_api_init', function() {
                 'rewritten' => array( 'type' => 'string' ),
             ),
         ),
-        'permission_callback' => function() {
+        'permission_callback' => function(): bool {
             return current_user_can( 'edit_posts' );
         },
-        'execute_callback'    => function( $input ) {
+        'execute_callback'    => function( array $input ): array {
             // Call the WP AI Client (or any provider) here and return the result.
             return array( 'rewritten' => $input['text'] );
         },
@@ -425,7 +476,7 @@ The WP AI Client (`WP_AI_Client_Prompt_Builder`) is a provider-agnostic PHP wrap
 Inside an ability's `execute_callback`, you can call the AI Client to fulfil the request:
 
 ```php
-'execute_callback' => function( $input ) {
+'execute_callback' => function( array $input ): array|\WP_Error {
     $prompt = ( new WP_AI_Client_Prompt_Builder() )
         ->add_system_message( 'You are an editorial assistant.' )
         ->add_user_message( sprintf( 'Rewrite this text in a %s tone:\n\n%s', $input['tone'], $input['text'] ) );
@@ -435,7 +486,7 @@ Inside an ability's `execute_callback`, you can call the AI Client to fulfil the
         return $response;
     }
     return array( 'rewritten' => $response['text'] );
-}
+},
 ```
 
 The user must enable at least one provider at Settings → Connectors for `send()` to succeed. If no connector is configured, `send()` returns a `WP_Error` — surface that to the user rather than swallowing it.
@@ -449,10 +500,10 @@ Use the **Script Modules API** to ship Interactivity API code so it loads only w
 **Step 1: Register the script module in PHP**
 ```php
 wp_register_script_module(
-    'my-theme/logic',
-    get_stylesheet_directory_uri() . '/patterns/my-pattern/index.js',
-    array( '@wordpress/interactivity' ),
-    '1.0.0'
+    id:      'my-theme/logic',
+    src:     get_stylesheet_directory_uri() . '/patterns/my-pattern/index.js',
+    deps:    array( '@wordpress/interactivity' ),
+    version: '1.0.0'
 );
 ```
 
@@ -470,13 +521,15 @@ WordPress now automatically enqueues the module only when a block with the `is-s
 For mandatory pattern logic that should never be missed by clients, use Block Hooks to wrap the pattern in a logic-providing block automatically:
 
 ```php
-add_filter( 'hooked_block_types', function( $hooked_blocks, $relative_block_type, $section, $context ) {
+add_filter( 'hooked_block_types', function( array $hooked_blocks, string $relative_block_type, string $section, mixed $context ): array {
     if ( '{{THEME_SLUG}}/my-pattern' === $relative_block_type && 'after' === $section ) {
         $hooked_blocks[] = 'my-theme/logic-provider-block';
     }
     return $hooked_blocks;
 }, 10, 4 );
 ```
+
+**WP 7.0: Block Hooks across all content-like CPTs.** In WP 7.0, the Block Hooks resolver moved from individual post-type filters into the REST controller. Block Hooks now fire automatically for all custom post types registered with `'show_in_rest' => true` and `'supports' => ['editor']`. The previous workaround of filtering `wp_block_editor_settings` per-CPT is no longer needed on WP 7.0.
 
 ---
 
@@ -503,6 +556,44 @@ The Interactivity API is the modern standard for frontend logic. It uses declara
 ```
 
 *Note: Requires registering the store in `index.js` using `store()`. Elite usage avoids `event.target.style` and instead toggles state attributes or CSS classes via `data-wp-class` or `data-wp-style`.*
+
+### Reactive Signal Subscriptions: `watch()` and `data-wp-watch` (WP 7.0)
+
+Use `watch()` when a block must react to state changes without a direct user event — e.g. syncing a cart count badge when items are added from another block.
+
+**Programmatic (`index.js`):**
+
+```js
+import { store, watch } from '@wordpress/interactivity';
+
+const { state } = store( 'my-theme/cart', {
+    state: { count: 0 },
+    callbacks: {
+        onCountChange() {
+            // Runs once on init and again whenever state.count changes.
+            document.title = `(${state.count}) My Shop`;
+        },
+    },
+} );
+
+// Returns a teardown function — call it to remove the subscription.
+const unwatch = watch( () => {
+    console.log( 'Cart count:', state.count );
+} );
+```
+
+**Declarative (markup):**
+
+```html
+<div
+  data-wp-interactive="my-theme/cart"
+  data-wp-watch="callbacks.onCountChange"
+>
+  <!-- Callback fires whenever any reactive state it reads changes. -->
+</div>
+```
+
+Decision: use `data-wp-watch` when the side effect is tied to a specific DOM element. Use programmatic `watch()` when the side effect is global (e.g. updating `document.title` or writing a cookie).
 
 ---
 
@@ -532,6 +623,103 @@ In WP 7.0, any block attribute that supports Block Bindings also supports Patter
 ```
 
 **Editor UI.** In the editor, editors select the block, open the block sidebar, expand **Advanced**, and click **Enable overrides**. Once enabled, instances of the synced pattern can override the marked attributes while keeping the rest of the design in sync.
+
+### Pattern Overrides for Custom Blocks (WP 7.0)
+
+Prior to 7.0, Pattern Overrides were limited to core blocks that natively supported `metadata.bindings`. WP 7.0 expands this via the `block_bindings_supported_attributes` PHP filter, allowing any custom block to expose its attributes to the Pattern Overrides UI.
+
+```php
+add_filter(
+    'block_bindings_supported_attributes',
+    function( array $supported, string $block_name ): array {
+        if ( '{{THEME_SLUG}}/product-card' === $block_name ) {
+            $supported[] = 'heading';
+            $supported[] = 'description';
+        }
+        return $supported;
+    },
+    10,
+    2
+);
+```
+
+After this filter is registered, a synced pattern containing a `{{THEME_SLUG}}/product-card` block will show the "Enable overrides" toggle for the `heading` and `description` attributes in the block sidebar. The custom block must declare these attributes in its `block.json` or `register_block_type()` `attributes` array.
+
+---
+
+## Viewport Block Visibility (WP 7.0)
+
+Control which device types see a block using `metadata.blockVisibility.viewport`. This is the WordPress-native mechanism — do not use CSS `display: none` on device breakpoints for this purpose; the viewport key removes the block from the DOM entirely on excluded devices.
+
+### Decision rule
+
+| Goal | Setting |
+|---|---|
+| Show on all devices | Omit `blockVisibility` entirely (default) |
+| Show on desktop only | `"viewport": ["desktop"]` |
+| Hide on mobile only | `"viewport": ["tablet", "desktop"]` |
+| Show on mobile only | `"viewport": ["mobile"]` |
+| Hide on all devices | `"viewport": []` ← avoid; omit key instead |
+
+### Enable in `theme.json`
+
+```json
+"settings": {
+  "blockVisibility": { "viewport": true }
+}
+```
+
+To enable only for a specific block type:
+
+```json
+"settings": {
+  "blocks": {
+    "core/group": { "blockVisibility": { "viewport": true } }
+  }
+}
+```
+
+### Block markup example
+
+```html
+<!-- wp:group {
+  "metadata": {
+    "blockVisibility": {
+      "viewport": ["tablet", "desktop"]
+    }
+  }
+} -->
+<div class="wp-block-group">
+  <!-- This block is hidden on mobile. Not present in mobile DOM. -->
+</div>
+<!-- /wp:group -->
+```
+
+---
+
+## Font Library (WP 7.0)
+
+The Font Library is now enabled for **all theme types** — block, hybrid, and classic. Site admins manage installed fonts via Appearance → Editor → Styles → Typography → Manage Fonts. Font Library fonts are stored in `wp-content/fonts/` and survive theme switches.
+
+### What this means for theme development
+
+- Fonts registered in `theme.json fontFamilies` (file-based, version-controlled) and fonts installed via the Font Library (database-based) both appear in the editor's Typography panel.
+- There is no PHP API for the Font Library — it is editor-only.
+
+### Agent rule
+
+- User says "add a font" → use `theme.json fontFamilies` (version-controlled, tracked in git).
+- User says "install a font" or "the font picker is missing X" → direct them to Appearance → Editor → Styles → Typography → Manage Fonts.
+- Do NOT enqueue fonts via `wp_enqueue_style` that already exist in the Font Library — it creates duplicates.
+
+### Iframed Editor Enforcement (Block API v3)
+
+When every block in use declares `"apiVersion": 3` in its `block.json`, the WordPress editor enforces the iframed editor. This eliminates the shared DOM between the editor and the frontend, which means:
+
+- Scripts targeting `document` or `window` directly will NOT fire inside the editor iframe. Always use Interactivity API directives (`data-wp-*`) — never bare `document.addEventListener` in theme JS.
+- Custom blocks shipped with the theme MUST declare `"apiVersion": 3`. Using any v1 or v2 block degrades the entire editor to the legacy non-iframed mode.
+
+To verify: open a template in the Site Editor and run `window.frameElement` in the browser console. If it returns an `<iframe>` element, the iframed editor is active.
 
 ---
 
@@ -595,6 +783,23 @@ add_filter( 'block_editor_rest_api_get_items_query_params', function( $params, $
 
 ---
 
+## PHP 8.3 Requirements
+
+Every PHP file emitted by this skill must pass all ten gates below before writing. These are pre-write checks — missing any one means the code is rejected and rewritten.
+
+1. `<?php` on line 1.
+2. `declare(strict_types=1);` on line 2 (full files only — not excerpt snippets that begin mid-function or with a bare `add_action(` call).
+3. Every named function has typed parameters and a return type: `function my_fn( string $arg ): void {}`.
+4. Anonymous callbacks in `add_action`, `add_filter`, and `register_block_type` have typed parameters and return types.
+5. Use `??` (null coalescing) instead of `isset($x) ? $x : ''`.
+6. Use `str_contains()`, `str_starts_with()`, `str_ends_with()` instead of `strpos() !== false`.
+7. Use `match` expressions instead of `switch` when the result is a single value.
+8. Use `?->` null-safe operator for optional chaining on nullable objects.
+9. Apply `readonly` to class properties set once in the constructor and never mutated.
+10. Use `array_is_list()` when checking whether an array is a sequential list.
+
+WP snake_case function names and hook names are unchanged. These PHP 8.3 rules apply to function bodies and signatures only, not to the WordPress API surface.
+
 ### Required Header
 
 Every PHP pattern file MUST start with this header comment (PHP comment, not HTML):
@@ -634,7 +839,7 @@ theme overrides parent.
 Register custom categories in `functions.php` before patterns use them:
 
 ```php
-function mytheme_register_pattern_categories() {
+function mytheme_register_pattern_categories(): void {
     register_block_pattern_category(
         'my-theme',
         array( 'label' => __( 'My Theme', 'my-theme' ) )
@@ -651,12 +856,14 @@ add_action( 'init', 'mytheme_register_pattern_categories' );
 
 ```php
 <?php
+declare(strict_types=1);
+
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
  * Enqueue parent and child stylesheets.
  */
-function mytheme_child_enqueue_styles() {
+function mytheme_child_enqueue_styles(): void {
     wp_enqueue_style(
         'mytheme-parent-style',
         get_template_directory_uri() . '/style.css',
@@ -669,7 +876,7 @@ add_action( 'wp_enqueue_scripts', 'mytheme_child_enqueue_styles', 9 );
 /**
  * Theme setup: pattern categories.
  */
-function mytheme_child_setup() {
+function mytheme_child_setup(): void {
     register_block_pattern_category(
         '{{THEME_SLUG}}',
         array( 'label' => __( '{{THEME_NAME}}', '{{TEXT_DOMAIN}}' ) )
@@ -680,7 +887,7 @@ add_action( 'after_setup_theme', 'mytheme_child_setup' );
 /**
  * Register block styles and assets for patterns.
  */
-function mytheme_child_pattern_assets() {
+function mytheme_child_pattern_assets(): void {
     // Use wp_enqueue_block_style for global child resets so they load after core block styles.
     wp_enqueue_block_style(
         'core/group',
@@ -693,10 +900,10 @@ function mytheme_child_pattern_assets() {
 
     // 1. Register the stylesheet for a specific sub-pattern
     wp_register_style(
-        'my-section-style',
-        get_stylesheet_directory_uri() . '/patterns/my-section/style.css',
-        array(),
-        '1.0.0'
+        handle: 'my-section-style',
+        src:    get_stylesheet_directory_uri() . '/patterns/my-section/style.css',
+        deps:   array(),
+        ver:    '1.0.0'
     );
     // Add absolute path to trigger native WP CSS inlining for small files
     wp_style_add_data(
@@ -707,10 +914,10 @@ function mytheme_child_pattern_assets() {
 
     // 2. Register the script module for the pattern
     wp_register_script_module(
-        'my-section-logic',
-        get_stylesheet_directory_uri() . '/patterns/my-section/index.js',
-        array( '@wordpress/interactivity' ),
-        '1.0.0'
+        id:      'my-section-logic',
+        src:     get_stylesheet_directory_uri() . '/patterns/my-section/index.js',
+        deps:    array( '@wordpress/interactivity' ),
+        version: '1.0.0'
     );
 
     // 3. Bind it to a block style variation
@@ -743,10 +950,11 @@ editor isn't reflecting it, the database version is taking precedence.
 
 ### How to force file-based version
 
+0. **Check the Revisions panel first** — Site Editor → select the template/part/pattern → ⋮ → "Revisions" → roll back to "Original". Rolling back is reversible; clearing customisations is not. A revision may be overriding the file, and rolling it back is faster and safer than clearing all customisations.
 1. Open the Site Editor (Appearance → Editor)
 2. Navigate to the affected template or style
 3. Click the three-dot menu (⋮)
-4. Select **"Reset to defaults"** or **"Clear Customizations"**
+4. Select **"Reset to defaults"** or **"Clear Customizations"** (use this only if no usable revision exists)
 
 This removes the database override and forces WordPress to re-read the file.
 
@@ -756,6 +964,8 @@ This removes the database override and forces WordPress to re-read the file.
 - After editing `theme.json` styles
 - After moving a template part to a new area in `theme.json`
 - After adding a new **Ability** to a pattern
+- After enabling or disabling `blockVisibility.viewport` on a block (the editor re-reads settings on next load)
+- When old content persists after file changes — check Revisions before clearing customisations
 
 ### Programmatic cache busting (development)
 

@@ -17,6 +17,7 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | `get_template_directory_uri()` | Returns the **parent** theme URI. |
 | `get_stylesheet_directory_uri()` | Returns the **child** (or current) theme URI. |
 | `get_stylesheet_directory()` | Returns the child theme absolute path (used for `wp_style_add_data( …, 'path', … )`). |
+| `wp_get_image_alttext( $attachment_id )` | WP 7.0+. Returns the alt text stored in attachment meta. Use when importing images to pre-populate `core/image` `alt` attributes. |
 
 ## Block registration
 
@@ -27,6 +28,8 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | `register_block_style( $block, $args )` | Registers a block style variation. `$args` accepts `name`, `label`, `style_handle`, `script_module_handle` (since 6.7). |
 | `unregister_block_style()` | Removes a previously-registered variation. |
 | `wp_enqueue_block_style( $block, $args )` | Enqueues a stylesheet only when the named block is on the page. |
+| `core/headings` | WP 7.0. Container block with H1–H6 as variations, toggled via the block toolbar. Use when editors need to change the heading level. `core/heading` (singular) is used when the level is fixed by design. |
+| `core/navigation-overlay-close` | WP 7.0. Close button for mobile navigation overlays. Must be placed inside a `core/navigation` block that has `overlayMenu` set to `"always"` or `"mobile"`. |
 
 ## Block Bindings
 
@@ -34,6 +37,38 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 |---|---|
 | `register_block_bindings_source( $name, $args )` | Registers a custom binding source. `$args` keys: `label`, `get_value_callback`, `uses_context`. |
 | Built-in sources | `core/post-meta`, `core/post-title`, `core/post-excerpt`, `core/post-date`, `core/post-author-name`, `core/site-title`, `core/site-tagline`, `core/pattern-overrides`. |
+| Filter: `block_bindings_supported_attributes` | WP 7.0+. Allows any custom block to expose attributes to the Pattern Overrides UI. Return an array of attribute names the block exposes. Use this instead of `metadata.bindings` for fully custom blocks. Signature: `apply_filters( 'block_bindings_supported_attributes', array $supported, string $block_name )`. |
+
+## Viewport Block Visibility (WP 7.0+)
+
+| Key | Notes |
+|---|---|
+| `metadata.blockVisibility` | Object on a block's `metadata` attribute. Controls per-device visibility. |
+| `metadata.blockVisibility.viewport` | Array of strings. Allowed values: `"mobile"`, `"tablet"`, `"desktop"`. Block renders only on the listed device types. Omit the key entirely to show on all devices. An empty array `[]` hides the block everywhere. |
+
+Enable viewport visibility in `theme.json settings` before using it (per-block or globally):
+
+```json
+// Per block
+"settings": { "blocks": { "core/group": { "blockVisibility": { "viewport": true } } } }
+
+// Globally (all blocks)
+"settings": { "blockVisibility": { "viewport": true } }
+```
+
+Block markup example (hidden on mobile):
+
+```html
+<!-- wp:group {
+  "metadata": {
+    "blockVisibility": {
+      "viewport": ["tablet", "desktop"]
+    }
+  }
+} -->
+<div class="wp-block-group"><!-- hidden on mobile --></div>
+<!-- /wp:group -->
+```
 
 ## Abilities API (WP 7.0+)
 
@@ -62,6 +97,15 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | `wp_deregister_script_module()` | Removes a registration. |
 | Interactivity API store | Use `store()` from `@wordpress/interactivity` in the module. |
 | HTML directives | `data-wp-interactive`, `data-wp-context`, `data-wp-on--<event>`, `data-wp-bind--<attr>`, `data-wp-class--<name>`, `data-wp-style--<prop>`, `data-wp-text`. |
+| `watch( fn )` from `@wordpress/interactivity` | WP 7.0+. Subscribes to signal changes. `fn` runs once immediately and again whenever any reactive state it reads changes. Returns a teardown cleanup function. |
+| HTML directive `data-wp-watch` | WP 7.0+. Declarative form of `watch()`. The value is a callback key in the store (e.g. `data-wp-watch="callbacks.onSaveChange"`). Runs whenever reactive state the callback reads changes. |
+
+## JavaScript Packages (WP 7.0+)
+
+| Package | Notes |
+|---|---|
+| `@wordpress/boot` | Enables plugins to register custom Site Editor pages with route validation. Import `boot` from this package and call it once during editor initialisation. WP 7.0+. |
+| `@wordpress/grid` | Standardised grid toolkit for editor interfaces. Provides `GridLayout`, `GridItem`, and related components. WP 7.0+. |
 
 ## Block Hooks
 
@@ -94,6 +138,7 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | Function / behaviour | Notes |
 |---|---|
 | Site Editor database overrides | Documented behaviour; clear via Appearance → Editor → ⋮ → "Reset to defaults" / "Clear Customizations". No PHP API. |
+| Template / Template Part / Pattern Revisions | WP 7.0+. Edit history for templates, template parts, and synced patterns. Access via Site Editor → select entity → ⋮ → "Revisions". Roll back to any saved version. No PHP API — editor-only. Check revisions BEFORE clearing customisations — rolling back is reversible, clearing is not. |
 | `wp_register_style()` / `wp_enqueue_style()` | Standard stylesheet registration. |
 | `wp_style_add_data( $handle, 'path', $absolute_path )` | Enables WordPress's small-CSS inlining. |
 
@@ -107,3 +152,5 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | `__experimentalRole: 'content'` | Removed. Use `metadata.bindings` + `metadata.name` for Pattern Overrides. |
 | `"version": 4` in theme.json | No such version. Use `"version": 3`. |
 | `https://schemas.wp.org/wp/7.0/theme.json` | 404. Use `https://schemas.wp.org/trunk/theme.json` or `https://schemas.wp.org/wp/6.6/theme.json`. |
+| `@wordpress/viewport-visibility` | Does not exist. Use the `metadata.blockVisibility.viewport` key directly on the block's metadata attribute. |
+| `wp_register_font_library_font()` | Does not exist. The Font Library is a UI-only feature managed via Appearance → Editor → Styles → Typography → Manage Fonts, or via `theme.json fontFamilies` for version-controlled registration. |

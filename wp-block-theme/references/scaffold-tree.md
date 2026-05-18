@@ -2,6 +2,8 @@
 
 Copy these layouts verbatim when starting a new theme, child theme, or dynamic block. Replace `{{THEME_SLUG}}` with the actual kebab-case slug.
 
+> **PHP 8.3 rule:** Every `.php` file created from these scaffolds must begin with `<?php` followed immediately by `declare(strict_types=1);`. All named functions must have typed parameters and return types (e.g. `function my_fn( string $arg ): void {}`). Anonymous callbacks in `add_action` / `add_filter` / `register_block_type` must also be typed. See `references/architecture.md → PHP 8.3 Requirements` for the complete ten-point checklist.
+
 ## Parent block theme
 
 ```
@@ -100,7 +102,7 @@ If you must target WP 6.9 or earlier (no `autoRegister` flag):
 Then in `functions.php`:
 
 ```php
-add_action( 'init', function() {
+add_action( 'init', function(): void {
     register_block_type( get_theme_file_path( 'blocks/{block-slug}' ) );
 } );
 ```

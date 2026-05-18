@@ -231,6 +231,38 @@ When `true`, WordPress applies padding via a `.has-global-padding` class on grou
 of on `body`. This lets "Full Width" blocks extend edge-to-edge while inner content still respects
 the gutter. Essential for landing pages with full-bleed sections.
 
+### Viewport Block Visibility (WP 7.0)
+
+Enable viewport-based block visibility globally or per-block type in `settings`:
+
+```json
+"settings": {
+  "blockVisibility": { "viewport": true }
+}
+```
+
+Once enabled, individual blocks can set `metadata.blockVisibility.viewport` to `["mobile"]`, `["tablet"]`, `["desktop"]`, or any combination. See `references/api-allowlist.md → Viewport Block Visibility` for the full block markup example and decision rules.
+
+### Preset Dimension Values (WP 7.0)
+
+Define reusable dimension presets in `settings.dimensions` so editors pick from a controlled list instead of entering arbitrary heights. Slugs resolve to CSS custom properties with the pattern `var(--wp--preset--dimension--{slug})`.
+
+```json
+"settings": {
+  "dimensions": {
+    "aspectRatios": [
+      { "slug": "square",     "name": "Square",     "ratio": "1" },
+      { "slug": "landscape",  "name": "Landscape",  "ratio": "4/3" },
+      { "slug": "widescreen", "name": "Widescreen", "ratio": "16/9" }
+    ],
+    "defaultAspectRatios": false,
+    "minHeight": true
+  }
+}
+```
+
+`defaultAspectRatios: false` hides the WordPress-provided defaults and enforces only your design system ratios. These slugs appear in the `core/cover` block's "Aspect ratio" control.
+
 ---
 
 ## Block-Specific Targeting
@@ -276,6 +308,82 @@ the gutter. Essential for landing pages with full-bleed sections.
   }
 }
 ```
+
+### Button Pseudo-Element States (WP 7.0)
+
+WP 7.0 exposes `:hover`, `:focus`, `:active`, and `:focus-visible` for the Button block directly in `theme.json`. Do not replicate these in a scoped `.css` file — the styles engine handles specificity and injects them into both the frontend and the editor iframe automatically.
+
+```json
+"styles": {
+  "blocks": {
+    "core/button": {
+      "color": {
+        "background": "var(--wp--preset--color--accent)",
+        "text":       "var(--wp--preset--color--white)"
+      },
+      "border": { "radius": "4px" },
+      ":hover": {
+        "color": { "background": "var(--wp--preset--color--primary)" }
+      },
+      ":focus": {
+        "outline": {
+          "color":  "var(--wp--preset--color--accent)",
+          "width":  "3px",
+          "offset": "2px"
+        }
+      },
+      ":active": {
+        "color": { "background": "var(--wp--preset--color--primary)" }
+      },
+      ":focus-visible": {
+        "outline": {
+          "color":  "var(--wp--preset--color--accent)",
+          "width":  "3px",
+          "offset": "2px"
+        }
+      }
+    }
+  }
+}
+```
+
+Rule: always define `:focus` and `:focus-visible` together with the same outline so keyboard and pointer users get identical visible focus styles. Never set `outline: none` without a visible replacement.
+
+### Text Indent (WP 7.0)
+
+`textIndent` is now a first-class typography property for Paragraph blocks. Set it globally, per-block, or per-variation.
+
+```json
+"styles": {
+  "blocks": {
+    "core/paragraph": {
+      "typography": {
+        "textIndent": "2em"
+      }
+    }
+  }
+}
+```
+
+To apply only to a specific variation (e.g. a "drop-cap" style), use `styles.blocks.core/paragraph.variations.{name}.typography.textIndent`.
+
+### Paragraph Column Layout (WP 7.0)
+
+Paragraph blocks now accept a CSS `columns` property via `theme.json`. Use this for long-form text that needs a multi-column newspaper layout without a custom block.
+
+```json
+"styles": {
+  "blocks": {
+    "core/paragraph": {
+      "typography": {
+        "textColumns": "2"
+      }
+    }
+  }
+}
+```
+
+`textColumns` accepts a string integer (`"2"`, `"3"`, etc.) or `"inherit"`. The column gap is controlled by the block's `spacing.blockGap` value. To apply only to specific paragraphs, use a block style variation.
 
 ### Element-Level Targeting
 

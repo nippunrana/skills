@@ -22,12 +22,14 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 | Original HTML | Core Block | Implementation |
 |---|---|---|
 | `<section class="hero">` | `core/group` | Use `tagName: "section"` |
-| `<h1>Title</h1>` | `core/heading` | Use `level: 1` |
+| `<h1>Title</h1>` (fixed level) | `core/heading` | Use `level: 1`. Level is fixed and cannot be changed by editors. |
+| `<h1>–<h6>` (editor-togglable level) | `core/headings` (WP 7.0) | Use when editors must be able to change the heading level via the block toolbar. Set default with `"level": 2` in block attributes. |
 | `<div class="features">` | `core/group` | Use `layout: { "type": "grid" }` |
 | `<a class="btn">` | `core/button` | Use `className: "btn-primary"` |
 | `<div class="accordion">` | `core/accordion` | (WP 6.9+) Native component |
 | `<div class="card">` | `core/group` | Child of native Grid |
 | `SVG Icon` | `core/icon` (WP 7.0) | Register the icon against the new Icon Registration API so it appears in the inserter. |
+| Mobile nav close button | `core/navigation-overlay-close` (WP 7.0) | Place inside `core/navigation` with `"overlayMenu": "always"` or `"overlayMenu": "mobile"`. |
 
 Using Core Blocks lets editors change colors, typography, and spacing via the Site Editor's global styles instead of editing CSS. Only fall back to a dynamic block (`register_block_type()` + `render_callback`) for sections that genuinely cannot be expressed with core.
 
@@ -322,48 +324,49 @@ Replace static FAQ HTML with the native `core/accordion` block:
 ### Output: `functions.php` additions
 
 ```php
+<?php
+declare(strict_types=1);
+
 // New pattern asset registration:
-function {{THEME_SLUG}}_example_landing_assets() {
+function {{THEME_SLUG}}_example_landing_assets(): void {
     // 1. Register and bind Hero CSS
     wp_register_style(
-        'example-landing-hero-style',
-        get_stylesheet_directory_uri() . '/patterns/example-landing-hero/style.css',
-        array(),
-        '1.0.0'
+        handle: 'example-landing-hero-style',
+        src:    get_stylesheet_directory_uri() . '/patterns/example-landing-hero/style.css',
+        deps:   array(),
+        ver:    '1.0.0'
     );
     wp_style_add_data( 'example-landing-hero-style', 'path', get_stylesheet_directory() . '/patterns/example-landing-hero/style.css' );
-    register_block_style( 'core/group', array(
-        'name'         => 'example-landing-hero',
-        'style_handle' => 'example-landing-hero-style',
-    ));
 
     // 2. Register and bind Features CSS
     wp_register_style(
-        'example-landing-features-style',
-        get_stylesheet_directory_uri() . '/patterns/example-landing-features/style.css',
-        array(),
-        '1.0.0'
+        handle: 'example-landing-features-style',
+        src:    get_stylesheet_directory_uri() . '/patterns/example-landing-features/style.css',
+        deps:   array(),
+        ver:    '1.0.0'
     );
     wp_style_add_data( 'example-landing-features-style', 'path', get_stylesheet_directory() . '/patterns/example-landing-features/style.css' );
-    register_block_style( 'core/group', array(
-        'name'         => 'example-landing-features',
-        'style_handle' => 'example-landing-features-style',
-    ));
 
     // 3. Register Script Module for Interactivity logic
     wp_register_script_module(
-        'example-landing/hero-logic',
-        get_stylesheet_directory_uri() . '/patterns/example-landing-hero/index.js',
-        array( '@wordpress/interactivity' ),
-        '1.0.0'
+        id:      'example-landing/hero-logic',
+        src:     get_stylesheet_directory_uri() . '/patterns/example-landing-hero/index.js',
+        deps:    array( '@wordpress/interactivity' ),
+        version: '1.0.0'
     );
 
-    // 4. Bind Script Module to the Hero block style
+    // 4. Bind CSS + Script Module to the Hero block style (one register_block_style call with both handles)
     register_block_style( 'core/group', array(
         'name'                 => 'example-landing-hero',
         'style_handle'         => 'example-landing-hero-style',
         'script_module_handle' => 'example-landing/hero-logic',
-    ));
+    ) );
+
+    // 5. Bind Features CSS
+    register_block_style( 'core/group', array(
+        'name'         => 'example-landing-features',
+        'style_handle' => 'example-landing-features-style',
+    ) );
 }
 add_action( 'init', '{{THEME_SLUG}}_example_landing_assets' );
 ```
@@ -430,6 +433,42 @@ within:
 }
 ```
 
+### Viewport Visibility (WP 7.0)
+
+Use `metadata.blockVisibility.viewport` to show or hide blocks by device type. Do not use CSS `display: none` for device visibility — the viewport key removes the block from the DOM entirely on excluded devices (better for performance and SEO).
+
+**Before (CSS approach — do not use in WP 7.0):**
+
+```css
+/* Do NOT do this */
+.desktop-only-section { display: none; }
+@media (min-width: 1024px) { .desktop-only-section { display: block; } }
+```
+
+**After (viewport visibility — use this):**
+
+```html
+<!-- wp:group {
+  "metadata": {
+    "blockVisibility": {
+      "viewport": ["desktop"]
+    }
+  }
+} -->
+<div class="wp-block-group">
+  <!-- Renders only on desktop. Not present in mobile/tablet DOM. -->
+</div>
+<!-- /wp:group -->
+```
+
+Enable in `theme.json settings` before using:
+
+```json
+"settings": {
+  "blockVisibility": { "viewport": true }
+}
+```
+
 ---
 
 ## JavaScript Patterns
@@ -481,7 +520,7 @@ WordPress 7.0 ships a `core/icon` block backed by an Icon Registration API and a
 If you are on WP 6.9 or earlier — or the 7.0 Icon Registration API signature is not yet final in your environment — fall back to a PHP helper as documented in `compatibility-6.9.md`:
 
 ```php
-function {{THEME_SLUG}}_get_icon( $name ) {
+function {{THEME_SLUG}}_get_icon( string $name ): string {
     $icons = array(
         'warning' => '<svg viewBox="0 0 24 24"><path d="..."/></svg>',
     );
@@ -546,6 +585,7 @@ A static `<nav>` bar in the HTML design should be evaluated case-by-case:
 | Template is a full-page landing (no WP nav needed) | Render the static nav from a dynamic block registered via `register_block_type()` + `render_callback`. |
 | Template should use the site's WP menus | Replace with `<!-- wp:navigation /-->` block |
 | Template needs a custom fixed nav | Keep in a dedicated `{slug}-nav.php` sub-pattern |
+| Template has a mobile hamburger/overlay menu (WP 7.0) | Use `core/navigation` with `"overlayMenu": "mobile"` and add `core/navigation-overlay-close` inside |
 
 **Using native WP navigation block:**
 
@@ -554,6 +594,16 @@ A static `<nav>` bar in the HTML design should be evaluated case-by-case:
 ```
 
 This renders the menu registered in WP Admin → Appearance → Menus (or created in the Site Editor).
+
+**Mobile overlay with close button (WP 7.0):**
+
+```html
+<!-- wp:navigation {"overlayMenu":"mobile","layout":{"type":"flex","justifyContent":"space-between"}} -->
+  <!-- wp:navigation-overlay-close /-->
+  <!-- wp:navigation-link {"label":"Home","url":"/"} /-->
+  <!-- wp:navigation-link {"label":"About","url":"/about"} /-->
+<!-- /wp:navigation -->
+```
 
 ---
 
@@ -579,7 +629,7 @@ Render iframes from a dynamic block. The block's `render_callback` returns the i
 
 ```php
 register_block_type( '{{THEME_SLUG}}/map-embed', array(
-    'render_callback' => function() {
+    'render_callback' => function( array $attributes, string $content, WP_Block $block ): string {
         return '<div class="map-wrapper"><iframe src="https://maps.google.com/..." width="100%" height="400" loading="lazy" allowfullscreen></iframe></div>';
     },
 ) );
@@ -708,8 +758,8 @@ When the user provides separate HTML, CSS, and JS files:
 
 ```php
 // Example: user's HTML had <link href="https://fonts.googleapis.com/css2?family=Inter...">
-function {{THEME_SLUG}}_my_template_fonts( $block_content, $block ) {
-    if ( isset( $block['attrs']['className'] ) && strpos( $block['attrs']['className'], 'is-style-my-template' ) !== false ) {
+function {{THEME_SLUG}}_my_template_fonts( string $block_content, array $block ): string {
+    if ( isset( $block['attrs']['className'] ) && str_contains( $block['attrs']['className'], 'is-style-my-template' ) ) {
         wp_enqueue_style(
             'my-template-google-fonts',
             'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap',
@@ -746,17 +796,17 @@ Prefer the `core/icon` block plus the Icon Registration API (see the icon conver
 Move to `functions.php` using `wp_head` hook:
 
 ```php
-function my_template_structured_data( $block_content, $block ) {
+function my_template_structured_data( string $block_content, array $block ): string {
     static $has_run = false;
-    if ( ! $has_run && isset( $block['attrs']['className'] ) && strpos( $block['attrs']['className'], 'is-style-my-template' ) !== false ) {
+    if ( ! $has_run && isset( $block['attrs']['className'] ) && str_contains( $block['attrs']['className'], 'is-style-my-template' ) ) {
         $has_run = true;
-        add_action( 'wp_footer', function() {
-            echo '<script type="application/ld+json">' . wp_json_encode([
+        add_action( 'wp_footer', function(): void {
+            echo '<script type="application/ld+json">' . wp_json_encode( array(
                 '@context' => 'https://schema.org',
                 '@type'    => 'Organization',
-                'name'     => get_bloginfo('name'),
-            ]) . '</script>';
-        });
+                'name'     => get_bloginfo( 'name' ),
+            ) ) . '</script>';
+        } );
     }
     return $block_content;
 }
