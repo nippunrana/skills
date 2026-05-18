@@ -111,18 +111,21 @@ If you inject code, every line MUST follow the tagging protocol in `references/i
 Match the data against the ranked hypotheses:
 
 - **Confirmed?** Trace the infection chain *upstream*. The first wrong value is closer to the root than the visible failure. Keep going until you find the defect that caused it.
-- **Refuted?** Pivot to H2 or generate a new hypothesis. Loop back to Phase 3.
+- **Refuted?** Discard the hypothesis immediately — don't add a second probe trying to rescue it. State in one line what you now know to be true (e.g., "the validation function is *not* using stale refs — values match on every keystroke"), then pivot to H2 or form a fresh hypothesis from the new evidence. Loop back to Phase 3.
 
 **Don't fix yet.** Premature fixes are how patches end up next to bugs instead of replacing them.
 
 **Checkpoint:** root cause identified — a specific file, line, and reason.
 
 ### Phase 6 — Fix
-Apply the fix **at the root**, not at the symptom. If the validation function is wrong, fix the validation function — don't add an extra setState in the parent.
 
-When the project has a test suite, write a failing test that reproduces the bug, then make it pass with the fix. This converts the bug into a permanent regression case.
+**Test first (if a test suite exists).** Write the regression test *before* touching production code. Run it and confirm it fails *for the reason your root-cause analysis predicted* — a test that fails for the wrong reason is worse than no test. Only then apply the fix.
 
-**Checkpoint:** fix written; if tests exist, a new test covers the bug.
+**Fix at the root, not the symptom.** If the validation function is wrong, fix the validation function — don't add an extra setState in the parent. If you find yourself wrapping the visible failure in defensive code, you haven't found the root yet; return to Phase 5.
+
+**Address the design root for recurring bug classes.** The infection chain (Phase 5) finds *the first wrong value*. For severe, architectural, or "this keeps happening in different forms" bugs, ask one more question: *why was that value allowed to be wrong in the first place?* If the answer points at shared mutable state, a missing invariant, a leaky abstraction, or an implicit contract, the design root is where the fix belongs — not the data root. Patching only the data root means the bug will resurface under a different symptom.
+
+**Checkpoint:** failing test written and confirmed failing; fix applied; test now passes; for architectural bugs, the design-level cause is named even if a follow-up issue is filed rather than fixed in this pass.
 
 ### Phase 7 — Cleanup (NEVER SKIP THIS)
 Remove every line of debug instrumentation injected during Phases 3–5. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them, then verify with:
