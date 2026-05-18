@@ -15,7 +15,7 @@ description: >
 ---
 
 # WordPress Block Theme Developer
-*Default target: WordPress 7.0 (released 2026-05-20). If the user explicitly states they are on WordPress 6.9 or earlier, read `references/compatibility-6.9.md` and substitute the documented fallbacks.*
+*Target: WordPress 7.0+ (released 2026-05-20). Earlier versions are out of scope.*
 
 ## Required Context (Dynamic Variables)
 
@@ -43,12 +43,19 @@ underlying building blocks used during that process.
    - Read `AI_CONTEXT-Child.md` if working on a child theme.
    - Read `AI_CONTEXT.md` if working on the parent theme core.
    - Always prioritize child themes for project-specific features unless you are building foundational capabilities into the parent.
-3. **Follow the architecture rules** in `references/architecture.md`. Only load `references/compatibility-6.9.md` if the user has explicitly stated they are on WordPress 6.9 or earlier.
+3. **Follow the architecture rules** in `references/architecture.md`.
 4. **Pre-write gates.** Before writing any code, all four gates must pass. If any gate fails, fix it before proceeding:
-   - **API gate:** Every WordPress function or class name must appear in `references/api-allowlist.md`. The "Names that look real but are not" section lists fabricated APIs to never use (`register_block_ability`, `WP_Icons_Registry::register`, `is_ai_ready`, `__experimentalRole`, `"version": 4`).
-   - **PHP 8.3 gate:** Every PHP file must start with `declare(strict_types=1);` — **exception:** PHP block pattern files that contain only the docblock header and block markup with no function or class definitions are exempt (strict_types has no effect without typed function signatures); inline PHP expressions such as `<?php echo esc_url( get_stylesheet_directory_uri() ); ?>` are permitted in these files. Every named function and anonymous callback must have typed parameters and a return type. Use `??`, `str_contains()`, `match`, and `?->` where appropriate. Full checklist: `references/architecture.md → PHP 8.3 Requirements`.
+   - **API gate:** Every WordPress function or class name must appear in `references/api-allowlist.md`. The "Names that look real but are not" section lists fabricated APIs to never use (`register_block_ability`, `WP_Icons_Registry::register`, `is_ai_ready`, `__experimentalRole`, `"version": 4`). **Disambiguation:** `__experimentalSettings` (a per-block container attribute controlling content-only opt-out) is a distinct, supported escape hatch — do not conflate it with the fabricated `__experimentalRole`. Prefer the stable `disableContentOnlyForUnsyncedPatterns` PHP/JS filter (site-wide) over the per-block `__experimentalSettings` attribute (experimental, may rename).
+   - **PHP 8.3 gate:** Every named function and anonymous callback must have typed parameters and a return type. Use `??`, `str_contains()`, `match`, and `?->` where appropriate. Full checklist: `references/architecture.md → PHP 8.3 Requirements`. `declare(strict_types=1);` requirement by file type:
+
+     | File path pattern | `declare(strict_types=1);` required? |
+     |---|---|
+     | `functions.php`, `inc/**/*.php`, `src/**/*.php` | Yes |
+     | `patterns/*.php` (docblock + block markup only, no function/class) | No — strict_types has no effect without typed signatures |
+     | `patterns/*.php` (contains any `function` or `class` keyword) | Yes — but move the function out; that's a smell |
+     | Backing PHP for template parts (`patterns/header-*.php`, etc.) | No (same rule as patterns) |
    - **Version gate:** `"version": 3` in all `theme.json` files. Never write `"version": 4`.
-   - **WP 7.0 gate:** Confirm each feature exists in WP 7.0. If the user is on 6.9 or earlier, load `references/compatibility-6.9.md` and substitute the documented fallbacks.
+   - **WP 7.0 gate:** Every feature used must exist in WP 7.0. If unsure, consult `references/api-allowlist.md`.
 5. **Execute** using the implementation checklists below. Use `references/scaffold-tree.md` for the directory layout.
 6. **Verify** — run a quick filesystem audit and remind the user to check the Site Editor Revisions panel (⋮ → "Revisions") before using "Clear Customizations" if they report that file changes are not showing.
 
@@ -59,10 +66,30 @@ underlying building blocks used during that process.
 - **Respect the Parent/Child boundary.**
   - Child Theme Context: if `AI_CONTEXT-Child.md` exists and is the active focus, never touch the parent theme directory. All modifications go in the child theme.
   - Parent Theme Context: if you are explicitly developing the parent core (active folder matches the theme folder and task is foundational), you may modify parent files. If a feature is project-specific, suggest moving it to a child theme instead.
-- **Native-first conversion.** Recreate designs using Core Blocks (`core/group`, `core/columns`, `core/heading`, `core/image`, `core/icon` (WP 7.0 only — use inline SVG or `compatibility-6.9.md` helper on 6.9), etc.). Use the Grid layout (`{"layout": {"type": "grid"}}` on `core/group`) for grid layouts. Avoid `wp:html`; for complex sections that cannot be represented by core blocks, register a dynamic block server-side via `register_block_type()` with a `render_callback`. This keeps colors, typography, and spacing under Site Editor control. See `references/architecture.md → Native-First Decision Algorithm` for the full decision tree.
-- **Register custom templates in `theme.json` `customTemplates`** for all standard single-theme work — this is the default. Use `register_block_template()` (introduced 6.7) only when a template must be shared across multiple themes or shipped inside a plugin. Do not use both mechanisms for the same template; they will double-register it. See `references/architecture.md` for the full `register_block_template()` signature.
-- **`contentOnly` is now the default for unsynced patterns (WP 7.0).** Do NOT add `"templateLock": "contentOnly"` to unsynced patterns — it is already active. Apply it explicitly only to synced patterns and template parts where structure must be locked. To opt out: use `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` on the outermost block (per-pattern, experimental), or the stable `disableContentOnlyForUnsyncedPatterns` PHP/JS filter (site-wide). **Custom blocks nested inside contentOnly patterns MUST declare `"role": "content"` on every editable attribute in `block.json`** — without this the block is hidden from List View and non-selectable, with no error. See `references/architecture.md → Content-Only Locking` for the full decision tree and block author requirements.
-- **Block locking.** Apply `"lock": {"move": true, "remove": true}` to the outermost wrapper of master patterns and template parts so accidental deletion cannot break the layout.
+- **Native-first conversion.** Recreate designs using Core Blocks (`core/group`, `core/columns`, `core/heading`, `core/image`, `core/icon`, etc.). Use the Grid layout (`{"layout": {"type": "grid"}}` on `core/group`) for grid layouts. This keeps colors, typography, and spacing under Site Editor control. **NEVER use `wp:html`. NEVER paste raw HTML into a template file.** When a design cannot be expressed in core blocks, use this fallback hierarchy:
+  1. Compose with `core/group`, `core/columns`, and the Grid layout. *(Default.)*
+  2. Register a **PHP-only block**: `register_block_type()` with `'supports' => ['autoRegister' => true]` and a `render_callback`. No `block.json`, no JS, no build step. WP 7.0 auto-generates Inspector Controls for string, integer, boolean, and enum attributes.
+  3. **Classic dynamic block** (`register_block_type()` with full `block.json` + `render_callback`) — only when the block needs custom JS-driven editor controls beyond auto-generated ones.
+  See `references/architecture.md → Native-First Decision Algorithm` for the full decision tree.
+- **Template registration — use exactly one mechanism per template name:**
+  - Use `theme.json` `customTemplates` if the template ships inside a theme (parent or child).
+  - Use `register_block_template()` if the template ships inside a plugin or must be reused across themes.
+  - **NEVER use both for the same template name** — silent double-registration is one of the hardest FSE bugs to diagnose.
+  See `references/architecture.md` for the full `register_block_template()` signature.
+- **`contentOnly` templateLock — apply by pattern type:**
+
+  | Pattern type | `templateLock` value |
+  |---|---|
+  | Unsynced pattern (default) | Omit the attribute. WP 7.0 applies `contentOnly` automatically. |
+  | Synced pattern that must lock structure | `"templateLock": "contentOnly"` explicit |
+  | Template part backing pattern | `"templateLock": "contentOnly"` explicit |
+  | Pattern with editable inner blocks (e.g., FAQ items) | Omit, then mark editable child attributes with `"role": "content"` in `block.json` |
+
+  To opt out site-wide: use the stable `disableContentOnlyForUnsyncedPatterns` PHP/JS filter. To opt out per-pattern: `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` on the outermost block (experimental, may rename). **Custom blocks nested inside contentOnly patterns MUST declare `"role": "content"` on every editable attribute in `block.json`** — without this the block is hidden from List View with no error. See `references/architecture.md → Content-Only Locking` for the full decision tree.
+- **Block locking — three non-overlapping rules:**
+  - **Sub-patterns and inserter-visible patterns:** outermost block MUST carry `"lock": {"move": true, "remove": true}` AND `"className": "is-style-{pattern-slug}"`.
+  - **Master/assembler patterns** (`Inserter: false`, called only via `wp:pattern`): MUST contain only a flat list of `<!-- wp:pattern -->` comments. No wrapper block. No lock attribute. No styles. No `className`.
+  - **Template parts** (outermost block of the backing PHP pattern): MUST carry `"lock": {"move": true, "remove": true}`.
 - **CSS scoping via Block Style Variations.** Scope CSS strictly to the block's variation class (e.g. `.is-style-hero-section`) and register that style with `register_block_style()`. WordPress then injects the CSS automatically into both the frontend and the editor iframe.
 - **Modern interactivity.** Reactive logic (state toggles, dynamic updates, user-event-driven UI) → use the Interactivity API. Register as a **Script Module** with `wp_register_script_module()` and bind via `script_module_handle` on `register_block_style()` so it loads only when the block is present. Save to `patterns/{sub-pattern}/view.js`. Non-reactive logic (IntersectionObserver animations, GSAP effects) that reads/writes no shared state → a `document.addEventListener('DOMContentLoaded', …)` guard is acceptable. Always gate on `if (window.frameElement) return;` to suppress in the editor iframe and scope all selectors to the variation class. Save to `patterns/{sub-pattern}/index.js`. Never use `document.addEventListener` for reactive state — that belongs in a Script Module.
 - **Block Hooks** can automatically attach a logic-providing block before/after a target block — useful for mandatory wiring that must not be missed by editors. In WP 7.0, hooks fire for all CPTs registered with `'show_in_rest' => true` and `'supports' => ['editor']` — not just posts and pages.
@@ -96,18 +123,23 @@ complete worked example (input HTML → all output files). Use it as your primar
 
 Before handing off, verify every item:
 
+#### Structural (hard requirements)
 - [ ] Agreed on a kebab-case **slug** with the user
 - [ ] `templates/{slug}.html` exists — opens with `wp:template-part` header, calls master pattern + `wp:post-content`, closes with `wp:template-part` footer (decide which header/footer variant to use per-template)
-- [ ] `patterns/{slug}.php` (master) exists with `Inserter: false`
+- [ ] `patterns/{slug}.php` (master) exists with `Inserter: false` and contains only flat `<!-- wp:pattern -->` calls — no wrapper block, no lock, no CSS
 - [ ] All logical sections have sub-pattern files in `patterns/`
-- [ ] Design mapped to Core Blocks (Group, Columns, etc.); any remaining custom HTML wrapped in a dynamic block registered via `register_block_type()` (last resort)
+- [ ] Design mapped to Core Blocks (Group, Columns, etc.); fallback to PHP-only block (`autoRegister: true`) before classic dynamic block; NEVER use `wp:html`
+
+#### CSS scoping (conventions)
 - [ ] Layout CSS is strictly scoped to the block style variation class (e.g. `.is-style-hero-section`), avoiding a catch-all page wrapper to prevent style bleed into independent sub-patterns
 - [ ] Modular patterns (CTA, Header, FAQ, etc.) use their own separate CSS class (e.g. `.is-style-main-cta`) and are not placed inside a page-specific wrapper that alters their layout
 - [ ] Master patterns (assemblers) have no layout CSS — all styles live in sub-patterns
 - [ ] Sub-pattern CSS saved to its own directory (e.g., `patterns/faq-section/style.css`)
-- [ ] Every sub-pattern's outermost block has a unique block style class (e.g. `is-style-{pattern-slug}`)
+- [ ] Every sub-pattern's outermost block has `"lock": {"move": true, "remove": true}` AND a unique variation class (e.g. `is-style-{pattern-slug}`)
 - [ ] Reactive JS registered as a Script Module (`wp_register_script_module()`) and bound via `register_block_style()` — saved to `patterns/{sub-pattern}/view.js`; non-reactive scripts (animations, observers) use a `DOMContentLoaded` guard gated on `window.frameElement`, scoped selectors — saved to `patterns/{sub-pattern}/index.js`
 - [ ] Image paths use `get_stylesheet_directory_uri()` — no hardcoded URLs
+
+#### Configuration (hard requirements)
 - [ ] `theme.json` has the `customTemplates` entry
 - [ ] `theme.json` uses `"version": 3` and `"$schema": "https://schemas.wp.org/trunk/theme.json"`
 - [ ] JS handled by **Script Modules API** (`wp_register_script_module()`, enqueued via block presence or `viewScriptModule`)
@@ -156,7 +188,14 @@ Before handing off, verify every item:
   ```json
   { "name": "{slug}", "title": "Human-Readable Title", "postTypes": ["page"] }
   ```
-- [ ] **Enqueue assets in `functions.php`** — Use `register_block_style()` for CSS. For JS, use `wp_register_script_module()` and link the module to your block variation. For mandatory logic, use **Block Hooks** to automate logic injection regardless of the selected variation.
+- [ ] **Enqueue assets in `functions.php`** — Use `register_block_style()` for CSS. For JS, apply this two-lane decision:
+
+  | JS lane | When | File | Registration |
+  |---|---|---|---|
+  | Reactive (state, directives, user-driven UI) | Shared state or Interactivity API directives | `patterns/{slug}/view.js` | Script Module via `wp_register_script_module()`, bound through `script_module_handle` on `register_block_style()` |
+  | Non-reactive (IntersectionObserver, GSAP, scroll animations) | Read-only DOM effects, no shared state | `patterns/{slug}/index.js` | Enqueued conditionally; always gate on `if (window.frameElement) return;` |
+
+  For mandatory logic injection regardless of the selected variation, use **Block Hooks**.
 
 ### Pattern PHP header format
 
@@ -223,9 +262,8 @@ approach**: a thin `.html` template part that delegates to a PHP pattern.
  * Inserter: false
  */
 ?>
-<!-- wp:group {"className":"is-style-header-top-bar-variant-a"} -->
+<!-- wp:group {"className":"is-style-header-top-bar-variant-a","lock":{"move":true,"remove":true}} -->
 <div class="wp-block-group is-style-header-top-bar-variant-a">
-    <!-- Requires WP 7.0+. On 6.9, replace with an inline SVG inside a core/html block. -->
     <!-- wp:icon {"icon":"warning"} /-->
     <p>FOR LABORATORY RESEARCH USE ONLY.</p>
 </div>
@@ -242,9 +280,7 @@ approach**: a thin `.html` template part that delegates to a PHP pattern.
 
 ### Placing Template Parts in the Root `.html` Template
 
-Never wrap global template parts (like Headers or Footers) inside a master pattern's `<div class="{slug}-wrapper">`. If you do, the wrapper's scoped CSS will bleed into the global parts and break them, making them dependent on that specific template wrapper.
-
-Instead, always call template parts directly in the root `templates/{slug}.html` file, keeping them completely outside the master pattern's wrapper:
+Always call template parts directly in the root `templates/{slug}.html` file — never nest them inside a master pattern:
 
 ```html
 <!-- wp:template-part {"slug":"header","tagName":"header","area":"header"} /-->
@@ -253,7 +289,7 @@ Instead, always call template parts directly in the root `templates/{slug}.html`
 <!-- wp:template-part {"slug":"footer","tagName":"footer","area":"footer"} /-->
 ```
 
-This ensures true modularity, preventing CSS scoping conflicts while letting the developer decide which header and footer to use on a per-template basis.
+This ensures true modularity and lets the developer choose which header/footer variant to use per-template.
 
 ### Asset Enqueuing for Template Parts
 
@@ -294,6 +330,14 @@ Patterns are reusable sections inserted via the Block Inserter or called from te
 ```
 
 All five header fields are recommended. `Block Types` is optional but improves discoverability.
+
+### Required attributes on the outermost block
+
+Every standalone/sub-pattern's outermost block MUST have all three:
+
+1. `"className": "is-style-{pattern-slug}"` — registers the variation class that scopes its CSS.
+2. `"lock": {"move": true, "remove": true}` — prevents accidental deletion.
+3. CSS registered via `register_block_style()` in `functions.php` — never `wp_enqueue_style()` directly for pattern-level CSS.
 
 ### Image paths in patterns
 
@@ -377,9 +421,10 @@ Site Editor.
 
 ## Reference Files
 
-- `references/html-conversion.md` — 10-step HTML→block template conversion with a worked example
-- `references/architecture.md` — FSE architecture rules: registration APIs, asset pipeline, Bindings, Pattern Overrides, Abilities API, Interactivity, Speculation Rules, diagnostic snippet
-- `references/theme-json.md` — Full theme.json schema reference (colors, typography, spacing, layout, section variations)
-- `references/api-allowlist.md` — Verified WordPress function/class names. **Consult before writing any WP API call.**
-- `references/scaffold-tree.md` — Copy-pasteable directory layouts for parent/child themes and dynamic blocks
-- `references/compatibility-6.9.md` — Fallback patterns for WordPress 6.9 sites. Load only when the user explicitly states they're on 6.9 or earlier.
+| File | Load when… |
+|---|---|
+| `references/html-conversion.md` | The user provides raw HTML/CSS/JS to convert. |
+| `references/architecture.md` | Before writing ANY code (mandatory pre-write read). |
+| `references/theme-json.md` | Modifying `theme.json` beyond a `customTemplates` entry. |
+| `references/api-allowlist.md` | Before every `register_*` call or WP-namespaced PHP function. |
+| `references/scaffold-tree.md` | Creating a new theme directory or adding new top-level folders. |
