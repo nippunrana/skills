@@ -167,7 +167,8 @@ Block markup example (hidden on mobile):
 | Wrong | Correct |
 |---|---|
 | `register_block_ability()` | `wp_register_ability()` |
-| `WP_Icons_Registry::get_instance()->register(...)` | Use the Icon Registration API documented at make.wordpress.org/core (the final 7.0 helper signature) or a PHP icon helper as fallback. |
+| `wp_register_icons` filter | Does not exist in WP 7.0. The icon registry is internal/private. Custom theme icons cannot be registered against `core/icon` in WP 7.0 — a public API is planned for WP 7.1. Use inline SVG or `<img>` from a dynamic block instead. |
+| `WP_Icons_Registry::get_instance()->register(...)` | Not a public theme/plugin API in WP 7.0. Do not call this directly. Same guidance as above. |
 | `'is_ai_ready' => true` on `register_block_template` | Not a real parameter. Use the documented `title`, `description`, `content`, `post_types` keys. |
 | `__experimentalRole: 'content'` | Removed. Use `metadata.bindings` + `metadata.name` for Pattern Overrides. |
 | `"version": 4` in theme.json | No such version. Use `"version": 3`. |

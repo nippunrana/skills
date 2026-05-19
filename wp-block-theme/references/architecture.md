@@ -96,22 +96,11 @@ Custom Template (page attribute)
   → index.html
 ```
 
-### Template Registration API (PHP)
+### Template Registration API (PHP) — PLUGINS ONLY
 
-`register_block_template()` (introduced in 6.7) registers a template from PHP. This is useful for plugins or for themes that need templates to ship as code rather than as `.html` files inside `templates/`.
+`register_block_template()` (introduced in 6.7) registers a template from PHP. **This is for plugins only.** In a block theme, templates are placed physically in `templates/` and registered via `theme.json` `customTemplates`. Using `register_block_template()` for a template that also has a physical `templates/*.html` file is silent double-registration — one of the hardest FSE bugs to diagnose.
 
-```php
-add_action( 'init', function(): void {
-    register_block_template( '{{THEME_SLUG}}//my-landing-page', array(
-        'title'       => __( 'My Landing Page', '{{TEXT_DOMAIN}}' ),
-        'description' => __( 'A high-performance landing page template.', '{{TEXT_DOMAIN}}' ),
-        'content'     => '<!-- wp:pattern {"slug":"{{THEME_SLUG}}/my-landing-page"} /-->',
-        'post_types'  => array( 'page' ),
-    ) );
-} );
-```
-
-The template name must be in the form `namespace//template_name` (two slashes). Supported `$args` keys are `title`, `description`, `content`, and `post_types`. See developer.wordpress.org/reference/functions/register_block_template/ for the full reference.
+For plugin developers: the template name must be in the form `namespace//template_name` (two slashes). Supported `$args` keys are `title`, `description`, `content`, and `post_types`. See developer.wordpress.org/reference/functions/register_block_template/ for the full reference.
 
 For archives:
 ```
@@ -296,7 +285,7 @@ WordPress 7.0 lets the Grid layout use `columnCount` and `minimumColumnWidth` at
 <!-- /wp:group -->
 ```
 
-On 6.9 and earlier, only one of the two could be set; the WP 7.0 hybrid mode removes that limitation.
+In WP 7.0, both `columnCount` and `minimumColumnWidth` can be set simultaneously for responsive grids.
 
 ---
 
@@ -470,28 +459,16 @@ See developer.wordpress.org/reference/functions/register_block_bindings_source/.
 
 ### `core/icon` block and theme icons (WP 7.0)
 
-WP 7.0 ships a new `core/icon` block backed by a REST endpoint at `/wp/v2/icons`. The Icon block is rendered server-side; icons supplied by themes and plugins appear in the inserter alongside core's curated set.
+WP 7.0 ships a `core/icon` block backed by a REST endpoint at `/wp/v2/icons`. In WP 7.0, the icon registry is internal — **there is no public API for registering custom theme icons against `core/icon`**. The public registration API (`register_icon()`, `wp_register_icon_collection()`) is planned for WP 7.1.
 
-**Decision rule — core/icon vs. inline SVG (WP 7.0):**
+**Decision rule — core/icon vs. custom SVG (WP 7.0):**
 
 | Scenario | Approach |
 |---|---|
 | Built-in core icons (e.g. `core/star`, `core/close`) | Use `<!-- wp:icon {"icon":"core/..."} /-->` — always safe |
-| Custom theme icons | Register via the `wp_register_icons` filter, then use `<!-- wp:icon {"icon":"{{THEME_SLUG}}/..."} /-->`. The block is server-side rendered via the `/wp/v2/icons` REST endpoint. |
+| Custom theme icons | Output inline SVG from a dynamic block's `render_callback`, or use an `<img>` element with `get_stylesheet_directory_uri()`. Do NOT attempt to register them against `core/icon`. |
 
-```php
-add_filter( 'wp_register_icons', function( array $icons ): array {
-    $icons['{{THEME_SLUG}}/my-icon'] = array(
-        'label'  => __( 'My Icon', '{{TEXT_DOMAIN}}' ),
-        'src'    => get_stylesheet_directory_uri() . '/assets/icons/my-icon.svg',
-        'width'  => 24,
-        'height' => 24,
-    );
-    return $icons;
-} );
-```
-
-Do NOT use `core/icon` with an unregistered custom icon — the block renders empty with no error.
+Do NOT use `<!-- wp:icon {"icon":"{{THEME_SLUG}}/..."} /-->` — custom namespace slugs are unregistered in WP 7.0 and the block renders empty with no error.
 
 ---
 

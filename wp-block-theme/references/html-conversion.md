@@ -30,7 +30,8 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 | `<details>/<summary>` (single toggle) | `core/details` (WP 6.3+) | Single collapsible disclosure using native `<details>`/`<summary>`. Chain multiple for simple FAQ-style lists without the full Accordion block. |
 | `<audio>` list / podcast player | `core/playlist` (WP 7.0) | Native audio playlist block with waveform visualization. Replaces custom audio player markup entirely. |
 | `<div class="card">` | `core/group` | Child of native Grid |
-| `SVG Icon` | `core/icon` (WP 7.0) | Register the icon against the new Icon Registration API so it appears in the inserter. |
+| `SVG Icon` (core set) | `core/icon` (WP 7.0) | Use `{"icon":"core/..."}` for built-in icons. |
+| `SVG Icon` (custom/theme) | Inline SVG or `core/image` | WP 7.0 has no public custom icon registration API. Output custom SVGs from a dynamic block's `render_callback` or as an `<img>` via `get_stylesheet_directory_uri()`. |
 | Mobile nav close button | `core/navigation-overlay-close` (WP 7.0) | Place inside `core/navigation` with `"overlayMenu": "always"` or `"overlayMenu": "mobile"`. |
 | `<div class="gallery">` / custom lightbox grid | `core/gallery` | WP 7.0 ships native lightbox support — no custom JS needed. Set `"lightbox": {"enabled": true}` on the `core/gallery` block. Clicking any image opens it fullscreen. If the design uses a custom lightbox JS library, replace it entirely with this native feature. |
 | `<nav class="breadcrumbs">` | `core/breadcrumbs` (WP 7.0) | Native breadcrumbs block. Filter the trail via `block_core_breadcrumbs_items` to add/remove/reorder crumbs server-side. Never hand-roll a breadcrumb pattern for a WP 7.0 target. |
@@ -515,29 +516,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
 ### Icon Conversion (WP 7.0)
 
-WordPress 7.0 ships a `core/icon` block backed by an Icon Registration API and a REST endpoint at `/wp/v2/icons`. Register custom theme icons via the `wp_register_icons` filter, then reference them in markup:
+WordPress 7.0 ships a `core/icon` block backed by a REST endpoint at `/wp/v2/icons`. **WP 7.0 has no public API for registering custom theme icons against `core/icon`** — the icon registry is internal. The public registration API is planned for WP 7.1.
 
-```php
-add_filter( 'wp_register_icons', function( array $icons ): array {
-    $icons['{{THEME_SLUG}}/warning'] = array(
-        'label'  => __( 'Warning', '{{TEXT_DOMAIN}}' ),
-        'src'    => get_stylesheet_directory_uri() . '/assets/icons/warning.svg',
-        'width'  => 24,
-        'height' => 24,
-    );
-    return $icons;
-} );
-```
+**For built-in core icons** (star, close, arrow, etc.), use `core/icon` directly:
 
 ```html
-<!-- wp:icon {"icon":"{{THEME_SLUG}}/warning"} /-->
+<!-- wp:icon {"icon":"core/star"} /-->
 ```
 
-Do NOT use `core/icon` with an unregistered icon slug — the block renders empty with no error. For built-in core icons, use `{"icon":"core/..."}` directly.
+**For custom/theme icons**, output the SVG from a PHP dynamic block or as an image:
 
 ```php
-<?php echo {{THEME_SLUG}}_get_icon( 'warning' ); ?>
+// Option A — inline SVG from a render_callback (preferred for accessibility)
+'render_callback' => function(): string {
+    $icon_path = get_stylesheet_directory() . '/assets/icons/warning.svg';
+    $svg = file_exists( $icon_path ) ? file_get_contents( $icon_path ) : '';  // phpcs:ignore
+    return wp_kses( $svg, wp_kses_allowed_html( 'post' ) );
+},
+
+// Option B — img element
+echo '<img src="' . esc_url( get_stylesheet_directory_uri() . '/assets/icons/warning.svg' ) . '" alt="' . esc_attr__( 'Warning', '{{TEXT_DOMAIN}}' ) . '" width="24" height="24">';
 ```
+
+Do NOT use `<!-- wp:icon {"icon":"{{THEME_SLUG}}/warning"} /-->` — custom namespace slugs are unregistered in WP 7.0 and the block renders empty with no error.
 
 ---
 

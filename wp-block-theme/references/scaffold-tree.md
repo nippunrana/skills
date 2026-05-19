@@ -2,14 +2,14 @@
 
 Copy these layouts verbatim when starting a new theme, child theme, or dynamic block. Replace `{{THEME_SLUG}}` with the actual kebab-case slug.
 
-> **PHP 8.3 rule:** Every `.php` file created from these scaffolds must begin with `<?php` followed immediately by `declare(strict_types=1);`. All named functions must have typed parameters and return types (e.g. `function my_fn( string $arg ): void {}`). Anonymous callbacks in `add_action` / `add_filter` / `register_block_type` must also be typed. See `references/architecture.md → PHP 8.3 Requirements` for the complete ten-point checklist.
+> **PHP 8.3 rule:** Every `.php` file containing active PHP logic (functions, classes, or `add_action`/`add_filter` calls) must begin with `<?php` followed immediately by `declare(strict_types=1);`. All named functions must have typed parameters and a return type (e.g. `function my_fn( string $arg ): void {}`). Anonymous callbacks in `add_action` / `add_filter` / `register_block_type` must also be typed. **Exception:** Pure-markup pattern files in `patterns/*.php` that contain only the block comment docblock header and HTML block markup — with no function or class definitions — are exempt from `declare(strict_types=1);` because strict_types has no effect without typed signatures. See `references/architecture.md → PHP 8.3 Requirements` for the complete ten-point checklist.
 
 ## Parent block theme
 
 ```
 {{THEME_SLUG}}/
 ├── style.css                           ← Theme metadata header (Theme Name, Version, etc.)
-├── theme.json                          ← Settings & global styles (use "version": 3, $schema trunk)
+├── theme.json                          ← Settings & global styles (use "version": 3, $schema: https://schemas.wp.org/wp/7.0/theme.json)
 ├── functions.php                       ← Asset enqueueing, register_block_style, pattern category
 ├── README.md                           ← Optional
 │
@@ -33,7 +33,7 @@ Copy these layouts verbatim when starting a new theme, child theme, or dynamic b
 │   ├── {section-slug}.php              ← One PHP file per section
 │   └── {section-slug}/
 │       ├── style.css                   ← Scoped to .is-style-{section-slug}
-│       └── index.js                    ← Optional, Script Module
+│       └── index.js                    ← Optional, non-reactive vanilla JS (classic conditional asset queue — not a Script Module)
 │
 └── assets/
     ├── fonts/                          ← Local font files referenced from theme.json
@@ -85,24 +85,3 @@ require_once get_theme_file_path( 'inc/blocks/{block-slug}.php' );
 
 If you need an editor-side block-style stylesheet for the dynamic block, register it the same way as for core blocks via `register_block_style()`.
 
-## Dynamic block (pre-7.0 — `block.json` + `render.php`)
-
-If you must target WP 6.9 or earlier (no `autoRegister` flag):
-
-```
-{{THEME_SLUG}}/
-└── blocks/
-    └── {block-slug}/
-        ├── block.json                  ← Block metadata
-        ├── render.php                  ← Server-side render callback
-        ├── style.css                   ← Optional frontend CSS
-        └── editor.css                  ← Optional editor-only CSS
-```
-
-Then in `functions.php`:
-
-```php
-add_action( 'init', function(): void {
-    register_block_type( get_theme_file_path( 'blocks/{block-slug}' ) );
-} );
-```
