@@ -33,8 +33,7 @@ boundaries. Product mode perfects ergonomics. Never confuse the two.
 
 ## 1. Strategic Discovery
 
-Before writing any code, run through four phases. This is the most important section — skipping
-it produces generic output. The user hired a design strategist, not a code printer.
+Unless the request is trivial (e.g., fixing an alignment issue, changing a single color, or tweaking a button label), run through the four phases of Strategic Discovery before writing any code. Skipping this for major components or pages produces generic, low-converting layouts. The user hired a design strategist, not a code printer.
 
 ### Phase 1 — Diagnose (silent)
 
@@ -255,14 +254,17 @@ Use semantic naming so colors carry meaning, not just values:
 
 ```css
 :root {
-  --color-text-primary: #1a1a2e;
-  --color-text-secondary: #4a4a6a;
-  --color-text-muted: #8a8aa0;
-  --color-surface: #ffffff;
-  --color-surface-elevated: #f8f8fc;
-  --color-border: #e2e2ee;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
+  /* Atmospheric Neutrals (subtle blue-gray tinting for depth instead of flat grays) */
+  --color-text-primary: hsl(220, 40%, 12%);
+  --color-text-secondary: hsl(220, 16%, 36%);
+  --color-text-muted: hsl(220, 12%, 56%);
+  
+  /* Surface system with intrinsic depth */
+  --color-surface: hsl(220, 20%, 99%);
+  --color-surface-elevated: hsl(220, 20%, 97%);
+  --color-border: hsl(220, 12%, 90%);
+  --color-accent: hsl(224, 76%, 48%);
+  --color-accent-hover: hsl(224, 76%, 38%);
 }
 ```
 
@@ -352,7 +354,7 @@ These patterns are the telltale signs of generic AI output. Avoid them:
 - **Never** use a SaaS card grid as the hero section
 - **Never** add a carousel with no narrative purpose
 - **Never** stack identical cards instead of designing a real layout
-- **Never** converge on the same font choice across different projects
+- **Never** default to a single "signature" font pair across different contexts; tailor the typography to the specific brand personality of the current workspace/brief (e.g., monospace details for tech, serif for editorial, geometric sans for modern consumer brands)
 - **Never** pair a beautiful stock image with weak, generic typography
 - **Never** use cookie-cutter component patterns without context-specific adaptation
 
@@ -407,15 +409,14 @@ browser window. Reserve media queries for page-level layout shifts only.
 mobile-first approach using `min-width`.
 
 **Touch and interaction:**
-- Touch targets: 44px minimum for primary actions, 24px minimum for secondary. This is both a
-  usability requirement and a conversion factor — small targets lose taps and lose customers.
+- Touch targets: 44px minimum for all mobile interactive elements (buttons, form inputs, navigation items). 24px is only acceptable for inline text links within paragraphs on desktop viewports. This is both a usability requirement and a conversion factor — small targets lose taps and lose customers.
 - Thumb-friendly zones: place primary actions in the bottom third of the screen on mobile.
   The top corners are the hardest to reach on modern phones.
 - Navigation: hamburger menus on mobile. Max 5 items in the visible top navigation on desktop.
 
 **Images:**
-- Use `<picture>` with AVIF and WebP sources, `<img>` fallback.
-- Always include `srcset` and `sizes` for responsive resolution selection.
+- In Next.js projects, always use `next/image` as it handles responsive sizing and modern formats (AVIF/WebP) automatically. For vanilla HTML or other frameworks, use the `<picture>` element with AVIF/WebP sources and `<img>` fallback.
+- Always include `srcset` and `sizes` for responsive resolution selection when using standard HTML tags.
 - `loading="lazy"` for below-fold images. `loading="eager"` and `fetchpriority="high"` for the
   hero/LCP image.
 - Set `width`, `height`, or `aspect-ratio` on every image to prevent layout shifts.
@@ -476,8 +477,7 @@ vanilla HTML/CSS/JS as it covers the majority of use cases.
 - Use `@apply` sparingly — prefer direct utility classes in markup.
 - Define design tokens (colors, spacing, fonts) in `tailwind.config.js` as the single source
   of truth.
-- Extract repeated utility patterns into component classes only when the pattern appears 3+
-  times.
+- Extract repeated utility classes into component CSS classes (using `@apply`) only if the exact same combination of 4 or more Tailwind utilities is repeated across 3 or more separate components. Otherwise, keep utilities inline in the markup to preserve readability and design flexibility.
 
 ### Mobile App Screens (Android / iOS)
 

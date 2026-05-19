@@ -263,7 +263,8 @@ Native nesting without preprocessors. Reduces repetition and improves readabilit
     color: var(--color-text-secondary);
   }
 
-  &--featured {
+  /* WARNING: Native CSS does not support BEM suffix concatenation like Sass (e.g. &--featured is invalid) */
+  &.card--featured {
     border: 2px solid var(--color-accent);
   }
 }
