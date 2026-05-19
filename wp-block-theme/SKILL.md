@@ -3,11 +3,11 @@ name: wp-block-theme
 description: >
   Expert WordPress 7.0 theme AND plugin developer. Covers the full WP 7.0 surface: Full Site
   Editing block themes, templates, template parts, block patterns, theme.json design systems —
-  AND the new plugin-side APIs: WP AI Client (`wp_ai_client_prompt()`), Connectors API,
-  client-and-server Abilities API (`wp_register_ability` / `registerAbility`), DataViews and
-  DataForms (`groupBy`, `onReset`, Field validation, `getValueFormatted`), Block Bindings,
-  Block Hooks, PHP-only blocks (`autoRegister`), viewport `blockVisibility`, dimensions and
-  textIndent supports, customisable Navigation Overlays, Interactivity API `watch()` with
+  AND the new plugin-side APIs: WP AI Client (`wp_ai_client_prompt()` with JSON schema responses
+  and multimodal generation like image/audio/video), Connectors API, client-and-server Abilities API
+  (`wp_register_ability` / `registerAbility`), DataViews and DataForms (`groupBy`, `onReset`, Field validation,
+  `getValueFormatted`), Block Bindings, Block Hooks, PHP-only blocks (`autoRegister`), viewport `blockVisibility`,
+  dimensions and textIndent supports, customisable Navigation Overlays, Interactivity API `watch()` with
   server-populated `state.url`, and Breadcrumb filters. Use this skill whenever the user wants
   to create, modify, or scaffold any part of a WP 7.0 theme OR plugin — new templates, template
   parts, block patterns, child theme extensions, custom blocks (PHP-only or classic dynamic),
@@ -93,9 +93,9 @@ underlying building blocks used during that process.
   | Unsynced pattern (default) | Omit the attribute. WP 7.0 applies `contentOnly` automatically. |
   | Synced pattern that must lock structure | `"templateLock": "contentOnly"` explicit |
   | Template part backing pattern | `"templateLock": "contentOnly"` explicit |
-  | Pattern with editable inner blocks (e.g., FAQ items) | Omit, then mark editable child attributes with `"role": "content"` in `block.json` |
+  | Pattern with editable inner blocks (e.g., FAQ items) | Omit, then mark editable child attributes with `"role": "content"` in `block.json` (or use `"contentRole": true` in the block's `supports`). |
 
-  To opt out site-wide: use the stable `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (see `references/api-allowlist.md → contentOnly Pattern Opt-Out`). To opt out per-pattern: `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` on the outermost block (experimental, may rename). **Custom blocks nested inside contentOnly patterns MUST declare `"role": "content"` on every editable attribute in `block.json`** — without this the block is hidden from List View with no error. See `references/architecture.md → Content-Only Locking` for the full decision tree.
+  To opt out site-wide: use the stable `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (see `references/api-allowlist.md → contentOnly Pattern Opt-Out`). To opt out per-pattern: `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` on the outermost block (experimental, may rename). **Custom blocks nested inside contentOnly patterns MUST declare `"role": "content"` on every editable attribute in `block.json` (or declare `"contentRole": true` in `supports`)** — without this the block is hidden from List View with no error. See `references/architecture.md → Content-Only Locking` for the full decision tree.
 - **Block locking — three non-overlapping rules:**
   - **Sub-patterns and inserter-visible patterns:** outermost block MUST carry `"lock": {"move": true, "remove": true}` AND `"className": "is-style-{pattern-slug}"`.
   - **Master/assembler patterns** (`Inserter: false`, called only via `wp:pattern`): MUST contain only a flat list of `<!-- wp:pattern -->` comments. No wrapper block. No lock attribute. No styles. No `className`.
@@ -105,7 +105,7 @@ underlying building blocks used during that process.
 - **Block Hooks** can automatically attach a logic-providing block before/after a target block — useful for mandatory wiring that must not be missed by editors. In WP 7.0, hooks fire for all CPTs registered with `'show_in_rest' => true` and `'supports' => ['editor']` — not just posts and pages.
 - **Viewport block visibility.** Use `metadata.blockVisibility.viewport` to show/hide blocks by device type (`"mobile"`, `"tablet"`, `"desktop"`). Hiding is **CSS-based** — blocks remain in the DOM on all devices and are visually suppressed via an injected CSS class. Do not use CSS `display: none` on breakpoints for this purpose, and do not use this feature for access control. Enable with `settings.blockVisibility.viewport: true` in `theme.json`.
 - **Font Library.** The Font Library is enabled for all theme types in WP 7.0 (block, hybrid, and classic). Use `theme.json fontFamilies` for version-controlled font registration. When a user says "install a font", direct them to Appearance → Editor → Styles → Typography → Manage Fonts. Do not enqueue fonts via `wp_enqueue_style` that already exist in the Font Library.
-- **Synced Pattern Overrides.** For repeating sections (Hero, CTA), use synced patterns and mark overridable blocks with `metadata.bindings` + `metadata.name`. Set `Inserter: true` on these patterns so editors can re-insert them if deleted.
+- **Synced Pattern Overrides.** For repeating sections (Hero, CTA), use synced patterns and mark overridable blocks with `metadata.bindings` + `metadata.name`. Set `Inserter: true` on these patterns so editors can re-insert them if deleted. Custom blocks must explicitly opt into Overrides via the `block_bindings_supported_attributes` filter.
 - **Block Bindings API** wires Post Meta and other dynamic sources directly into Core Blocks — no custom PHP patterns required.
 - **Template Parts for global areas** (Headers, Footers). Register them in `theme.json` under `templateParts`. If a part needs PHP (image URLs, dynamic content), make the `.html` file a thin pointer that calls a PHP pattern.
 - **System vs. functional patterns.** Use `Inserter: false` for assembler patterns that exist only to power templates. Synced patterns must keep `Inserter: true`.
@@ -412,6 +412,7 @@ and block-specific targeting. Key rules:
 | **Template part CSS not loading** | Outermost block missing style class | Ensure the PHP pattern powering the template part has a variation class like `is-style-header` on its root block. |
 | **PHP functions not running in template part** | Trying to put PHP directly in `.html` file | `.html` files cannot run PHP — put PHP in a `.php` pattern and call it via `<!-- wp:pattern {"slug":"..."} /-->` |
 | **`blockVisibility` PHP parsing error / type mismatch** | Treating `metadata.blockVisibility` as always an object — it can also be a scalar boolean | Check for boolean first: `if ( $visibility === false ) { /* hidden everywhere */ } elseif ( is_array( $visibility ) && isset( $visibility['viewport'] ) ) { /* viewport rules */ }`. Note: the block **support** key is `visibility`; the **metadata attribute** key is `blockVisibility` — these are different. |
+| **Editor iframe breaks / styles bleed** | A legacy Block API v2 block was inserted | WordPress 7.0 dynamically un-iframes the editor if an API v2 block is present. Upgrade the custom block to API v3+ to restore iframed mode. |
 
 For DOM-level diagnostics, see the **Diagnostic Console Snippet** in `references/architecture.md`.
 
@@ -467,7 +468,7 @@ Read `references/abilities-api.md` when:
 
 ### 7.2 Calling the WP AI Client
 
-Entry point is `wp_ai_client_prompt( $text = '' )` → `WP_AI_Client_Prompt_Builder`. **Always feature-detect first** (`WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()` etc.) — these are pure capability checks with no API cost. For metadata (token usage, provider, model), use the `*_result()` variant which returns a `GenerativeAiResult`.
+Entry point is `wp_ai_client_prompt( $text = '' )` → `WP_AI_Client_Prompt_Builder`. **Always feature-detect first** (`WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`, `is_supported_for_image_generation()`, etc.) — these are pure capability checks with no API cost. For structured JSON data, strictly use `->as_json_response( $schema_array )`. For metadata (token usage, provider, model), use the `*_result()` variant which returns a `GenerativeAiResult`.
 
 Common shape inside an ability's `execute_callback`:
 
@@ -479,6 +480,7 @@ $result = wp_ai_client_prompt()
     ->using_system_instruction( '…' )
     ->using_temperature( 0.4 )
     ->with_text( $input['prompt'] )
+    ->as_json_response( [ 'type' => 'object', 'properties' => [ 'summary' => [ 'type' => 'string' ] ] ] )
     ->generate_text();
 if ( is_wp_error( $result ) ) { return $result; }
 ```
@@ -497,6 +499,10 @@ Read `references/dataviews.md` when:
 - The user is building or modifying a DataViews admin screen.
 - The user mentions `groupBy`, `onReset`, field validation, or formatting bytes / dates / role labels.
 - You see legacy string-form `groupBy: 'status'` in code — it must be migrated.
+
+### 7.4 Core Security & Roles
+
+- **User Registration Roles:** In WP 7.0, Administrator and Editor roles are removed from the default user registration selector to prevent privilege escalation. To modify this excluded list, use the `default_role_dropdown_excluded_roles` filter.
 
 ---
 
