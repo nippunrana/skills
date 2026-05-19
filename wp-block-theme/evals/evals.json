@@ -47,7 +47,7 @@
     {
       "id": 4,
       "prompt": "We want to add an AI-powered 'Tone Shift' button to the editorial sidebar for our blog posts. When an editor selects some text and clicks it, the prompt should rewrite the selection in a chosen tone — scientific, casual, or formal. We're on WordPress 7.0 with the WP AI Client enabled (OpenAI connector configured at Settings → Connectors). Theme slug is my-theme. Register this as an Ability on the theme so it surfaces in the AI Sidekick.",
-      "expected_output": "A functions.php snippet (or theme include) that registers a 'my-theme/editorial' ability category and a 'my-theme/tone-shift' ability. The ability declares input_schema with `text` and `tone` (enum scientific/casual/formal), output_schema with `rewritten`, a permission_callback gating to `edit_posts`, and an execute_callback that calls WP_AI_Client_Prompt_Builder.send(). Registration happens on the `wp_abilities_api_init` action.",
+      "expected_output": "A functions.php snippet (or theme include) that registers a 'my-theme/editorial' ability category and a 'my-theme/tone-shift' ability. The ability declares input_schema with `text` and `tone` (enum scientific/casual/formal), output_schema with `rewritten`, a permission_callback gating to `edit_posts`, and an execute_callback that calls WP_AI_Client_Prompt_Builder.generate_text(). Registration happens on the `wp_abilities_api_init` action.",
       "files": [],
       "expectations": [
         "Code registers an ability category via wp_register_ability_category() before the ability itself",
@@ -55,7 +55,7 @@
         "Registrations are hooked on `wp_abilities_api_init` (not on `init`)",
         "The ability declares input_schema and output_schema in JSON Schema form",
         "The ability declares a permission_callback that gates execution",
-        "The execute_callback uses WP_AI_Client_Prompt_Builder (the WP 7.0 AI Client) and handles WP_Error returns from send()",
+        "The execute_callback uses WP_AI_Client_Prompt_Builder (the WP 7.0 AI Client) and handles WP_Error returns from generate_text()",
         "No fabricated APIs are referenced (no register_block_ability, no `intent` field, no `is_ai_ready`)"
       ]
     },
