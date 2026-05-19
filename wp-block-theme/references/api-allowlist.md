@@ -23,7 +23,7 @@ This allowlist targets WordPress 7.0 only. All entries below are confirmed stabl
 
 | Function / class | Notes |
 |---|---|
-| `register_block_type( $name_or_path, $args )` | Server-side block registration. In WP 7.0, set `'supports' => array( 'autoRegister' => true )` to register a block from PHP alone (no `block.json` / JS). |
+| `register_block_type( $name_or_path, $args )` | Server-side block registration. In WP 7.0, set `'supports' => array( 'autoRegister' => true )` to register a block from PHP alone (no `block.json` / JS). **`autoRegister` supported attribute types:** `string`, `number`, `integer`, `boolean`. **`autoRegister` constraint:** attributes with a `source` key (`"source": "html"`, `"source": "attribute"`, etc.) are NOT supported — `autoRegister` only works with attributes stored in the block's JSON comment boundary. Use a classic dynamic block (`block.json` + `render_callback`) when you need sourced attributes. |
 | `register_block_type_from_metadata()` | Older form; registers from a `block.json` file path. |
 | `register_block_style( $block, $args )` | Registers a block style variation. `$args` accepts `name`, `label`, `style_handle`, `script_module_handle` (since 6.7). |
 | `unregister_block_style()` | Removes a previously-registered variation. |
@@ -57,7 +57,7 @@ Valid `area` values for `templateParts` entries in `theme.json` and for `wp:temp
 |---|---|
 | `register_block_bindings_source( $name, $args )` | Registers a custom binding source. `$args` keys: `label`, `get_value_callback`, `uses_context`. |
 | Built-in sources | `core/post-meta`, `core/post-title`, `core/post-excerpt`, `core/post-date`, `core/post-author-name`, `core/site-title`, `core/site-tagline`, `core/pattern-overrides`. |
-| Filter: `block_bindings_supported_attributes` | WP 7.0+. Allows any custom block to expose attributes to the Pattern Overrides UI. Return an array of attribute names the block exposes. Use this instead of `metadata.bindings` for fully custom blocks. Signature: `apply_filters( 'block_bindings_supported_attributes', array $supported, string $block_name )`. |
+| Filter: `block_bindings_supported_attributes` | WP 7.0+. Allows any custom block to expose attributes to the Pattern Overrides UI. Return an array of attribute names the block exposes. Use this instead of `metadata.bindings` for fully custom blocks. Signature: `apply_filters( 'block_bindings_supported_attributes', array $supported, string $block_name )`. **Static vs. dynamic blocks:** For static blocks (no `render_callback`), WordPress uses the **WP HTML API** to locate the bound attribute values within the persisted block markup and replace them with override values at render time. Dynamic blocks (with a `render_callback`) receive override values directly as `$attributes` — no HTML API parsing occurs. Choose accordingly: static blocks for overrides that must appear in HTML attributes (`src`, `href`, etc.); dynamic blocks when the override value drives PHP logic. |
 
 ## contentOnly Pattern Opt-Out (WP 7.0+)
 
@@ -77,9 +77,27 @@ Valid `area` values for `templateParts` entries in `theme.json` and for `wp:temp
 
 ## Viewport Block Visibility (WP 7.0+)
 
+**Naming convention — two different keys, two different purposes:**
+- Block support key (registered in `supports` in `block.json`): **`visibility`**
+- Attribute metadata key (the object stored on the block): **`blockVisibility`**
+
+These are intentionally different. Setting `"supports": { "visibility": true }` enables the feature for a block; the editor then writes the chosen settings into `metadata.blockVisibility` on the block instance.
+
+**Server-side parsing rule:** PHP code reading block markup via `parse_blocks()` must handle **both** forms of the `blockVisibility` field in a block's `metadata` attribute — WordPress may serialize it as a scalar boolean (`false`) or as an object (`{ "viewport": ["mobile"] }`). Always check for scalar first, then check for the viewport object:
+
+```php
+$visibility = $block['attrs']['metadata']['blockVisibility'] ?? null;
+if ( $visibility === false ) {
+    // Block is hidden everywhere (legacy scalar form)
+} elseif ( is_array( $visibility ) && isset( $visibility['viewport'] ) ) {
+    // Viewport-conditional visibility
+    $visible_on = $visibility['viewport']; // e.g. ["tablet", "desktop"]
+}
+```
+
 | Key | Notes |
 |---|---|
-| `metadata.blockVisibility` | Object on a block's `metadata` attribute. Controls per-device visibility. |
+| `metadata.blockVisibility` | Attribute on a block instance's `metadata`. Controls per-device visibility. May be a boolean scalar OR a viewport object — parse defensively. |
 | `metadata.blockVisibility.viewport` | Array of strings. Allowed values: `"mobile"`, `"tablet"`, `"desktop"`. Block renders only on the listed device types. Omit the key entirely to show on all devices. An empty array `[]` hides the block everywhere. |
 
 Enable viewport visibility in `theme.json settings` before using it (per-block or globally):
@@ -106,6 +124,51 @@ Block markup example (hidden on mobile):
 <!-- /wp:group -->
 ```
 
+## Typography & Dimensions Supports (WP 7.0+)
+
+### Text Indent
+
+| Key | Notes |
+|---|---|
+| `supports.typography.textIndent` | WP 7.0+. Set to `true` in `block.json` supports to add a "Line Indent" control to the block inspector for any block. |
+| `typography.textIndent` in `theme.json` | Controls paragraph indentation at the Global Styles level (applies to `core/paragraph`). Two modes: `"subsequent"` (default — indents only paragraphs that directly follow another paragraph, CSS selector `.wp-block-paragraph + .wp-block-paragraph`) and `"all"` (indents every paragraph, selector `.wp-block-paragraph`). Set under `styles.typography.textIndent`. |
+
+`theme.json` example:
+
+```json
+{
+  "styles": {
+    "typography": {
+      "textIndent": "subsequent"
+    }
+  }
+}
+```
+
+### Dimensions (Width / Height)
+
+| Key | Notes |
+|---|---|
+| `supports.dimensions.width` | Opt-in in `block.json`. Enables a width control in the block inspector for the registered block. |
+| `supports.dimensions.height` | Opt-in in `block.json`. Enables a height control in the block inspector for the registered block. |
+| `settings.dimensions.dimensionSizes` in `theme.json` | Array of preset objects `{ slug, name, size }`. Defines the available dimension presets. **UI threshold rule: fewer than 8 presets → renders a slider; 8 or more presets → renders a dropdown.** |
+
+`theme.json` example (slider, 3 presets):
+
+```json
+{
+  "settings": {
+    "dimensions": {
+      "dimensionSizes": [
+        { "slug": "small", "name": "Small", "size": "200px" },
+        { "slug": "medium", "name": "Medium", "size": "400px" },
+        { "slug": "large", "name": "Large", "size": "600px" }
+      ]
+    }
+  }
+}
+```
+
 ## Abilities API (WP 7.0+)
 
 | Function / hook | Notes |
@@ -130,7 +193,7 @@ See `references/ai-client.md` for full coverage. Quick-reference surface:
 | Feature detection (static) | `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`, `::is_supported_for_image_generation()`, `::is_supported_for_text_to_speech_conversion()`, `::is_supported_for_speech_generation()`, `::is_supported_for_video_generation()`. Pure capability checks — no API call, no cost. **Always gate generation calls behind these.** |
 | Hook: `wp_connectors_init` | Fires once with `WP_Connector_Registry`. Use to register or modify connectors. |
 | `WP_Connector_Registry` | Methods: `is_registered( $id )`, `register( $id, $args )`, `unregister( $id )`. Use inside `wp_connectors_init`. |
-| Credential resolution order | 1) env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), 2) PHP constant `define( 'OPENAI_API_KEY', '…' )`, 3) DB option `connectors_ai_{$id}_api_key` (managed at **Settings → Connectors**). First match wins; subsequent sources are ignored. |
+| Credential resolution order | 1) env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), 2) PHP constant `define( 'OPENAI_API_KEY', '…' )`, 3) DB option `connectors_{$type}_{$id}_api_key` where `{$type}` is the connector type (e.g. `ai`) and `{$id}` is the connector identifier — example: `connectors_ai_openai_api_key` (managed at **Settings → Connectors**). First match wins; subsequent sources are ignored. |
 | Connectors UI | Site admin enables OpenAI / Anthropic / Google credentials at **Settings → Connectors**. Shows current credential source (env / constant / DB) per connector. |
 
 ## Script Modules & Interactivity API

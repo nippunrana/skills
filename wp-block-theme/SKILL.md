@@ -389,6 +389,8 @@ and block-specific targeting. Key rules:
 - **Inject raw CSS**: Use `styles.css` property in `theme.json` for global rules, or
   `styles.blocks["core/group"].css` for block-scoped rules.
 - **Child theme inheritance**: The child's `theme.json` merges with the parent's at the object/key level — it does not replace the whole file. Only override what you need. **However, array values (e.g. `palette`, `fontSizes`, `spacingSizes`) overwrite the parent array entirely rather than merging.** Either copy the parent array entries and append your additions, or set `"defaultPalette": true` and reference parent tokens via `var(--wp--preset--color--{slug})`. See also the equivalent warning in Core Architectural Rules above.
+- **Text indent (WP 7.0)**: `styles.typography.textIndent` controls paragraph indentation at Global Styles level. Values: `"subsequent"` (default — only paragraphs following another paragraph) or `"all"` (every paragraph). See `references/api-allowlist.md → Typography & Dimensions Supports`.
+- **Dimension presets (WP 7.0)**: `settings.dimensions.dimensionSizes` defines width/height presets. UI renders a slider for fewer than 8 presets and a dropdown for 8 or more. See `references/api-allowlist.md → Typography & Dimensions Supports`.
 
 ---
 
@@ -409,6 +411,7 @@ and block-specific targeting. Key rules:
 | **Template part exists in DOM but content is empty** | Pattern is missing or typo in the slug | Check the `slug` inside the `wp:pattern` comment matches the PHP registration exactly |
 | **Template part CSS not loading** | Outermost block missing style class | Ensure the PHP pattern powering the template part has a variation class like `is-style-header` on its root block. |
 | **PHP functions not running in template part** | Trying to put PHP directly in `.html` file | `.html` files cannot run PHP — put PHP in a `.php` pattern and call it via `<!-- wp:pattern {"slug":"..."} /-->` |
+| **`blockVisibility` PHP parsing error / type mismatch** | Treating `metadata.blockVisibility` as always an object — it can also be a scalar boolean | Check for boolean first: `if ( $visibility === false ) { /* hidden everywhere */ } elseif ( is_array( $visibility ) && isset( $visibility['viewport'] ) ) { /* viewport rules */ }`. Note: the block **support** key is `visibility`; the **metadata attribute** key is `blockVisibility` — these are different. |
 
 For DOM-level diagnostics, see the **Diagnostic Console Snippet** in `references/architecture.md`.
 

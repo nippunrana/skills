@@ -188,6 +188,8 @@ The admin screen shows which source supplied the active key (env / constant / DB
 
 Plugins can register their own connector inside `wp_connectors_init` by calling `$registry->register( 'my-provider', [...] )` with a definition that includes the auth method, capability flags, and an SDK adapter class. The new provider then becomes available to every `wp_ai_client_prompt()` call.
 
+**Auto-discovery:** providers registered via `AiClient::defaultRegistry()` are automatically discovered by WordPress and integrated into the **Settings → Connectors** admin UI — no extra step needed. The `wp_connectors_init` hook is the correct place to call this; the default registry is populated by core before the hook fires.
+
 ---
 
 ## 5. Common pitfalls
