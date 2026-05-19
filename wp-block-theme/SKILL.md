@@ -45,7 +45,7 @@ underlying building blocks used during that process.
    - Always prioritize child themes for project-specific features unless you are building foundational capabilities into the parent.
 3. **Follow the architecture rules** in `references/architecture.md`.
 4. **Pre-write gates.** Before writing any code, all four gates must pass. If any gate fails, fix it before proceeding:
-   - **API gate:** Every WordPress function or class name must appear in `references/api-allowlist.md`. The "Names that look real but are not" section lists fabricated APIs to never use (`register_block_ability`, `WP_Icons_Registry::register`, `is_ai_ready`, `__experimentalRole`, `"version": 4`). **Disambiguation:** `__experimentalSettings` (a per-block container attribute controlling content-only opt-out) is a distinct, supported escape hatch — do not conflate it with the fabricated `__experimentalRole`. Prefer the stable `disableContentOnlyForUnsyncedPatterns` PHP/JS filter (site-wide) over the per-block `__experimentalSettings` attribute (experimental, may rename).
+   - **API gate:** Every WordPress function or class name must appear in `references/api-allowlist.md`. The "Names that look real but are not" section lists fabricated APIs to never use (`register_block_ability`, `WP_Icons_Registry::register`, `is_ai_ready`, `__experimentalRole`, `"version": 4`). **Disambiguation:** `__experimentalSettings` (a per-block container attribute controlling content-only opt-out) is a distinct, supported escape hatch — do not conflate it with the fabricated `__experimentalRole`. Prefer the stable `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (site-wide) over the per-block `__experimentalSettings` attribute (experimental, may rename).
    - **PHP 8.3 gate:** Every named function and anonymous callback must have typed parameters and a return type. Use `??`, `str_contains()`, `match`, and `?->` where appropriate. Full checklist: `references/architecture.md → PHP 8.3 Requirements`. `declare(strict_types=1);` requirement by file type:
 
      | File path pattern | `declare(strict_types=1);` required? |
@@ -56,6 +56,7 @@ underlying building blocks used during that process.
      | Backing PHP for template parts (`patterns/header-*.php`, etc.) | No (same rule as patterns) |
    - **Version gate:** `"version": 3` in all `theme.json` files. Never write `"version": 4`.
    - **WP 7.0 gate:** Every feature used must exist in WP 7.0. If unsure, consult `references/api-allowlist.md`.
+   - **Namespace gate:** Any call to `register_block_template()` MUST use the double-slash namespace: `{{THEME_SLUG}}//template_name`. A single slash registers silently with no error but the template never appears in Page Attributes.
 5. **Execute** using the implementation checklists below. Use `references/scaffold-tree.md` for the directory layout.
 6. **Verify** — run a quick filesystem audit and remind the user to check the Site Editor Revisions panel (⋮ → "Revisions") before using "Clear Customizations" if they report that file changes are not showing.
 
@@ -85,7 +86,7 @@ underlying building blocks used during that process.
   | Template part backing pattern | `"templateLock": "contentOnly"` explicit |
   | Pattern with editable inner blocks (e.g., FAQ items) | Omit, then mark editable child attributes with `"role": "content"` in `block.json` |
 
-  To opt out site-wide: use the stable `disableContentOnlyForUnsyncedPatterns` PHP/JS filter. To opt out per-pattern: `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` on the outermost block (experimental, may rename). **Custom blocks nested inside contentOnly patterns MUST declare `"role": "content"` on every editable attribute in `block.json`** — without this the block is hidden from List View with no error. See `references/architecture.md → Content-Only Locking` for the full decision tree.
+  To opt out site-wide: use the stable `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (see `references/api-allowlist.md → contentOnly Pattern Opt-Out`). To opt out per-pattern: `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` on the outermost block (experimental, may rename). **Custom blocks nested inside contentOnly patterns MUST declare `"role": "content"` on every editable attribute in `block.json`** — without this the block is hidden from List View with no error. See `references/architecture.md → Content-Only Locking` for the full decision tree.
 - **Block locking — three non-overlapping rules:**
   - **Sub-patterns and inserter-visible patterns:** outermost block MUST carry `"lock": {"move": true, "remove": true}` AND `"className": "is-style-{pattern-slug}"`.
   - **Master/assembler patterns** (`Inserter: false`, called only via `wp:pattern`): MUST contain only a flat list of `<!-- wp:pattern -->` comments. No wrapper block. No lock attribute. No styles. No `className`.
@@ -141,7 +142,7 @@ Before handing off, verify every item:
 
 #### Configuration (hard requirements)
 - [ ] `theme.json` has the `customTemplates` entry
-- [ ] `theme.json` uses `"version": 3` and `"$schema": "https://schemas.wp.org/trunk/theme.json"`
+- [ ] `theme.json` uses `"version": 3` and `"$schema": "https://schemas.wp.org/wp/7.0/theme.json"`
 - [ ] JS handled by **Script Modules API** (`wp_register_script_module()`, enqueued via block presence or `viewScriptModule`)
 - [ ] Pattern styles registered in `functions.php` using `register_block_style()` (WordPress injects the CSS into the editor iframe automatically)
 
@@ -174,14 +175,26 @@ Before handing off, verify every item:
 ### Step-by-step checklist
 
 - [ ] **Determine the slug** — kebab-case, e.g. `my-landing-page`.
-- [ ] **Create `templates/{slug}.html`**: Note: The developer must explicitly decide which header/footer to include here.
-  > **UX Warning:** Hardcoding layout patterns (like a Hero) inside this `.html` template locks them to the Site Editor. Content creators using the normal Page Editor will only see a blank box for `wp:post-content`. If editors need to easily modify the Hero text natively in the Page Editor, do not include the layout pattern here—instruct them to insert the pattern directly into the page content itself instead.
+- [ ] **Create `templates/{slug}.html`**: Choose the correct architecture before writing a single line.
+
+  **OPTION A — Site Editor–managed layout** (pattern hardcoded in template):
+  Use when the layout is structural chrome that editors should never accidentally delete. The pattern is locked to this template. Content creators edit text/images *inside* the pattern via the Site Editor — they cannot restructure it from the Page Editor.
   ```html
   <!-- wp:template-part {"slug":"header","tagName":"header","area":"header"} /-->
   <!-- wp:pattern {"slug":"{{THEME_SLUG}}/{slug}"} /-->
   <!-- wp:post-content {"layout":{"type":"constrained"}} /-->
   <!-- wp:template-part {"slug":"footer","tagName":"footer","area":"footer"} /-->
   ```
+
+  **OPTION B — Page Editor–editable layout** (no pattern in template; set `Inserter: true` on the pattern):
+  Use when editors must freely add, remove, or reorder sections in the normal Page Editor. The pattern goes directly into page content, not the template. Editors insert it from the Block Inserter.
+  ```html
+  <!-- wp:template-part {"slug":"header","tagName":"header","area":"header"} /-->
+  <!-- wp:post-content {"layout":{"type":"constrained"}} /-->
+  <!-- wp:template-part {"slug":"footer","tagName":"footer","area":"footer"} /-->
+  ```
+
+  **Decision rule:** if the answer to "should an editor ever restructure this from the Page Editor?" is yes → Option B. Otherwise → Option A.
 - [ ] **Create `patterns/{slug}.php`** — see pattern header format below.
 - [ ] **Create sub-pattern CSS/JS** as needed in `patterns/{sub-pattern}/`
 - [ ] **Register in `theme.json`** under `customTemplates`:
@@ -354,7 +367,7 @@ Always use PHP to output image URLs — never hardcode paths:
 Read `references/theme-json.md` for a full reference on color palettes, typography, spacing,
 and block-specific targeting. Key rules:
 
-- **`"version": 3`** is current (introduced in 6.6, still current in 7.0). Always use `"$schema": "https://schemas.wp.org/trunk/theme.json"`.
+- **`"version": 3`** is current (introduced in 6.6, still current in 7.0). Always use `"$schema": "https://schemas.wp.org/wp/7.0/theme.json"` (pinned to the released version; `trunk` points to the development branch and may expose unreleased schema features).
 - **CSS variable naming**: `var(--wp--preset--color--{slug})`, `var(--wp--preset--spacing--{slug})`.
 - **Inject raw CSS**: Use `styles.css` property in `theme.json` for global rules, or
   `styles.blocks["core/group"].css` for block-scoped rules.

@@ -1,5 +1,5 @@
 # FSE Architecture Reference — WordPress Block Themes
-*Default target: WordPress 7.0 (released 2026-05-20). For WP 6.9 or earlier, substitute the fallbacks in `compatibility-6.9.md`.*
+*Target: WordPress 7.0 (released 2026-05-20). This reference targets WP 7.0 only. There is no fallback path.*
 
 ## Table of Contents
 1. [Theme Initialization Requirements](#theme-initialization-requirements)
@@ -75,7 +75,8 @@ patterns/
   my-section.php                  ← Sub-pattern
   my-section/
     style.css                     ← Scoped CSS for sub-pattern
-    index.js                      ← Template-specific JS
+    view.js                       ← Reactive Script Module (Interactivity API / shared state)
+    index.js                      ← Non-reactive JS (animations, observers — no shared state)
 ```
 
 ---
@@ -253,8 +254,11 @@ Is it interactive / dynamic?
   → Needs frontend JS reactivity?            → Interactivity API + store() + data-wp-* directives
   → Must react to state changes sans user event?  → watch() or data-wp-watch
   → None of the above?                       → register_block_type() + render_callback
-  → Truly cannot be expressed as any block?  → <!-- wp:html --> only on WP 6.9 targets
+  → Truly cannot be expressed as any block?  → register_block_type() with 'supports' => ['autoRegister' => true]
+                                                (PHP-only, no block.json, no JS — WP 7.0 generates inspector UI automatically)
 ```
+
+**NEVER use `<!-- wp:html -->`** on WP 7.0 targets. It is a legacy escape hatch removed from the recommended path. WordPress strips unrecognized HTML at save time; a PHP-only block with `autoRegister: true` is the correct last resort.
 
 ### Core Blocks new in WP 7.0
 
@@ -267,7 +271,7 @@ Is it interactive / dynamic?
   }, 10, 2 );
   ```
 
-- **`core/icon`** — server-side rendered, backed by `/wp/v2/icons`. Register theme icons against the new Icon Registration API so they appear in the inserter alongside core's curated set. Until the final 7.0 helper signature is documented in stable, fall back to a PHP icon helper (see `compatibility-6.9.md`).
+- **`core/icon`** — server-side rendered, backed by `/wp/v2/icons`. Register theme icons against the Icon Registration API so they appear in the inserter alongside core's curated set. See the `core/icon` decision rule below for the definitive WP 7.0 approach.
 
 - **`core/cover` enhancements** — embedded YouTube/Vimeo videos as background; focal-point control on fixed backgrounds.
 
@@ -330,7 +334,7 @@ add_action( 'init', function(): void {
 
 With `autoRegister => true`, WordPress generates the inserter UI from the `attributes` array (it supports `string`, `integer`, `boolean`, and `enum`) and renders the block via `ServerSideRender` in the editor. Use this for static or mostly-static dynamic markup that does not need interactive React controls.
 
-For 6.9 and earlier, register the block the long way with a `block.json` + `render.php` pair; the `autoRegister` flag is silently ignored on older cores.
+The `autoRegister` flag is a WP 7.0 feature. Do not add fallback code — this skill targets WP 7.0 only.
 
 ---
 
@@ -365,7 +369,7 @@ Two scopes, choose the right one:
 | Scope | Mechanism | Stability |
 |---|---|---|
 | Per-pattern (one pattern only) | Add `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` to the outermost block's `attributes` | Experimental — prefix may change |
-| Site-wide (all unsynced patterns) | PHP filter `disableContentOnlyForUnsyncedPatterns` or the equivalent JS `addFilter` | Stable WP 7.0 API |
+| Site-wide (all unsynced patterns) | `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (PHP) or equivalent JS `addFilter` on `blockEditor.settings` | Stable WP 7.0 API |
 
 Use the per-pattern approach when one specific assembler pattern needs full structure editing (e.g. a developer scaffold). Use the site-wide filter only when the client has explicitly opted the entire site out of content-only defaults — this is rare.
 
@@ -373,7 +377,17 @@ Use the per-pattern approach when one specific assembler pattern needs full stru
 1. Unsynced pattern → do nothing; `contentOnly` is already active.
 2. Synced pattern or template part with locked structure → add `"templateLock": "contentOnly"` explicitly.
 3. One specific unsynced pattern needs structure editing → add `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` to its outermost block attributes.
-4. All unsynced patterns on the site need structure editing → use the `disableContentOnlyForUnsyncedPatterns` PHP/JS filter (see `api-allowlist.md`).
+4. All unsynced patterns on the site need structure editing → use the `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (see `api-allowlist.md → contentOnly Pattern Opt-Out`).
+
+### Isolated Editor Mode (WP 7.0)
+
+WP 7.0 introduces **Isolated Editor Mode** for synced patterns and template parts. Editors can now click **Edit pattern** on any synced pattern or template part to enter a full-screen editing context — complete structure editing without navigating away from the page.
+
+**What this means for your locking strategy:**
+- `contentOnly` locking on synced patterns is still correct for day-to-day content editing (text, images, CTA copy).
+- Editors no longer need to navigate to Appearance → Editor → Patterns for structural changes — **Edit pattern** is the built-in escape hatch.
+- Do not add excessive locks that fight this UX. Lock what should never move (structural blocks, template part wrappers). Trust Isolated Editor Mode for intentional structural edits by editors.
+- Inform clients: "To change the layout, click the pattern → Edit pattern. To change just the text or image, click directly on the content block."
 
 ### Block Author Requirements for contentOnly Compatibility (WP 7.0)
 
@@ -458,15 +472,26 @@ See developer.wordpress.org/reference/functions/register_block_bindings_source/.
 
 WP 7.0 ships a new `core/icon` block backed by a REST endpoint at `/wp/v2/icons`. The Icon block is rendered server-side; icons supplied by themes and plugins appear in the inserter alongside core's curated set.
 
-**Decision rule — core/icon vs. inline SVG:**
+**Decision rule — core/icon vs. inline SVG (WP 7.0):**
 
 | Scenario | Approach |
 |---|---|
-| Built-in core icons (e.g. `core/star`, `core/close`) | Use `<!-- wp:icon {"icon":"core/..."} /-->` — stable and always works |
-| Custom theme icons, registration API confirmed in stable docs | Use `<!-- wp:icon {"icon":"{{THEME_SLUG}}/..."} /-->` after registering via the documented filter (see make.wordpress.org/core for the final WP 7.0 helper signature) |
-| Custom theme icons, registration API not yet in stable docs | Fall back: output the SVG inside a dynamic block's `render_callback` or via an `<img>` tag pointing to an SVG asset in `get_stylesheet_directory_uri()`. Do NOT use `core/icon` with an unregistered custom icon — the block will render empty. |
+| Built-in core icons (e.g. `core/star`, `core/close`) | Use `<!-- wp:icon {"icon":"core/..."} /-->` — always safe |
+| Custom theme icons | Register via the `wp_register_icons` filter, then use `<!-- wp:icon {"icon":"{{THEME_SLUG}}/..."} /-->`. The block is server-side rendered via the `/wp/v2/icons` REST endpoint. |
 
-Until the final 7.0 icon registration helper lands in stable docs, fall back to the helper-function approach documented in `compatibility-6.9.md`.
+```php
+add_filter( 'wp_register_icons', function( array $icons ): array {
+    $icons['{{THEME_SLUG}}/my-icon'] = array(
+        'label'  => __( 'My Icon', '{{TEXT_DOMAIN}}' ),
+        'src'    => get_stylesheet_directory_uri() . '/assets/icons/my-icon.svg',
+        'width'  => 24,
+        'height' => 24,
+    );
+    return $icons;
+} );
+```
+
+Do NOT use `core/icon` with an unregistered custom icon — the block renders empty with no error.
 
 ---
 
@@ -548,10 +573,15 @@ The user must enable at least one provider at Settings → Connectors for `send(
 Use the **Script Modules API** to ship Interactivity API code so it loads only when the relevant block is on the page.
 
 **Step 1: Register the script module in PHP**
+
+File naming convention — **must be followed consistently**:
+- `view.js` → reactive Script Module (Interactivity API store, `data-wp-*` directives, shared state)
+- `index.js` → non-reactive script (IntersectionObserver, GSAP, scroll animations — read-only DOM effects with no shared state)
+
 ```php
 wp_register_script_module(
     id:      'my-theme/logic',
-    src:     get_stylesheet_directory_uri() . '/patterns/my-pattern/index.js',
+    src:     get_stylesheet_directory_uri() . '/patterns/my-pattern/view.js',  // reactive → view.js
     deps:    array( '@wordpress/interactivity' ),
     version: '1.0.0'
 );
@@ -605,13 +635,13 @@ The Interactivity API is the modern standard for frontend logic. It uses declara
 </div>
 ```
 
-*Note: Requires registering the store in `index.js` using `store()`. Elite usage avoids `event.target.style` and instead toggles state attributes or CSS classes via `data-wp-class` or `data-wp-style`.*
+*Note: Requires registering the store in `view.js` using `store()`. Elite usage avoids `event.target.style` and instead toggles state attributes or CSS classes via `data-wp-class` or `data-wp-style`.*
 
 ### Reactive Signal Subscriptions: `watch()` and `data-wp-watch` (WP 7.0)
 
 Use `watch()` when a block must react to state changes without a direct user event — e.g. syncing a cart count badge when items are added from another block.
 
-**Programmatic (`index.js`):**
+**Programmatic (`view.js`):**
 
 ```js
 import { store, watch } from '@wordpress/interactivity';
@@ -769,7 +799,9 @@ The Font Library is now enabled for **all theme types** — block, hybrid, and c
 When every block in use declares `"apiVersion": 3` in its `block.json`, the WordPress editor enforces the iframed editor. This eliminates the shared DOM between the editor and the frontend, which means:
 
 - Scripts targeting `document` or `window` directly will NOT fire inside the editor iframe. Always use Interactivity API directives (`data-wp-*`) — never bare `document.addEventListener` in theme JS.
-- Custom blocks shipped with the theme MUST declare `"apiVersion": 3`. Using any v1 or v2 block degrades the entire editor to the legacy non-iframed mode.
+- Custom blocks that ship with a `block.json` MUST declare `"apiVersion": 3`. Using any v1 or v2 block degrades the entire editor to the legacy non-iframed mode.
+- **Exception:** PHP-only blocks registered with `'supports' => ['autoRegister' => true]` have **no `block.json`**. WordPress automatically assigns these blocks the current API version — do not generate a `block.json` alongside them. The `apiVersion: 3` requirement applies only to blocks that explicitly ship a `block.json`.
+- **Editor-side JavaScript:** For custom inspector controls or sidebar panels, use `enqueue_block_editor_assets` — NOT `admin_enqueue_scripts`. Scripts on `admin_enqueue_scripts` load in the parent window frame and cannot reach the iframed editor DOM.
 
 To verify: open a template in the Site Editor and run `window.frameElement` in the browser console. If it returns an `<iframe>` element, the iframed editor is active.
 
@@ -943,6 +975,17 @@ When `wp-build` runs, it compiles each entry listed under `exports` and writes a
 
 **When you do NOT need a build step:** Pure block themes that use only PHP patterns, `theme.json`, and vanilla JS (no imports, no TypeScript, no SCSS) have no need for `@wordpress/build`. The `autoRegister` flag on dynamic blocks also eliminates JS compilation for simple server-rendered blocks.
 
+### `wp_enqueue_block_style` vs `register_block_style` — Decision Rule
+
+These two functions look similar but load CSS at different scopes:
+
+| Function | When CSS loads | Use for |
+|---|---|---|
+| `wp_enqueue_block_style( 'core/group', [...] )` | Whenever **any** `core/group` block is on the page — regardless of variation | Global resets that apply to all instances of a block (e.g. remove default margin on all groups) |
+| `register_block_style( 'core/group', ['style_handle' => ...] )` | Only when a block has the specific variation class (`is-style-{name}`) | Pattern-specific CSS — loads only on pages that use that exact variation |
+
+**Rule:** always use `register_block_style` with `style_handle` for pattern CSS. Using `wp_enqueue_block_style` for variation-specific CSS loads it on every page that contains the block type — a guaranteed performance regression in themes with frequent Group blocks.
+
 ### Full functions.php Template
 
 ```php
@@ -965,15 +1008,15 @@ function mytheme_child_enqueue_styles(): void {
 add_action( 'wp_enqueue_scripts', 'mytheme_child_enqueue_styles', 9 );
 
 /**
- * Theme setup: pattern categories.
+ * Register pattern categories. Must run on 'init' — the canonical hook for block pattern APIs.
  */
-function mytheme_child_setup(): void {
+function mytheme_child_register_pattern_categories(): void {
     register_block_pattern_category(
         '{{THEME_SLUG}}',
         array( 'label' => __( '{{THEME_NAME}}', '{{TEXT_DOMAIN}}' ) )
     );
 }
-add_action( 'after_setup_theme', 'mytheme_child_setup' );
+add_action( 'init', 'mytheme_child_register_pattern_categories' );
 
 /**
  * Register block styles and assets for patterns.
@@ -996,17 +1039,20 @@ function mytheme_child_pattern_assets(): void {
         deps:   array(),
         ver:    '1.0.0'
     );
-    // Add absolute path to trigger native WP CSS inlining for small files
+    // Passing 'path' enables WordPress's built-in CSS inlining: for files under ~2 KB,
+    // WP outputs the CSS directly in <head> instead of issuing a render-blocking HTTP request.
     wp_style_add_data(
         'my-section-style',
         'path',
         get_stylesheet_directory() . '/patterns/my-section/style.css'
     );
 
-    // 2. Register the script module for the pattern
+    // 2. Register the script module for the pattern.
+    //    view.js = reactive (Interactivity API, shared state, data-wp-* directives)
+    //    index.js = non-reactive (IntersectionObserver, GSAP, scroll effects — no shared state)
     wp_register_script_module(
         id:      'my-section-logic',
-        src:     get_stylesheet_directory_uri() . '/patterns/my-section/index.js',
+        src:     get_stylesheet_directory_uri() . '/patterns/my-section/view.js',
         deps:    array( '@wordpress/interactivity' ),
         version: '1.0.0'
     );

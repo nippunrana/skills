@@ -13,7 +13,7 @@
         "Every CSS rule in patterns/*/style.css is scoped to .is-style-{pattern-slug} (no global selectors)",
         "theme.json gets a customTemplates entry with name: research-hub",
         "functions.php uses register_block_style() to bind pattern CSS to a core block variation",
-        "theme.json declares \"version\": 3 and \"$schema\": \"https://schemas.wp.org/trunk/theme.json\" (or wp/6.6/theme.json)",
+        "theme.json declares \"version\": 3 and \"$schema\": \"https://schemas.wp.org/wp/7.0/theme.json\"",
         "No file references the fabricated APIs register_block_ability, is_ai_ready, WP_Icons_Registry, or __experimentalRole",
         "Any non-block HTML that cannot be mapped to a Core Block is rendered by a dynamic block registered via register_block_type() with a render_callback (not by a wp:html wrapper)"
       ]

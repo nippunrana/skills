@@ -2,7 +2,7 @@
 
 *Before writing any WordPress function or class name in skill output, confirm it appears here.* Every entry below has been verified against developer.wordpress.org. If a name you need is not on this list, look it up before writing — do not invent.
 
-If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items marked "WP 7.0+" — they don't exist on older cores.
+This allowlist targets WordPress 7.0 only. All entries below are confirmed stable in WP 7.0.
 
 ## Themes & templates
 
@@ -30,6 +30,9 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 | `wp_enqueue_block_style( $block, $args )` | Enqueues a stylesheet only when the named block is on the page. |
 | `core/heading` (WP 7.0 level variations) | WP 7.0 registers H1–H6 as named inserter-level variations of `core/heading`. The block name in markup is always `core/heading` — never `core/headings`. Use `level: 1–6` in attributes; editors can switch levels via the toolbar at any time. |
 | `core/navigation-overlay-close` | WP 7.0. Close button for mobile navigation overlays. Must be placed inside a `core/navigation` block that has `overlayMenu` set to `"always"` or `"mobile"`. |
+| `core/accordion` | WP 7.0. Multi-item collapsible disclosure widget. Structure: `core/accordion` → one or more `core/accordion-item` children, each containing `core/accordion-heading` and `core/accordion-panel`. Use for FAQ-style groups with multiple items. For a single collapsible disclosure, use `core/details` instead. |
+| `core/details` | WP 6.3+. Single collapsible disclosure using native `<details>`/`<summary>` HTML. Use for one-off expandable sections. For multi-item accordion UIs, use `core/accordion` (WP 7.0). |
+| `core/playlist` | WP 7.0. Native audio playlist block with waveform visualization. Use when converting designs that include podcast players or audio track lists. |
 
 ## Block Bindings
 
@@ -43,8 +46,8 @@ If you're on WP 6.9 or earlier, also check `compatibility-6.9.md` for the items 
 
 | API | Notes |
 |---|---|
-| `disableContentOnlyForUnsyncedPatterns` PHP filter | WP 7.0+. Stable site-wide opt-out. Hook on `block_editor_settings_all` to return `true` for this key in the settings array to disable the contentOnly default globally. Use only when the entire site must bypass contentOnly — rare. |
-| `disableContentOnlyForUnsyncedPatterns` JS filter | WP 7.0+. Equivalent client-side opt-out via `wp.hooks.addFilter`. Same scope as the PHP filter. |
+| `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` | WP 7.0+. Stable site-wide opt-out. Hook on `block_editor_settings_all` and return `true` for this key in the settings array. **Never** use `add_filter('disableContentOnlyForUnsyncedPatterns', ...)` — that filter is never called. Correct PHP: `add_filter('block_editor_settings_all', function(array $s): array { $s['disableContentOnlyForUnsyncedPatterns'] = true; return $s; });` Use only when the entire site must bypass contentOnly — rare. |
+| `disableContentOnlyForUnsyncedPatterns` JS equivalent | WP 7.0+. `wp.hooks.addFilter('blockEditor.settings', 'my-theme/disable-content-only', (settings) => ({ ...settings, disableContentOnlyForUnsyncedPatterns: true }))` |
 | `"__experimentalSettings": { "disableContentOnlyForUnsyncedPatterns": true }` | Experimental per-block attribute. Set on the outermost block's attributes to opt out for one specific pattern only. Preferred for per-pattern developer scaffolds. |
 
 ## Block Supports: contentOnly & List View (WP 7.0+)
@@ -168,6 +171,6 @@ Block markup example (hidden on mobile):
 | `'is_ai_ready' => true` on `register_block_template` | Not a real parameter. Use the documented `title`, `description`, `content`, `post_types` keys. |
 | `__experimentalRole: 'content'` | Removed. Use `metadata.bindings` + `metadata.name` for Pattern Overrides. |
 | `"version": 4` in theme.json | No such version. Use `"version": 3`. |
-| `https://schemas.wp.org/wp/7.0/theme.json` | 404. Use `https://schemas.wp.org/trunk/theme.json` or `https://schemas.wp.org/wp/6.6/theme.json`. |
+| `https://schemas.wp.org/trunk/theme.json` | Points to the development branch — validates against unreleased schema features. Use `https://schemas.wp.org/wp/7.0/theme.json` (pinned to the released version) instead. |
 | `@wordpress/viewport-visibility` | Does not exist. Use the `metadata.blockVisibility.viewport` key directly on the block's metadata attribute. |
 | `wp_register_font_library_font()` | Does not exist. The Font Library is a UI-only feature managed via Appearance → Editor → Styles → Typography → Manage Fonts, or via `theme.json fontFamilies` for version-controlled registration. |

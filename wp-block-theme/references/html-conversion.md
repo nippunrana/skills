@@ -26,7 +26,9 @@ Before writing any code, map the static HTML elements to native WordPress Core B
 | `<h1>–<h6>` (any level) | `core/heading` | Editors can always change the level via the block toolbar. Set the default with `"level": 2` in block attributes. The block name is always `core/heading`. |
 | `<div class="features">` | `core/group` | Use `layout: { "type": "grid" }` |
 | `<a class="btn">` | `core/button` | Use `className: "btn-primary"` |
-| `<div class="accordion">` | `core/accordion` | (WP 6.9+) Native component |
+| `<div class="accordion">` (multi-item FAQ) | `core/accordion` (WP 7.0) | Multi-item collapsible. Structure: `core/accordion` → `core/accordion-item` children, each with `core/accordion-heading` + `core/accordion-panel`. |
+| `<details>/<summary>` (single toggle) | `core/details` (WP 6.3+) | Single collapsible disclosure using native `<details>`/`<summary>`. Chain multiple for simple FAQ-style lists without the full Accordion block. |
+| `<audio>` list / podcast player | `core/playlist` (WP 7.0) | Native audio playlist block with waveform visualization. Replaces custom audio player markup entirely. |
 | `<div class="card">` | `core/group` | Child of native Grid |
 | `SVG Icon` | `core/icon` (WP 7.0) | Register the icon against the new Icon Registration API so it appears in the inserter. |
 | Mobile nav close button | `core/navigation-overlay-close` (WP 7.0) | Place inside `core/navigation` with `"overlayMenu": "always"` or `"overlayMenu": "mobile"`. |
@@ -513,22 +515,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
 ### Icon Conversion (WP 7.0)
 
-WordPress 7.0 ships a `core/icon` block backed by an Icon Registration API and a REST endpoint at `/wp/v2/icons`. Register theme icons via the documented filter/registration call (see the developer notes at make.wordpress.org/core for the exact 7.0 signature) and reference them in markup as:
+WordPress 7.0 ships a `core/icon` block backed by an Icon Registration API and a REST endpoint at `/wp/v2/icons`. Register custom theme icons via the `wp_register_icons` filter, then reference them in markup:
+
+```php
+add_filter( 'wp_register_icons', function( array $icons ): array {
+    $icons['{{THEME_SLUG}}/warning'] = array(
+        'label'  => __( 'Warning', '{{TEXT_DOMAIN}}' ),
+        'src'    => get_stylesheet_directory_uri() . '/assets/icons/warning.svg',
+        'width'  => 24,
+        'height' => 24,
+    );
+    return $icons;
+} );
+```
 
 ```html
 <!-- wp:icon {"icon":"{{THEME_SLUG}}/warning"} /-->
 ```
 
-If you are on WP 6.9 or earlier — or the 7.0 Icon Registration API signature is not yet final in your environment — fall back to a PHP helper as documented in `compatibility-6.9.md`:
-
-```php
-function {{THEME_SLUG}}_get_icon( string $name ): string {
-    $icons = array(
-        'warning' => '<svg viewBox="0 0 24 24"><path d="..."/></svg>',
-    );
-    return $icons[ $name ] ?? '';
-}
-```
+Do NOT use `core/icon` with an unregistered icon slug — the block renders empty with no error. For built-in core icons, use `{"icon":"core/..."}` directly.
 
 ```php
 <?php echo {{THEME_SLUG}}_get_icon( 'warning' ); ?>

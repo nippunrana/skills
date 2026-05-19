@@ -18,7 +18,7 @@
 
 ```json
 {
-  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "$schema": "https://schemas.wp.org/wp/7.0/theme.json",
   "version": 3,
   "settings": {},
   "styles": {},
@@ -27,7 +27,7 @@
 }
 ```
 
-`"version": 3` is the current schema as of WordPress 6.6 and is still current in 7.0. There is no version 4. If you need to pin to a specific release schema, use `https://schemas.wp.org/wp/6.6/theme.json` instead of `trunk`.
+`"version": 3` is the current schema as of WordPress 6.6 and is still current in 7.0. There is no version 4. Always pin to the released version schema (`wp/7.0`) — `trunk` points to the development branch and may expose unreleased features that break validation in production.
 
 **Critical:** JSON must be perfectly valid. A single extra comma causes WordPress to silently
 ignore the entire file. Always validate before saving.
@@ -245,7 +245,7 @@ Once enabled, individual blocks can set `metadata.blockVisibility.viewport` to `
 
 ### Preset Dimension Values (WP 7.0)
 
-Define reusable dimension presets in `settings.dimensions` so editors pick from a controlled list instead of entering arbitrary heights. Slugs resolve to CSS custom properties with the pattern `var(--wp--preset--dimension--{slug})`.
+Define reusable dimension presets in `settings.dimensions` so editors pick from a controlled list instead of entering arbitrary values. Slugs resolve to CSS custom properties with the pattern `var(--wp--preset--dimension--{slug})`.
 
 ```json
 "settings": {
@@ -256,12 +256,18 @@ Define reusable dimension presets in `settings.dimensions` so editors pick from 
       { "slug": "widescreen", "name": "Widescreen", "ratio": "16/9" }
     ],
     "defaultAspectRatios": false,
-    "minHeight": true
+    "minHeight": true,
+    "dimensionSizes": [
+      { "slug": "small",  "size": "320px", "name": "Small"  },
+      { "slug": "medium", "size": "640px", "name": "Medium" },
+      { "slug": "large",  "size": "960px", "name": "Large"  }
+    ]
   }
 }
 ```
 
-`defaultAspectRatios: false` hides the WordPress-provided defaults and enforces only your design system ratios. These slugs appear in the `core/cover` block's "Aspect ratio" control.
+- `defaultAspectRatios: false` hides WordPress-provided aspect ratio defaults and enforces only your design system ratios. These slugs appear in the `core/cover` block's "Aspect ratio" control.
+- `dimensionSizes` (WP 7.0) — named width/height tokens that appear in the block inspector's dimension controls. Provides editors a constrained set of size options instead of a freeform input. Slugs resolve to `var(--wp--preset--dimension--small)` etc.
 
 ---
 
@@ -494,7 +500,7 @@ The child theme's `theme.json` **merges with** (not replaces) the parent's `them
 
 ```json
 {
-  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "$schema": "https://schemas.wp.org/wp/7.0/theme.json",
   "version": 3,
   "settings": {
     "appearanceTools": true,
