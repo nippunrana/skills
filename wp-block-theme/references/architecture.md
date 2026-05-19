@@ -255,7 +255,9 @@ Is it interactive / dynamic?
 
   ```php
   add_filter( 'block_core_breadcrumbs_items', function( array $items, WP_Block $block ): array {
-      // $items is an ordered array of trail segments. Modify, add, or remove entries here.
+      // Each item: ['label' => string, 'url' => string, 'allow_html' => bool]
+      // Sanitization: allow_html:true → wp_kses_post(); allow_html:false/omitted → esc_html()
+      // Set allow_html:true only when intentionally injecting safe HTML (e.g. SVG home icon).
       return $items;
   }, 10, 2 );
   ```
@@ -265,6 +267,19 @@ Is it interactive / dynamic?
 - **`core/cover` enhancements** — embedded YouTube/Vimeo videos as background; focal-point control on fixed backgrounds.
 
 - **`core/gallery` enhancements** — lightbox now navigates between images with the arrow keys.
+
+### Custom Navigation Overlays
+
+Theme developers can design mobile navigation overlays using blocks (WP 7.0). Four-step setup:
+
+1. **Register area** — in `theme.json` under `templateParts`, add `{"area": "navigation-overlay", "name": "mobile-menu", "title": "Mobile Menu"}`.
+2. **Create the HTML file** — in `/parts/mobile-menu.html`. Always include `core/navigation-overlay-close` explicitly — omitting it forces a theme-clashing fallback close button.
+3. **Register as a pattern** — set `Block Types: core/template-part/navigation-overlay` in the pattern header so WordPress treats it as the active overlay for that area.
+4. **Overlay attribute** — in the Navigation block's `overlay` attribute, use the **slug only** (no theme prefix, e.g. `"overlay": "mobile-menu"`) for future-proofing across theme switches.
+
+> **Limitation:** Custom overlays are tied to the active theme and are NOT preserved during theme switches.
+
+---
 
 ### Native Grid layout (WP 7.0 hybrid mode)
 
@@ -321,7 +336,12 @@ add_action( 'init', function(): void {
 } );
 ```
 
-With `autoRegister => true`, WordPress generates the inserter UI from the `attributes` array (it supports `string`, `integer`, `boolean`, and `enum`) and renders the block via `ServerSideRender` in the editor. Use this for static or mostly-static dynamic markup that does not need interactive React controls.
+With `autoRegister => true`, WordPress generates the inserter UI from the `attributes` array and renders the block via `ServerSideRender` in the editor. Use this for static or mostly-static dynamic markup that does not need interactive React controls.
+
+**Requirements and constraints:**
+- `render_callback` is **mandatory** — `autoRegister` blocks have no JS editor component; the callback is the only render path.
+- Supported attribute types: `string`, `number`, `integer`, `boolean`, and `enum`. Attributes that are objects or arrays are not auto-generated as Inspector Controls.
+- **Sourced attributes are not supported.** Attributes whose value is "sourced" from the saved HTML (e.g. `"source": "html"`, `"source": "attribute"`) cannot be used with `autoRegister` — all attribute values must be stored in the block's JSON boundary (the opening comment). Do not attempt to use `"source"` keys in the attributes array of an `autoRegister` block.
 
 The `autoRegister` flag is a WP 7.0 feature. Do not add fallback code — this skill targets WP 7.0 only.
 
@@ -730,6 +750,13 @@ After this filter is registered, a synced pattern containing a `{{THEME_SLUG}}/p
 
 Control which device types see a block using `metadata.blockVisibility.viewport`. This is the WordPress-native mechanism — do not use CSS `display: none` on device breakpoints for this purpose.
 
+**Naming convention disambiguation:** The block *support* key is `visibility` (what you declare in `supports`), but the attribute *metadata* key that holds the settings is `blockVisibility`. These are two different keys — do not conflate them.
+
+**Server-side parsing:** When parsing block markup (e.g., with the HTML API or `parse_blocks()`), the `blockVisibility` field may appear as either:
+- A **boolean** (scalar) — legacy form, `true` means visibility controls are active globally.
+- An **object** — WP 7.0 form, with a `viewport` array specifying device types.
+Code that reads `blockVisibility` must handle both forms gracefully.
+
 **Important (WP 7.0):** Viewport hiding is **CSS-based**. Hidden blocks are still rendered in the DOM on all devices — they are visually suppressed via an injected CSS class. This means: server-side DOM parsers will still see the block, JavaScript querying the DOM will still find it, and search engines may still index the content. Use this feature for visual responsive layout only, not for access control or security gating.
 
 ### Decision rule
@@ -795,8 +822,11 @@ The Font Library is now enabled for **all theme types** — block, hybrid, and c
 
 ### Iframed Editor Enforcement (Block API v3)
 
-When every block in use declares `"apiVersion": 3` in its `block.json`, the WordPress editor enforces the iframed editor. This eliminates the shared DOM between the editor and the frontend, which means:
+The post editor is **iframed by default** when every block in use declares `"apiVersion": 3` in its `block.json`. This eliminates the shared DOM between the editor and the frontend.
 
+**Dynamic fallback:** If a Block API v2 (or lower) block is inserted during the editing session, the editor **dynamically switches out of iframe mode** in real time to ensure the legacy block functions correctly. This means a single v2 block anywhere on the page reverts the entire editing context to non-iframed mode — there is no per-block exception.
+
+Consequences for theme development:
 - Scripts targeting `document` or `window` directly will NOT fire inside the editor iframe. Always use Interactivity API directives (`data-wp-*`) — never bare `document.addEventListener` in theme JS.
 - Custom blocks that ship with a `block.json` MUST declare `"apiVersion": 3`. Using any v1 or v2 block degrades the entire editor to the legacy non-iframed mode.
 - **Exception:** PHP-only blocks registered with `'supports' => ['autoRegister' => true]` have **no `block.json`**. WordPress automatically assigns these blocks the current API version — do not generate a `block.json` alongside them. The `apiVersion: 3` requirement applies only to blocks that explicitly ship a `block.json`.
@@ -863,6 +893,17 @@ add_filter( 'block_editor_rest_api_get_items_query_params', function( $params, $
 2. **ARIA labels**: add `aria-label` to navigation blocks and any unlabelled interactive buttons.
 3. **Alt text**: every `core/image` block needs an `alt` attribute, or a binding that supplies dynamic alt text.
 4. **Focus states**: never disable focus outlines without providing a visible, high-contrast alternative.
+
+---
+
+## WordPress 7.0 Core Environment
+
+| Component | Requirement / Change |
+|---|---|
+| **PHP minimum** | WordPress 7.0 requires PHP **7.4** as the absolute floor. **This skill always generates PHP 8.3+ code** (typed parameters, `match`, null-safe operator, `str_contains`, etc.) — the deployment server must run PHP ≥ 8.3 to execute the generated output. Never downgrade the generated code style to target a lower version. |
+| **PHPMailer** | Updated to 7.0.2 in WP 7.0. |
+| **JS linting** | Transitioned to **Espree** (ES6+). ESLint configs using legacy Esprima or Acorn parsers should be updated to the Espree parser for full ES6+ support. |
+| **User registration security** | `Administrator` and `Editor` roles are **removed** from the default new-user registration role selector to prevent accidental privilege escalation. Use `default_role_dropdown_excluded_roles` filter (`api-allowlist.md → User registration`) to modify the exclusion list. |
 
 ---
 

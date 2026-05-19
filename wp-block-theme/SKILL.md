@@ -329,7 +329,15 @@ Because the template part relies on a backing PHP pattern, you register its CSS 
 ]
 ```
 
-Valid `area` values: `header`, `footer`, `uncategorized`.
+Valid `area` values: `header`, `footer`, `uncategorized`, `navigation-overlay` (WP 7.0 — for mobile menu overlays).
+
+**Navigation Overlay setup (WP 7.0):** To register a custom mobile overlay:
+1. Add `{"area": "navigation-overlay", "name": "mobile-menu"}` to `templateParts` in `theme.json`.
+2. Create the HTML file in `/parts/` — **always include `core/navigation-overlay-close`** to avoid design-clashing fallbacks.
+3. Register a pattern with `Block Types: core/template-part/navigation-overlay` to surface it as the active overlay.
+4. In the Navigation block's `overlay` attribute, use the **slug only** (no theme prefix) for future-proofing across theme switches.
+
+See `references/architecture.md → Custom Navigation Overlays` for the full implementation reference.
 
 ---
 

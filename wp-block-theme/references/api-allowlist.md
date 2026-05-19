@@ -29,10 +29,27 @@ This allowlist targets WordPress 7.0 only. All entries below are confirmed stabl
 | `unregister_block_style()` | Removes a previously-registered variation. |
 | `wp_enqueue_block_style( $block, $args )` | Enqueues a stylesheet only when the named block is on the page. |
 | `core/heading` (WP 7.0 level variations) | WP 7.0 registers H1–H6 as named inserter-level variations of `core/heading`. The block name in markup is always `core/heading` — never `core/headings`. Use `level: 1–6` in attributes; editors can switch levels via the toolbar at any time. |
-| `core/navigation-overlay-close` | WP 7.0. Close button for mobile navigation overlays. Must be placed inside a `core/navigation` block that has `overlayMenu` set to `"always"` or `"mobile"`. |
+| `core/navigation-overlay-close` | WP 7.0. Close button for mobile navigation overlays. Must be placed inside a `core/navigation` block that has `overlayMenu` set to `"always"` or `"mobile"`. Always include this block explicitly in custom overlay patterns — omitting it forces a theme-clashing fallback button. |
 | `core/accordion` | WP 7.0. Multi-item collapsible disclosure widget. Structure: `core/accordion` → one or more `core/accordion-item` children, each containing `core/accordion-heading` and `core/accordion-panel`. Use for FAQ-style groups with multiple items. For a single collapsible disclosure, use `core/details` instead. |
 | `core/details` | WP 6.3+. Single collapsible disclosure using native `<details>`/`<summary>` HTML. Use for one-off expandable sections. For multi-item accordion UIs, use `core/accordion` (WP 7.0). |
 | `core/playlist` | WP 7.0. Native audio playlist block with waveform visualization. Use when converting designs that include podcast players or audio track lists. |
+
+## Template Part Areas (WP 7.0)
+
+Valid `area` values for `templateParts` entries in `theme.json` and for `wp:template-part` block attributes:
+
+| Area value | Use |
+|---|---|
+| `header` | Site header region |
+| `footer` | Site footer region |
+| `uncategorized` | General-purpose template part (default) |
+| `navigation-overlay` | WP 7.0. Mobile navigation overlay. Register area in `theme.json templateParts`; create the `/parts/*.html` file; register a pattern with `Block Types: core/template-part/navigation-overlay`; use slug-only (no theme prefix) in the Navigation block's `overlay` attribute. |
+
+## Breadcrumb Filters (WP 7.0)
+
+| Filter | Notes |
+|---|---|
+| `block_core_breadcrumbs_items` | Modifies the breadcrumb trail for `core/breadcrumbs`. Receives `array $items, WP_Block $block` — 10, 2 priority. Each item in the array is an associative array with three keys: `label` (string), `url` (string), and `allow_html` (bool). **Sanitization rule:** if `allow_html` is `true` the label is sanitized via `wp_kses_post()`; if `false` or omitted it is escaped via `esc_html()`. Always set `allow_html: false` (or omit it) unless you are intentionally injecting safe HTML such as an SVG icon. |
 
 ## Block Bindings
 

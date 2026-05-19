@@ -171,7 +171,7 @@ The Connectors layer resolves the API key for `api_key` connectors in this **str
 
 1. **Environment variable** — e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`. Set in your server's environment or `.env` file loaded by your stack.
 2. **PHP constant** — `define( 'OPENAI_API_KEY', '…' );` typically in `wp-config.php`.
-3. **Database option** — set by the admin at **Settings → Connectors**. Stored under the option name `connectors_ai_{$id}_api_key` (the `ai` segment is the connector *type* — reserved for future categories).
+3. **Database option** — set by the admin at **Settings → Connectors**. Stored under the general pattern `connectors_{type}_{id}_api_key`. In WP 7.0 the type segment is always `ai`, so in practice the key is `connectors_ai_{$id}_api_key` (e.g. `connectors_ai_openai_api_key`). The `{type}` placeholder is reserved for future connector categories beyond AI.
 
 The admin screen shows which source supplied the active key (env / constant / DB) per connector. Database keys are masked in the REST API to prevent leakage.
 

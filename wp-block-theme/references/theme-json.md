@@ -268,6 +268,8 @@ Define reusable dimension presets in `settings.dimensions` so editors pick from 
 
 - `defaultAspectRatios: false` hides WordPress-provided aspect ratio defaults and enforces only your design system ratios. These slugs appear in the `core/cover` block's "Aspect ratio" control.
 - `dimensionSizes` (WP 7.0) — named width/height tokens that appear in the block inspector's dimension controls. Provides editors a constrained set of size options instead of a freeform input. Slugs resolve to `var(--wp--preset--dimension--small)` etc.
+- **UI rendering threshold:** if the `dimensionSizes` array has **fewer than 8 entries** → the inspector renders a **slider**; **8 or more entries** → the inspector renders a **dropdown**. Design your preset list intentionally — a slider is friendlier for continuous scales; a dropdown is better for named t-shirt sizes.
+- **Block opt-in:** Width and height dimension controls are opt-in per block. In `block.json` (or `register_block_type` args), declare `"supports": {"dimensions": {"width": true, "height": true}}` to surface these controls in the inspector.
 
 ---
 
@@ -372,6 +374,25 @@ Rule: always define `:focus` and `:focus-visible` together with the same outline
 ```
 
 To apply only to a specific variation (e.g. a "drop-cap" style), use `styles.blocks.core/paragraph.variations.{name}.typography.textIndent`.
+
+**Global Styles `textIndent` scope selector (WP 7.0):** These are two independent settings that work together — `styles.blocks.core/paragraph.typography.textIndent` sets the *indent amount* (e.g. `"2em"`); `settings.typography.textIndent` sets *which paragraphs receive it*. Both are needed for full global indentation control.
+
+When applied at the Global Styles level via `theme.json`, the `typography.textIndent` setting on `core/paragraph` has two modes controlled by the `subsequent` key:
+
+| Mode | CSS selector generated | Effect |
+|---|---|---|
+| `subsequent` (default) | `.wp-block-paragraph + .wp-block-paragraph` | Indents only paragraphs that follow another paragraph — the classic "indent all but the first" typographic convention. |
+| `all` | `.wp-block-paragraph` | Indents every paragraph regardless of position. |
+
+Set the mode in `theme.json` under `settings.typography.textIndent`:
+```json
+"settings": {
+  "typography": {
+    "textIndent": "subsequent"
+  }
+}
+```
+Omit the key or set `"subsequent"` for the default. Use `"all"` only when the design calls for universal paragraph indentation.
 
 ### Paragraph Column Layout (WP 7.0)
 
