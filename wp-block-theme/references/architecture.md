@@ -523,25 +523,32 @@ The ability name must be lowercase, namespaced (`prefix/name`), and may contain 
 
 ### WP AI Client + Connectors (WP 7.0)
 
-The WP AI Client (`WP_AI_Client_Prompt_Builder`) is a provider-agnostic PHP wrapper around the AI providers configured at **Settings → Connectors**. Out of the box, WP 7.0 ships connectors for OpenAI, Anthropic (Claude), and Google (Gemini); third-party providers can register their own.
+The WP AI Client is a provider-agnostic PHP wrapper around the AI providers configured at **Settings → Connectors**. Out of the box, WP 7.0 ships connectors for OpenAI, Anthropic (Claude), and Google (Gemini); third-party providers can register their own via the `wp_connectors_init` hook.
 
-Inside an ability's `execute_callback`, you can call the AI Client to fulfil the request:
+The entry point is `wp_ai_client_prompt( $text = '' )`, which returns a `WP_AI_Client_Prompt_Builder` instance. Always gate calls behind a static feature-detection method (e.g. `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`) so you fail fast when no capable provider is configured.
+
+Inside an ability's `execute_callback`:
 
 ```php
 'execute_callback' => function( array $input ): array|\WP_Error {
-    $prompt = ( new WP_AI_Client_Prompt_Builder() )
-        ->add_system_message( 'You are an editorial assistant.' )
-        ->add_user_message( sprintf( 'Rewrite this text in a %s tone:\n\n%s', $input['tone'], $input['text'] ) );
-
-    $response = $prompt->send();
-    if ( is_wp_error( $response ) ) {
-        return $response;
+    if ( ! \WP_AI_Client_Prompt_Builder::is_supported_for_text_generation() ) {
+        return new \WP_Error( 'no_text_provider', __( 'No AI provider is configured for text generation.', 'my-plugin' ) );
     }
-    return array( 'rewritten' => $response['text'] );
+
+    $rewritten = wp_ai_client_prompt()
+        ->using_system_instruction( 'You are an editorial assistant.' )
+        ->using_temperature( 0.4 )
+        ->with_text( sprintf( "Rewrite this text in a %s tone:\n\n%s", $input['tone'], $input['text'] ) )
+        ->generate_text();
+
+    if ( is_wp_error( $rewritten ) ) {
+        return $rewritten;
+    }
+    return array( 'rewritten' => $rewritten );
 },
 ```
 
-The user must enable at least one provider at Settings → Connectors for `send()` to succeed. If no connector is configured, `send()` returns a `WP_Error` — surface that to the user rather than swallowing it.
+For token-usage or provider-metadata access, swap `generate_text()` for `generate_text_result()` — it returns a `GenerativeAiResult` with `getTokenUsage()`, `getProviderMetadata()`, and `getModelMetadata()`. The user must enable at least one provider at Settings → Connectors for generation to succeed; otherwise the call returns `WP_Error`. See `references/ai-client.md` for the full builder surface, the Connectors registry, and credential resolution order.
 
 ---
 
@@ -651,6 +658,21 @@ const unwatch = watch( () => {
 ```
 
 Decision: use `data-wp-watch` when the side effect is tied to a specific DOM element. Use programmatic `watch()` when the side effect is global (e.g. updating `document.title` or writing a cookie).
+
+#### `state.url` is server-populated (WP 7.0)
+
+In WP 7.0 the `core/router` store exposes a `state.url` field that is **populated server-side on initial page load** — earlier versions only set it after the first client-side navigation. Combined with `watch()`, this gives a single, reliable hook for SPA-style analytics and side effects that previously needed a `DOMContentLoaded` + history-API combo:
+
+```js
+import { store, watch } from '@wordpress/interactivity';
+const { state } = store( 'core/router' );
+
+watch( () => {
+    sendAnalyticsPageView( state.url );
+} );
+```
+
+The callback fires once on initial load (because `state.url` is already populated) and again on every client-side route change. Do not read `window.location.href` for this purpose — it bypasses the router and misses post-route updates.
 
 ---
 

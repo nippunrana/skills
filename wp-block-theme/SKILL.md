@@ -1,20 +1,25 @@
 ---
 name: wp-block-theme
 description: >
-  Expert WordPress Full Site Editing (FSE) block theme and template developer. Use this skill
-  whenever the user wants to create, modify, or scaffold any part of a WordPress block theme:
-  new templates (custom page templates, archive views, 404 pages), template parts (header,
-  footer), block patterns (PHP-based reusable sections), or child theme extensions. Also triggers
-  when the user wants to configure theme.json (colors, typography, spacing, layout), integrate
-  custom CSS/JS assets scoped to a template, set up modular asset enqueuing in functions.php,
-  or debug Site Editor sync issues. CRITICALLY: use this skill whenever the user provides raw
-  HTML, CSS, or JS and asks to "convert it to a block theme template", "turn this into a
-  WordPress template", "make this work in the Site Editor", or "add this design as a new page".
-  If the user pastes HTML markup, a Figma export, or a static design file and wants it inside
-  WordPress FSE — this is the skill to use.
+  Expert WordPress 7.0 theme AND plugin developer. Covers the full WP 7.0 surface: Full Site
+  Editing block themes, templates, template parts, block patterns, theme.json design systems —
+  AND the new plugin-side APIs: WP AI Client (`wp_ai_client_prompt()`), Connectors API,
+  client-and-server Abilities API (`wp_register_ability` / `registerAbility`), DataViews and
+  DataForms (`groupBy`, `onReset`, Field validation, `getValueFormatted`), Block Bindings,
+  Block Hooks, PHP-only blocks (`autoRegister`), viewport `blockVisibility`, dimensions and
+  textIndent supports, customisable Navigation Overlays, Interactivity API `watch()` with
+  server-populated `state.url`, and Breadcrumb filters. Use this skill whenever the user wants
+  to create, modify, or scaffold any part of a WP 7.0 theme OR plugin — new templates, template
+  parts, block patterns, child theme extensions, custom blocks (PHP-only or classic dynamic),
+  AI abilities, DataViews admin screens, custom Connectors, theme.json configuration, modular
+  asset pipelines, or Site Editor debugging. CRITICALLY: use this skill whenever the user
+  provides raw HTML/CSS/JS and asks to "convert it to a block theme template", or asks to
+  "add an AI feature", "register an ability", "build an admin table", "call Claude/OpenAI from
+  PHP", "register a custom AI provider", "manage API keys for AI", or implements anything that
+  touches the AI Client, Abilities, Connectors, or DataViews APIs.
 ---
 
-# WordPress Block Theme Developer
+# WordPress 7.0 Theme & Plugin Developer
 *Target: WordPress 7.0+ (released 2026-05-20). Earlier versions are out of scope.*
 
 ## Required Context (Dynamic Variables)
@@ -38,7 +43,11 @@ underlying building blocks used during that process.
 ## How to approach a request
 
 1. **Identify the deliverable** — Is this an HTML→template conversion, a new template from
-   scratch, a pattern, a template part, a theme.json change, or an asset pipeline fix?
+   scratch, a pattern, a template part, a theme.json change, an asset pipeline fix, **or a plugin
+   feature** (an Ability, a WP AI Client call, a custom Connector, a DataViews admin screen, a
+   PHP-only block via `autoRegister`)? Theme work routes through Sections 0–6; plugin work routes
+   through Section 7 and the dedicated reference files (`ai-client.md`, `abilities-api.md`,
+   `dataviews.md`).
 2. **Determine Target Theme & Read Context** — Identify if you are developing the **Core (Parent Theme)** or an **Extension (Child Theme)**. 
    - Read `AI_CONTEXT-Child.md` if working on a child theme.
    - Read `AI_CONTEXT.md` if working on the parent theme core.
@@ -432,6 +441,54 @@ Site Editor.
 
 ---
 
+## 7. Plugin & AI Workflows (WP 7.0+)
+
+WordPress 7.0 ships a full plugin-side API surface alongside the theme features above. This section is the entry point for plugin work — each subsection is a thin pointer to a dedicated reference file. Load the matching reference **before** writing code.
+
+### 7.1 Registering an Ability (server + client)
+
+Abilities are the standard way to expose a capability — to AI agents, to the REST API, and to plugin JS — through one unified registry. Server-side registration lives in `references/architecture.md` (Abilities API section). Client-side registration and the **REST method-mapping rules** (`readonly`/`destructive`/`idempotent` → GET / DELETE / POST) live in `references/abilities-api.md`. Always annotate `meta.annotations` honestly: AI agents read those flags to decide when to prompt for confirmation.
+
+Read `references/abilities-api.md` when:
+- The user wants to register an ability from JS (`@wordpress/abilities` `registerAbility`).
+- You need to know which HTTP method the auto-generated REST route will use.
+- You're pairing a server `permission_callback` with a client `permissionCallback`.
+
+### 7.2 Calling the WP AI Client
+
+Entry point is `wp_ai_client_prompt( $text = '' )` → `WP_AI_Client_Prompt_Builder`. **Always feature-detect first** (`WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()` etc.) — these are pure capability checks with no API cost. For metadata (token usage, provider, model), use the `*_result()` variant which returns a `GenerativeAiResult`.
+
+Common shape inside an ability's `execute_callback`:
+
+```php
+if ( ! \WP_AI_Client_Prompt_Builder::is_supported_for_text_generation() ) {
+    return new \WP_Error( 'no_text_provider', __( 'No AI provider is configured.', '{{TEXT_DOMAIN}}' ) );
+}
+$result = wp_ai_client_prompt()
+    ->using_system_instruction( '…' )
+    ->using_temperature( 0.4 )
+    ->with_text( $input['prompt'] )
+    ->generate_text();
+if ( is_wp_error( $result ) ) { return $result; }
+```
+
+Read `references/ai-client.md` when:
+- The user wants to call an LLM from PHP (summarise, translate, classify, generate).
+- The user mentions OpenAI / Anthropic / Gemini, API keys, or `Settings → Connectors`.
+- The user wants to register a custom Connector via `wp_connectors_init`.
+- The user asks where to put API keys (env var vs PHP constant vs database).
+
+### 7.3 Building a DataViews-powered admin screen
+
+DataViews drives modern admin listings; DataForms is the matching form layer. Key WP 7.0 changes: `groupBy` is now an object (`{ field, direction, label }`), `onReset` has three meaningful values (`undefined` / `false` / `function`), field validation moved into the field definition (`pattern`, `minLength`/`maxLength`, `min`/`max`), and `getValueFormatted` separates the stored value from the displayed value.
+
+Read `references/dataviews.md` when:
+- The user is building or modifying a DataViews admin screen.
+- The user mentions `groupBy`, `onReset`, field validation, or formatting bytes / dates / role labels.
+- You see legacy string-form `groupBy: 'status'` in code — it must be migrated.
+
+---
+
 ## Reference Files
 
 | File | Load when… |
@@ -441,3 +498,6 @@ Site Editor.
 | `references/theme-json.md` | Modifying `theme.json` beyond a `customTemplates` entry. |
 | `references/api-allowlist.md` | Before every `register_*` call or WP-namespaced PHP function. |
 | `references/scaffold-tree.md` | Creating a new theme directory or adding new top-level folders. |
+| `references/ai-client.md` | The user wants to call an LLM from PHP, register a Connector, or manage AI API keys. |
+| `references/abilities-api.md` | The user is registering an ability (server or client), or needs the REST method-mapping rules for `readonly` / `destructive` / `idempotent` annotations. |
+| `references/dataviews.md` | The user is building a DataViews admin screen, configuring `groupBy` / `onReset`, adding field validation, or formatting displayed values with `getValueFormatted`. |

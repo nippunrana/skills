@@ -102,10 +102,19 @@ Block markup example (hidden on mobile):
 
 ## WP AI Client (WP 7.0+)
 
+See `references/ai-client.md` for full coverage. Quick-reference surface:
+
 | Function / class | Notes |
 |---|---|
-| `WP_AI_Client_Prompt_Builder` | Fluent builder; chain `add_system_message()`, `add_user_message()`, then `send()`. Returns `WP_Error` if no connector is configured at Settings → Connectors. |
-| Connectors UI | Site admin enables OpenAI / Anthropic / Google credentials at **Settings → Connectors**. |
+| `wp_ai_client_prompt( $text = '' )` | Entry point. Returns `WP_AI_Client_Prompt_Builder`. Pass prompt text directly or build it via `->with_text()`. |
+| `WP_AI_Client_Prompt_Builder` | Fluent builder. Configuration methods: `with_text()`, `with_file()`, `with_history()`, `using_system_instruction()`, `using_temperature()`, `using_max_tokens()`, `using_top_p()`, `using_top_k()`, `using_stop_sequences()`, `using_model_preference()`, `as_output_modalities()`, `as_output_file_type()`, `as_json_response( $schema )`. |
+| Generation methods | `generate_text()`, `generate_image()`, `convert_text_to_speech()`, `generate_speech()`, `generate_video()`. Return scalar/array payload or `WP_Error`. |
+| Result-form variants | `generate_text_result()`, `generate_image_result()`, `convert_text_to_speech_result()`, `generate_speech_result()`, `generate_video_result()`. Return `GenerativeAiResult` with `getTokenUsage()` (input/output/thinking), `getProviderMetadata()`, `getModelMetadata()`. |
+| Feature detection (static) | `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`, `::is_supported_for_image_generation()`, `::is_supported_for_text_to_speech_conversion()`, `::is_supported_for_speech_generation()`, `::is_supported_for_video_generation()`. Pure capability checks — no API call, no cost. **Always gate generation calls behind these.** |
+| Hook: `wp_connectors_init` | Fires once with `WP_Connector_Registry`. Use to register or modify connectors. |
+| `WP_Connector_Registry` | Methods: `is_registered( $id )`, `register( $id, $args )`, `unregister( $id )`. Use inside `wp_connectors_init`. |
+| Credential resolution order | 1) env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), 2) PHP constant `define( 'OPENAI_API_KEY', '…' )`, 3) DB option `connectors_ai_{$id}_api_key` (managed at **Settings → Connectors**). First match wins; subsequent sources are ignored. |
+| Connectors UI | Site admin enables OpenAI / Anthropic / Google credentials at **Settings → Connectors**. Shows current credential source (env / constant / DB) per connector. |
 
 ## Script Modules & Interactivity API
 
@@ -152,6 +161,23 @@ Block markup example (hidden on mobile):
 | `esc_url()` | Escape a URL for output. |
 | `wp_kses_post()` | Sanitise HTML allowing post content tags. |
 | `wp_json_encode()` | Safer JSON encoding for output. |
+
+## DataViews & Field API (WP 7.0+)
+
+See `references/dataviews.md` for full coverage. Quick-reference surface:
+
+| API | Notes |
+|---|---|
+| DataViews `groupBy` | Object form `{ field: string, direction?: 'asc'\|'desc', label?: string }`. Legacy string-only form is deprecated — emit the object form for any new view. |
+| DataViews `onReset` | `undefined` → "Reset view" button hidden (view does not persist). `false` → button shown but disabled (persistence active, currently at defaults). `function` → button active; invoked when clicked. Pick by the desired UX state, not by convenience. |
+| Field validation rules | Declarative, JSON-Schema-aligned. `pattern` (text/email/tel/url), `minLength`/`maxLength` (text/email/tel/url), `min`/`max` (integer/number). Set on the field definition; validation runs before submit. |
+| `getValueFormatted( item, field )` | Custom display function. Use for unit conversion (`2048` → `"2.0 KB"`), date formatting, role labels — anything where the stored value and the visible value differ. |
+
+## User registration (WP 7.0+)
+
+| Filter | Notes |
+|---|---|
+| `default_role_dropdown_excluded_roles` | Modifies the list of roles excluded from the new-user registration role selector. Default: `['administrator', 'editor']` (added in WP 7.0 to prevent accidental privilege escalation). Return the modified array. Only add a role back if you have a deliberate workflow that requires it. |
 
 ## Site Editor / sync
 
