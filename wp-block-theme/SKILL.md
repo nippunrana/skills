@@ -78,7 +78,7 @@ underlying building blocks used during that process.
   - Parent Theme Context: if you are explicitly developing the parent core (active folder matches the theme folder and task is foundational), you may modify parent files. If a feature is project-specific, suggest moving it to a child theme instead.
 - **Native-first conversion.** Recreate designs using Core Blocks (`core/group`, `core/columns`, `core/heading`, `core/image`, `core/icon`, etc.). Use the Grid layout (`{"layout": {"type": "grid"}}` on `core/group`) for grid layouts. This keeps colors, typography, and spacing under Site Editor control. **NEVER use `wp:html`. NEVER paste raw HTML into a template file.** When a design cannot be expressed in core blocks, use this fallback hierarchy:
   1. Compose with `core/group`, `core/columns`, and the Grid layout. *(Default.)*
-  2. Register a **PHP-only block**: `register_block_type()` with `'supports' => ['autoRegister' => true]` and a `render_callback`. No `block.json`, no JS, no build step. WP 7.0 auto-generates Inspector Controls for string, integer, boolean, and enum attributes.
+  2. Register a **PHP-only block**: `register_block_type()` with `'supports' => ['autoRegister' => true]` and a `render_callback`. No `block.json`, no JS, no build step. WP 7.0 auto-generates Inspector Controls for string, integer, boolean, and enum attributes. **Constraint:** Attributes must be stored in the block's JSON boundary; "sourced" attributes (e.g., from HTML) are not supported.
   3. **Classic dynamic block** (`register_block_type()` with full `block.json` + `render_callback`) — only when the block needs custom JS-driven editor controls beyond auto-generated ones.
   See `references/architecture.md → Native-First Decision Algorithm` for the full decision tree.
 - **Template registration — use exactly one mechanism per template name:**
@@ -486,7 +486,7 @@ if ( is_wp_error( $result ) ) { return $result; }
 ```
 
 Read `references/ai-client.md` when:
-- The user wants to call an LLM from PHP (summarise, translate, classify, generate).
+- The user wants to call an LLM from PHP (summarise, translate, classify, generate text/image/audio/video).
 - The user mentions OpenAI / Anthropic / Gemini, API keys, or `Settings → Connectors`.
 - The user wants to register a custom Connector via `wp_connectors_init`.
 - The user asks where to put API keys (env var vs PHP constant vs database).
@@ -500,9 +500,11 @@ Read `references/dataviews.md` when:
 - The user mentions `groupBy`, `onReset`, field validation, or formatting bytes / dates / role labels.
 - You see legacy string-form `groupBy: 'status'` in code — it must be migrated.
 
-### 7.4 Core Security & Roles
+### 7.4 Core Environment & Utilities
 
-- **User Registration Roles:** In WP 7.0, Administrator and Editor roles are removed from the default user registration selector to prevent privilege escalation. To modify this excluded list, use the `default_role_dropdown_excluded_roles` filter.
+- **Core Environment Changes:** WordPress 7.0 requires a minimum of PHP 7.4, uses PHPMailer 7.0.2, and transitioned JS linting to Espree. *(Note: Regardless of WP 7.0's minimum, this AI skill strictly enforces PHP 8.3+ via the API gate above).*
+- **Breadcrumb Block Filters:** The `block_core_breadcrumbs_items` filter modifies the trail. Security: If the `allow_html` flag is true, the label is sanitized via `wp_kses_post()`. If false or omitted, it is escaped via `esc_html()`.
+- **User Registration Roles:** Administrator and Editor roles are removed from the default user registration selector to prevent accidental privilege escalation. Modify this list via the `default_role_dropdown_excluded_roles` filter.
 
 ---
 
