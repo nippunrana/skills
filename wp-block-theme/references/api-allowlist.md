@@ -131,13 +131,13 @@ Block markup example (hidden on mobile):
 | Key | Notes |
 |---|---|
 | `supports.typography.textIndent` | WP 7.0+. Set to `true` in `block.json` supports to add a "Line Indent" control to the block inspector for any block. |
-| `typography.textIndent` in `theme.json` | Controls paragraph indentation at the Global Styles level (applies to `core/paragraph`). Two modes: `"subsequent"` (default — indents only paragraphs that directly follow another paragraph, CSS selector `.wp-block-paragraph + .wp-block-paragraph`) and `"all"` (indents every paragraph, selector `.wp-block-paragraph`). Set under `styles.typography.textIndent`. |
+| `typography.textIndent` in `theme.json` | Controls paragraph indentation at the Global Styles level (applies to `core/paragraph`). Two modes: `"subsequent"` (default — indents only paragraphs that directly follow another paragraph, CSS selector `.wp-block-paragraph + .wp-block-paragraph`) and `"all"` (indents every paragraph, selector `.wp-block-paragraph`). Set under `settings.typography.textIndent`. |
 
 `theme.json` example:
 
 ```json
 {
-  "styles": {
+  "settings": {
     "typography": {
       "textIndent": "subsequent"
     }
@@ -179,6 +179,7 @@ Block markup example (hidden on mobile):
 | Hook: `wp_abilities_api_init` | Hook your registration callbacks here, not on `init`. |
 | Client package: `@wordpress/abilities` | Pure JS state store. |
 | Client package: `@wordpress/core-abilities` | WordPress integration layer. |
+| JS function `registerAbility` | Registers a client-side ability. Imported from `@wordpress/abilities`. |
 
 ## WP AI Client (WP 7.0+)
 
@@ -188,11 +189,12 @@ See `references/ai-client.md` for full coverage. Quick-reference surface:
 |---|---|
 | `wp_ai_client_prompt( $text = '' )` | Entry point. Returns `WP_AI_Client_Prompt_Builder`. Pass prompt text directly or build it via `->with_text()`. |
 | `WP_AI_Client_Prompt_Builder` | Fluent builder. Configuration methods: `with_text()`, `with_file()`, `with_history()`, `using_system_instruction()`, `using_temperature()`, `using_max_tokens()`, `using_top_p()`, `using_top_k()`, `using_stop_sequences()`, `using_model_preference()`, `as_output_modalities()`, `as_output_file_type()`, `as_json_response( $schema )`. |
-| Generation methods | `generate_text()`, `generate_image()`, `convert_text_to_speech()`, `generate_speech()`, `generate_video()`. Return scalar/array payload or `WP_Error`. |
-| Result-form variants | `generate_text_result()`, `generate_image_result()`, `convert_text_to_speech_result()`, `generate_speech_result()`, `generate_video_result()`. Return `GenerativeAiResult` with `getTokenUsage()` (input/output/thinking), `getProviderMetadata()`, `getModelMetadata()`. |
+| Generation methods | `generate_text()`. Returns scalar text string or `WP_Error`. Note: Other modalities (image, video, speech, TTS) do not support scalar methods in WP 7.0; use result-form methods instead. |
+| Result-form variants | `generate_text_result()`, `generate_image_result()`, `convert_text_to_speech_result()`, `generate_speech_result()`, `generate_video_result()`. Return `GenerativeAiResult` with `getContent()` (returns the generated content string, file path, or object), `getTokenUsage()` (input/output/thinking), `getProviderMetadata()`, `getModelMetadata()`. |
 | Feature detection (static) | `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`, `::is_supported_for_image_generation()`, `::is_supported_for_text_to_speech_conversion()`, `::is_supported_for_speech_generation()`, `::is_supported_for_video_generation()`. Pure capability checks — no API call, no cost. **Always gate generation calls behind these.** |
 | Hook: `wp_connectors_init` | Fires once with `WP_Connector_Registry`. Use to register or modify connectors. |
 | `WP_Connector_Registry` | Methods: `is_registered( $id )`, `register( $id, $args )`, `unregister( $id )`. Use inside `wp_connectors_init`. |
+| `AiClient` | Class containing AI Client configuration. Method: `defaultRegistry()` (returns the default connector registry for discovery/auto-discovery of connectors). |
 | Credential resolution order | 1) env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), 2) PHP constant `define( 'OPENAI_API_KEY', '…' )`, 3) DB option `connectors_{$type}_{$id}_api_key` where `{$type}` is the connector type (e.g. `ai`) and `{$id}` is the connector identifier — example: `connectors_ai_openai_api_key` (managed at **Settings → Connectors**). First match wins; subsequent sources are ignored. |
 | Connectors UI | Site admin enables OpenAI / Anthropic / Google credentials at **Settings → Connectors**. Shows current credential source (env / constant / DB) per connector. |
 

@@ -340,7 +340,7 @@ With `autoRegister => true`, WordPress generates the inserter UI from the `attri
 
 **Requirements and constraints:**
 - `render_callback` is **mandatory** — `autoRegister` blocks have no JS editor component; the callback is the only render path.
-- Supported attribute types: `string`, `number`, `integer`, `boolean`, and `enum`. Attributes that are objects or arrays are not auto-generated as Inspector Controls.
+- Supported attribute types: `string`, `number`, `integer`, and `boolean`. Attributes that are complex objects, arrays, or other types are not auto-generated as Inspector Controls.
 - **Sourced attributes are not supported.** Attributes whose value is "sourced" from the saved HTML (e.g. `"source": "html"`, `"source": "attribute"`) cannot be used with `autoRegister` — all attribute values must be stored in the block's JSON boundary (the opening comment). Do not attempt to use `"source"` keys in the attributes array of an `autoRegister` block.
 
 The `autoRegister` flag is a WP 7.0 feature. Do not add fallback code — this skill targets WP 7.0 only.

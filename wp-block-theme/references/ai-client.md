@@ -57,15 +57,15 @@ All methods return `$this` and can be chained in any order. Validation happens a
 
 ### Generation methods
 
-Two flavours: scalar return (just the payload) or `*_result()` (rich `GenerativeAiResult` wrapper with metadata).
+WordPress 7.0 supports a scalar return method for text generation (`generate_text()`), which returns a raw string. For other modalities (image, video, speech, and text-to-speech), developers must use the result-form methods (`*_result()`) which return a `GenerativeAiResult` object. To retrieve the generated content (string, file path, or object) from a `GenerativeAiResult` object, call its `getContent()` method.
 
 | Modality | Scalar return | Result-form |
 |---|---|---|
 | Text | `generate_text()` | `generate_text_result()` |
-| Image | `generate_image()` | `generate_image_result()` |
-| Text-to-speech | `convert_text_to_speech()` | `convert_text_to_speech_result()` |
-| Native speech | `generate_speech()` | `generate_speech_result()` |
-| Video | `generate_video()` | `generate_video_result()` |
+| Image | *Not supported* | `generate_image_result()` |
+| Text-to-speech | *Not supported* | `convert_text_to_speech_result()` |
+| Native speech | *Not supported* | `generate_speech_result()` |
+| Video | *Not supported* | `generate_video_result()` |
 
 Every generation method can return `WP_Error`. Always check with `is_wp_error()` before using the result.
 
@@ -130,10 +130,16 @@ log_ai_spend( $usage->input, $usage->output, $provider->name, $model->id );
 
 ### Image generation
 
+Use `generate_image_result()` to get a `GenerativeAiResult` object, then call `getContent()` to retrieve the temporary file path of the generated image:
+
 ```php
-$image_path = wp_ai_client_prompt( 'A watercolour illustration of a fox in autumn leaves.' )
+$result = wp_ai_client_prompt( 'A watercolour illustration of a fox in autumn leaves.' )
     ->as_output_file_type( 'image/png' )
-    ->generate_image();
+    ->generate_image_result();
+
+if ( ! is_wp_error( $result ) ) {
+    $image_path = $result->getContent(); // returns the file path
+}
 ```
 
 ---
