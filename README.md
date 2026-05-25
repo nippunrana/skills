@@ -1,6 +1,8 @@
 # Claude Skills
 
-A collection of specialized Claude Code skills — domain-expert workflows packaged as `SKILL.md` files. Each skill is loaded by Claude Code via the Skill tool to give Claude deep, structured expertise in a specific domain.
+A collection of production-ready AI agent skills packaged as `SKILL.md` files. Each skill is a domain-expert workflow that loads on demand to give your AI agent deep, structured expertise in a specific area.
+
+**Compatible with:** Claude Code · Antigravity IDE · Gemini CLI · OpenAI Codex CLI · Cursor
 
 ---
 
@@ -9,7 +11,7 @@ A collection of specialized Claude Code skills — domain-expert workflows packa
 | Skill | Description |
 |---|---|
 | [et-frontend-design](et-frontend-design/) | Conversion-focused frontend UI with 4-phase discovery before coding |
-| [skill-creator](skill-creator/) | Create, test, benchmark, and iterate on Claude skills with an evaluation loop |
+| [skill-creator](skill-creator/) | Create, test, benchmark, and iterate on AI skills with an evaluation loop |
 | [prompt-checker-builder](prompt-checker-builder/) | Pre-flight prompt scoring or Socratic prompt builder |
 | [debugger](debugger/) | Hypothesis-driven bug diagnosis across visual, code, API, and perf domains |
 | [code-security-and-cleanup](code-security-and-cleanup/) | 8-phase audit: dead code removal + OWASP security hardening |
@@ -17,19 +19,40 @@ A collection of specialized Claude Code skills — domain-expert workflows packa
 
 ---
 
-## How Skills Work
+## Platform Compatibility
 
-A skill is a `SKILL.md` file with YAML frontmatter and a markdown body. Claude Code loads it via the Skill tool when the user's prompt matches the skill's `description` field.
+The `SKILL.md` format has emerged as a cross-platform standard for AI agent skills. These skills work with any agent that implements the format:
+
+### Claude Code (Anthropic)
+Load a skill via the Skill tool. The agent reads the `description` field to route requests, then loads the `SKILL.md` body on demand. Global instructions go in `~/.claude/CLAUDE.md`; project-level instructions go in `CLAUDE.md` at the repo root.
+
+### Antigravity IDE (Google)
+Google's agent-first IDE (launched November 2025) uses the same `SKILL.md` format with the same `description`-based routing. Place skills in the `.agents/skills/` directory. Antigravity also reads `GEMINI.md` as its global instruction file and `agents.md` to define agent team roles. Its multi-agent orchestration surface lets you run several skills in parallel across sandboxed agents.
+
+### Gemini CLI
+The Gemini CLI picks up skills from the local `.gemini/skills/` directory and resolves the `description` field for routing — same mechanism as Claude Code.
+
+### OpenAI Codex CLI
+Codex CLI reads `AGENTS.md` as its primary instruction file and supports the `SKILL.md` format for on-demand skill loading. Drop skills into `.codex/skills/`.
+
+### Cursor
+Cursor loads skills from `.cursor/skills/`. The description-based routing and reference file pattern work identically.
+
+> **Cross-platform note:** The `description` field in each `SKILL.md` frontmatter is the only routing signal any of these platforms use. Write it to match realistic user prompts.
+
+---
+
+## How Skills Work
 
 ```
 skill-name/
 ├── SKILL.md              # YAML frontmatter (name, description) + skill instructions
-├── references/           # Deep-dive docs loaded on demand during skill execution
-├── agents/               # Subagent instruction files
+├── references/           # Deep-dive docs loaded on demand during execution
+├── agents/               # Subagent instruction files (grader, comparator, etc.)
 └── scripts/              # Python helpers (evals, benchmarking, packaging)
 ```
 
-**Frontmatter fields:**
+**Frontmatter:**
 
 ```yaml
 ---
@@ -40,7 +63,7 @@ description: >
 ---
 ```
 
-**Layered loading:** The `description` routes the request. The `SKILL.md` body provides the core workflow. Reference files in `references/` are loaded on demand for depth — keeping the primary file lean and focused.
+**Layered loading:** Routing reads only `description`. The skill body provides the core workflow. Reference files in `references/` load on demand for depth — keeping the primary file focused and the context window efficient.
 
 ---
 
@@ -122,7 +145,7 @@ Full JSON schemas are documented in [skill-creator/references/schemas.md](skill-
 
 ### Optimizing a skill's description
 
-The description field is the only routing signal. To improve it:
+The `description` field is the only routing signal across all platforms. To improve it:
 
 ```bash
 python skill-creator/scripts/run_loop.py --skill-dir path/to/skill/
@@ -139,20 +162,21 @@ This iteratively evaluates triggering accuracy and rewrites the description unti
 3. Add focused reference files to `references/` — one file per domain
 4. Write 2–3 test cases in `evals/evals.json`
 5. Run the eval pipeline and fix issues
-6. Run `run_loop.py` to optimize the description
+6. Run `run_loop.py` to optimize the description for cross-platform triggering accuracy
 7. Package with `python skill-creator/scripts/package_skill.py --skill-dir skill-name/`
 
 **Design rules:**
 - Skills must be self-contained — no shared code or imports across skill directories
 - Output must be immediately deployable — no placeholders, no hedging
-- Reference files load on demand; keep the SKILL.md body focused on workflow
+- Reference files load on demand; keep the `SKILL.md` body focused on workflow
 - Measurement-backed skills (debugger, skill-creator, security) enforce data-before-fix discipline
+- The `description` field should anticipate realistic user phrases across all compatible platforms
 
 ---
 
 ## Repository Conventions
 
 - All Python scripts use `#!/usr/bin/env python3` and are executable
-- Block style variation slugs use kebab-case (e.g., `is-style-hero-section`)
+- WordPress block style variation slugs use kebab-case (e.g., `is-style-hero-section`)
 - WordPress template registration uses double-slash namespace (`{{THEME_SLUG}}//template_name`)
 - CSS in block patterns is strictly scoped to variation classes to prevent editor UI pollution
