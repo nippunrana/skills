@@ -16,7 +16,12 @@ description: >
   provides raw HTML/CSS/JS and asks to "convert it to a block theme template", or asks to
   "add an AI feature", "register an ability", "build an admin table", "call Claude/OpenAI from
   PHP", "register a custom AI provider", "manage API keys for AI", or implements anything that
-  touches the AI Client, Abilities, Connectors, or DataViews APIs.
+  touches the AI Client, Abilities, Connectors, or DataViews APIs. ALSO use this skill for
+  WooCommerce work in a block theme — "override the WooCommerce shop / single product / cart /
+  checkout / order confirmation template", "style the Mini-Cart", "customize the Add to Cart
+  block", "register a Cart/Checkout filter via registerCheckoutFilters()", "use is_shop() /
+  is_product() / is_cart()", "call wc_get_logger()", or any work touching `woocommerce/*` blocks
+  or the `Automattic\WooCommerce` namespace.
 ---
 
 # WordPress 7.0 Theme & Plugin Developer
@@ -508,6 +513,21 @@ Read `references/dataviews.md` when:
 
 ---
 
+## 8. WooCommerce Block Theme Development
+
+If the user's task involves WooCommerce — overriding shop/cart/checkout/single-product templates, composing `woocommerce/*` blocks, styling Cart/Checkout/Mini-Cart, registering JS filters via `registerCheckoutFilters()`, using conditional tags (`is_shop()`, `is_product()`, `is_cart()`), calling `wc_get_logger()`, or anything touching the `Automattic\WooCommerce` namespace — **load `references/woocommerce.md` before writing code**.
+
+Four additional pre-write gates apply on top of the four in "How to approach a request":
+
+- **Block name gate** — every `woocommerce/*` block name used in template markup must exist in the registry in `references/woocommerce.md` §3. Do not invent block names (common AI failure: `woocommerce/cart-button`, `woocommerce/checkout-form` — these are composed of smaller blocks, not single units).
+- **Ancestor gate** — product element blocks (price, image, button, rating, sale-badge, sku, stock, summary, title, etc.) only render when nested inside a declared ancestor (`woocommerce/single-product`, `woocommerce/product-template`, `core/post-template`, etc.). Placing them at template root silently renders empty.
+- **Internal privacy gate** — CSS selectors targeting the internal DOM of a WooCommerce block are unsupported and break on update. Style via block style variations (`register_block_style()`) or the documented Cart/Checkout filter registry only.
+- **Conditional tag timing gate** — `is_shop()` / `is_product()` / `is_cart()` are only valid after the `posts_selection` action. Safe earliest hook is `wp`. Never call them at `functions.php` global scope.
+
+Overriding a WooCommerce template (`single-product.html`, `archive-product.html`, `page-cart.html`, etc.) uses the standard template-override mechanism — drop a same-named file in `templates/` and it wins over the WooCommerce default. The master-pattern / sub-pattern architecture from Sections 0 and 6 applies unchanged; the new file just happens to override a WooCommerce default. When recomposing a Single Product template, wrap product elements in `<!-- wp:woocommerce/single-product -->` so the Ancestor gate is satisfied.
+
+---
+
 ## Reference Files
 
 | File | Load when… |
@@ -520,3 +540,4 @@ Read `references/dataviews.md` when:
 | `references/ai-client.md` | The user wants to call an LLM from PHP, register a Connector, or manage AI API keys. |
 | `references/abilities-api.md` | The user is registering an ability (server or client), or needs the REST method-mapping rules for `readonly` / `destructive` / `idempotent` annotations. |
 | `references/dataviews.md` | The user is building a DataViews admin screen, configuring `groupBy` / `onReset`, adding field validation, or formatting displayed values with `getValueFormatted`. |
+| `references/woocommerce.md` | The user is working with WooCommerce — overriding shop / cart / checkout / single-product / order-confirmation templates, composing `woocommerce/*` blocks, styling Cart/Checkout/Mini-Cart, registering Cart/Checkout filters, using conditional tags (`is_shop()` / `is_product()` / `is_cart()`), or calling `wc_get_logger()`. |
