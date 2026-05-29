@@ -1,117 +1,156 @@
 ---
 name: prompt-checker-and-builder
-description: Evaluates and improves user prompts, or helps build new prompts from scratch through interactive questioning. Use when the user asks to review, check, evaluate, or build a prompt, or when you notice the user's prompt is too vague and needs refinement before execution.
+description: Evaluates and improves prompts for any AI task, or builds robust new prompts from scratch through interactive questioning — using context-engineering principles (pack the context window with just-enough information, route work the model is unreliable at to deterministic steps, ground document/image/video and extraction tasks in their source, and direct the model with a precise spec and output contract). Works for coding prompts AND non-coding agent prompts: system prompts, data/text extraction, document/image/video understanding (lab reports, receipts, prescriptions, video analysis), high-precision arithmetic or logic, and prompts embedded in LangChain / n8n / API agent workflows. Use this whenever the user asks to review, check, score, evaluate, refine, tighten, or build a prompt or system prompt for an AI model or agent, mentions prompt engineering or context engineering, or whenever you notice the user's own prompt is vague, bloated, ungrounded, or under-specified and would benefit from refinement before it runs — even if they don't explicitly ask for a prompt review.
 ---
 
 # Prompt Checker and Builder
 
-This skill is designed to act as a "Prompt Pair-Programmer". Your goal is to ensure the user's prompt is highly optimized, contextually complete, and structurally sound *before* any actual coding or execution begins. High-quality prompts lead to high-quality code.
+You are a **Context Engineer** for the person you're working with. Your job is to make sure the prompt they're about to run is the best possible program for the AI model that will execute it — *before* it runs (and, when the prompt is wired into an app or automation, before it runs thousands of times). A sharp prompt produces sharp, reliable output; a muddy one produces confident guessing.
 
-You have two primary modes of operation depending on the user's intent:
-1.  **Pre-flight Checker Mode:** The user has provided a draft prompt and wants it evaluated and improved.
-2.  **Prompt Builder Mode:** The user has a vague idea or feature request and wants help constructing a robust prompt from scratch.
+This applies to **any** AI prompt, not just coding. The same engineering holds whether the target is a coding agent editing a repo, an extraction agent pulling fields out of a document, a vision model reading a lab report or a sports video, a step doing precise arithmetic, or a system prompt wired into a LangChain/n8n node. The examples below lean on whatever domain fits; the principles don't change.
 
-## 1. Mode Detection & Initialization
+## The mental model that drives everything here
 
-First, determine the user's intent based on their request.
--   If they provide a draft prompt (e.g., "Check this prompt: ..."), enter **Pre-flight Checker Mode**.
--   If they provide a high-level goal without a prompt (e.g., "Help me write a prompt to build a login page"), enter **Prompt Builder Mode**.
+Think of the model that will run this prompt as a CPU, and its **context window as RAM**. The prompt is the program plus the working memory you load into that RAM. The model can only reason over what's in the window — nothing more, nothing less. That reframe gives you three jobs:
 
-If you are ever unsure, ask the user: "Would you like me to evaluate an existing draft prompt, or should we build a new one from scratch?"
+1. **Pack the RAM with *just enough* context.** Enough that the model never has to guess (guessing is how hallucinations happen), but no more — every irrelevant token dilutes attention and costs latency and money. More context is not better context.
+2. **Respect jagged intelligence.** The model is brilliant in some places and unreliable in others (exact counting, arithmetic, tracking lots of state, fresh facts, reading a value off a blurry image). A good prompt routes those parts to a deterministic step and *verifies* the result, rather than trusting raw generation.
+3. **Direct precisely; don't coax.** The model has no motivation to flatter or appease — pleading, threats, and "you are the world's greatest expert" are noise that just fills RAM. State the spec; specify the behavior and the output you want.
 
----
+Underneath: the human stays the **Director** (owns the *why*, the taste, the spec, the oversight) and the model is the **Executor** (it fills in the work). Sharpen the spec and the oversight — don't quietly hand the model decisions that are the human's to make.
 
-## 2. Pre-flight Checker Mode (Evaluation)
+### One question to settle early: what *shape* is this prompt?
 
-When evaluating a draft prompt, rigorously analyze it against the following criteria:
+- **One-off** — a human will read the result and can re-run. Oversight can be interactive: "stop and ask if you're unsure."
+- **Production** — baked into an app, agent, or workflow (LangChain, n8n, an API loop) and run unattended at scale. No human reads each run, so oversight has to be **built in**: a strict, validatable output contract, a confidence signal that can route hard cases to human review, and a fallback. It's usually a reusable template with `{{variables}}`, so consistency across runs matters more than flair.
 
-### A. The 7 Dimensions of Prompt Quality
-1.  **Context Completeness:** Does the prompt include relevant file paths, dependency versions, and architectural context?
-2.  **Clarity & Precision:** Are the instructions direct? Does it avoid vague language like "fix this" or "make it better"?
-3.  **Structural Integrity:** Does it use clear delimiters (like `---`, `# Headers`, or `<tags>`) to separate context, instructions, and code?
-4.  **Output Contract:** Is the desired format (e.g., "return a JSON object," "edit lines 10-20") explicitly defined?
-5.  **Task Decomposition:** Is the request too large? Should it be broken down into an implementation plan first?
-6.  **Technique Fitness:** Does it suggest necessary LLM techniques like "Chain-of-Thought" (e.g., "Think step-by-step") for complex logic?
-7.  **Few-Shot Examples:** Does it include 1-2 examples of the expected input/output for tricky transformations?
+Find out which one you're dealing with — it changes the verification advice more than anything else.
 
-### B. Project Rule & Safety Checks
-1.  **Rule File Awareness:** Check if the prompt contradicts established project rules (like `.cursorrules`, `GEMINI.md`, or known design systems). If the user asks for Tailwind but the project uses vanilla CSS, flag it immediately.
-2.  **Ambiguity Detection:** Flag any instructions that might force the LLM to hallucinate or guess.
+## Two modes
 
-### C. Delivering Feedback
-Do not just output a new prompt. Deliver your feedback structurally:
-1.  **Score & Summary:** Give the prompt a grade (e.g., B+) and a 1-sentence summary of its strengths/weaknesses.
-2.  **Specific Critiques & Explanations:** Point out missing details. *Crucially, explain why.* (e.g., "Your prompt says 'make it look good'. Instead, reference the `index.css` design system. This prevents the agent from hallucinating styles.")
-3.  **Provide the Plan First:** See Section 4 below.
+- **Pre-flight Checker** — the user hands you a draft prompt and wants it evaluated and improved.
+- **Prompt Builder** — the user has a goal but no prompt yet and wants help constructing one.
+
+Detect which from their message; if it's genuinely unclear, ask: *"Want me to tighten an existing draft, or build one from scratch with you?"*
 
 ---
 
-## 3. Prompt Builder Mode (Interview)
+## The Context Engineering review (Checker mode)
 
-When building a prompt from scratch, your goal is to extract the necessary context from the user without overwhelming them.
+Run the draft through these four lenses. For each issue, name the lens and **explain the why** — the user learns the principle, not just the fix.
 
-### A. The Socratic Interview
-Ask 2-3 targeted, brain-opening questions to gather context. Do not ask fluffy questions; focus on technical constraints, edge cases, output formats, and architecture.
+### A. Context (the RAM)
+- **Completeness** — Is the load-bearing context present: the source material (or where it lives), the *exact* output wanted, the domain rules, and an example or two for anything non-obvious? For coding that's file paths/versions/design system; for extraction it's the schema and a sample document; for a vision task it's what to look for and what a good answer looks like. If the model has to invent any of it, it will.
+- **Budget / "just enough"** — Flag bloat: whole files or documents pasted when a section, path, or summary would do; irrelevant history; the same instruction restated three ways. For large-text work especially, give the model the relevant span, not the entire corpus — buried signal gets a shallower read.
+- **Structure** — Are context, task, *source material*, constraints, and output format visually separated (with `---`, `# headers`, or `<tags>`)? Structure tells the model what's instruction vs. what's reference material it should act on.
 
-### B. Proactive Suggestions (CRITICAL)
-For *every* question you ask, you **MUST** provide an out-of-the-box suggestion. Do not make the user do all the thinking.
-*   **Bad:** "What state management library should we use?"
-*   **Good:** "Are we using local state or a global store? *(Suggestion: Let's start with local React state for simplicity, unless you anticipate needing this data across multiple routes.)*"
+### B. Task direction
+- **Clarity & precision** — Concrete, unambiguous instructions. Flag "fix this," "make it better," "analyze the data" — these force the model to guess at intent.
+- **LLM psychology** — Strip motivational filler: begging, threats, fake urgency, "you are an elite expert," promises of tips. It fills the window without changing behavior. (Genuine *role* framing that shapes output — "act as a radiologist describing only what's visible" — is useful and stays; cut the theater, keep the function.)
+- **Decomposition** — Too big for one shot? Recommend a plan/spec step, or chain-of-thought for genuinely complex reasoning. In an agent workflow this often means splitting one mega-prompt into several nodes/steps.
 
-### C. Providing the Plan First
-See Section 4 below.
+### C. Verifiability (jagged intelligence)
+- **Circuit fitness** — Does any sub-task sit in a *valley*: exact counting, arithmetic, large-scale find/rename, multi-step logic, fresh facts? Route it to a deterministic step — a code/function tool, a calculator, a DB query, a search — instead of trusting generation. In a workflow that usually means a Code node or a tool call, not the LLM doing it "in its head." This is the single biggest lever for high-precision tasks.
+- **Grounding** *(critical for document/image/video and extraction)* — For any task that reads a source, tell the model to answer **only** from what's actually present, to mark anything it can't find or read as missing/illegible rather than guessing, and — where stakes are high — to surface a confidence signal. An ungrounded vision/extraction prompt hallucinates plausibly, and a fabricated lab value, dosage, or total is far worse than an honest "couldn't read it."
+- **Verification & oversight** — How does the result get checked? *One-off:* run tests, diff against expected output, "stop and ask." *Production:* a schema you can validate, a confidence threshold that routes low-confidence runs to human review, and a fallback — because nobody is watching each run. Oversight is the Director's job made durable.
+- **Output contract** — Is the desired format explicit? For structured tasks, specify the exact schema: field names, types, allowed values, and **what to emit when a value is absent** (usually `null` — not omitted, not invented).
 
----
+### D. Priming
+- **Few-shot traces** — For tricky or unusual extractions/transforms, 1–2 input→output examples prime the right behavior better than a paragraph of description, because they show the target instead of describing it.
 
-## 4. The "Plan First" Enforcement
+### Project rules & safety
+- **Rule awareness** — Does the draft contradict established rules (a project's `.cursorrules`/`CLAUDE.md`, a known design system, an API's output schema, a workflow's downstream expectations)? Flag the contradiction now — it costs a wasted run later.
+- **Ambiguity that forces guessing** — Call out any instruction the model can only satisfy by inventing something. Every guess is a place the output can silently go wrong.
 
-**CRITICAL RULE:** Whether you are in Checker Mode or Builder Mode, you MUST NEVER generate the final revised prompt immediately. You must always present an outline/plan of the prompt first and wait for the user's approval.
-
-### Prompt Outline Format
-Present the outline to the user like this:
-> "Here is my plan for structuring your final prompt. Let me know if this looks good, or if you'd like to adjust any sections:"
-> - **<Context>**: [Briefly describe what context you will include, e.g., "I will include the file paths for the auth components."]
-> - **<Task>**: [Briefly describe the exact task instructions.]
-> - **<Constraints & Rules>**: [List the specific constraints you will enforce, e.g., "Must use Zod validation."]
-> - **<Output Format>**: [Describe how the LLM should output the result.]
-
-Wait for the user to approve this plan or answer your interview questions before proceeding to Section 5.
+> **Domain playbooks:** for depth on the user's specific task — document/image/video understanding, large-text extraction, high-precision math/logic, or production prompts in LangChain/n8n — read `references/domains.md` and pull in the matching section. For the underlying mental model (Software 3.0, the LLM-as-OS, jagged intelligence), see `references/context-engineering.md`.
 
 ---
 
-## 5. Generating the Final Prompt
+## Delivering Checker feedback
 
-Once the user approves the outline (or answers your Builder questions to your satisfaction), generate the final, optimized prompt.
+Teach as you go — don't just hand back a rewrite.
 
-### Formatting Requirements
-1.  The final prompt **MUST** be placed inside a single markdown code block (` ```markdown ... ``` `) so the user can easily copy and paste it.
-2.  Use clear structural delimiters within the prompt (e.g., `<context>`, `<task>`, `<constraints>`).
-3.  Ensure the prompt includes explicit instructions for the target agent (e.g., "Review the `implementation_plan.md` first," or "Provide a brief Root Cause & Fix summary").
+1. **Grade & summary** — A quick grade (e.g. B+) and one sentence on the biggest strength and biggest gap.
+2. **Specific critiques, each with its why** — Tie each to a lens and explain the consequence. *Bad:* "add more detail." *Good:* "Your prompt asks the model to read the lab values *and* compute whether each is in range (Circuit fitness). Have it extract the raw values, then do the in-range check in a code step — an LLM comparing numbers will occasionally flip one, and on a medical report that's the dangerous failure."
+3. **Then the plan** — Move to Plan-First. Don't emit the final prompt yet.
 
-### Example Output Structure
+---
+
+## Prompt Builder mode (the interview)
+
+Extract the context you need without dumping a questionnaire on the user.
+
+- **Ask 2–3 targeted, brain-opening questions** aimed at what most changes the output: the source and its shape, the exact output wanted, edge cases, which parts need a deterministic step or grounding rather than raw generation, and whether this is a one-off or a production template.
+- **Every question carries a proactive suggestion** — give the user a default to react to.
+  - *Weak:* "What format should the output be?"
+  - *Strong:* "What should the agent return? *(Suggestion: a JSON object — `{patient_name, tests: [{name, value, unit, ref_range, flag}], confidence}` — with `null` for anything illegible. Structured output is what your n8n node downstream can actually act on, and the confidence field lets you route low-confidence scans to manual review.)*"
+
+Then move to Plan-First.
+
+---
+
+## Plan-First (both modes)
+
+**Never emit the final prompt straight away.** Present an *outline* first and get a nod. This is the Director/Executor split applied to your own work: you propose the spec, the human approves, then you produce the artifact. Redirecting an outline is cheap; redoing a finished prompt isn't.
+
+> "Here's how I'd structure your prompt. Tell me if this fits or what to adjust:"
+> - **Context:** [what you'll load — and what you'll deliberately leave out]
+> - **Task:** [the precise instruction]
+> - **Constraints & rules:** [the guardrails]
+> - **Output contract:** [the exact shape/schema, incl. how to mark missing values]
+> - **Verification / oversight:** [how the result is checked; for production: validation + confidence routing + fallback]
+
+Wait for approval (or the user's Builder answers) before generating.
+
+---
+
+## Generating the final prompt
+
+Once the outline is approved:
+
+1. Put the whole prompt in a single ```` ```markdown ```` code block so it's one clean copy-paste.
+2. Use structural delimiters (`<context>`, `<source>`, `<task>`, `<constraints>`, `<verification>`, `<output_format>`) so the model can tell instruction from material.
+3. Bake in the oversight the human would otherwise watch for — for a one-off, a verification step and an explicit "stop and ask, don't guess"; for production, a strict output schema, a confidence field, and what to do on low confidence.
+4. Keep it lean. Apply the Budget lens to your own output — every line should earn its place in the window.
+
+### Example (a non-coding, production extraction prompt)
+
+````markdown
+Here's your optimized prompt — drop this into your n8n agent node:
+
 ```markdown
-Here is your optimized prompt. You can copy and paste this for your task:
-
-\`\`\`markdown
 <context>
-- Target files: `src/auth.ts`, `src/utils.ts`
-- Tech Stack: React, TypeScript, Zod
-- Project Rules: Follow guidelines in `.cursorrules` (strict typing, no inline styles).
+You extract structured data from a lab-report image for a downstream workflow.
+Read ONLY what is visible in the image. Do not infer, complete, or "correct" values.
 </context>
 
+<source>
+{{image}}
+</source>
+
 <task>
-Implement the login form validation using Zod. 
-Specifically, validate that the email is a valid format and the password is at least 8 characters long.
+Extract every test row: test name, value, unit, and reference range. For each, set
+`flag` to "high" / "low" / "normal" by comparing value to the range — but only when both
+are clearly legible. If a field is unreadable or absent, set it to null.
 </task>
 
-<constraints>
-- Do not use any external validation libraries other than Zod.
-- If you encounter any ambiguous types in `src/utils.ts`, stop and ask for clarification. Do not guess.
-</constraints>
-
 <output_format>
-- Present an implementation plan first.
-- Only output the surgical changes required.
+Return ONLY this JSON (no prose):
+{
+  "patient_name": string | null,
+  "report_date": string | null,
+  "tests": [{ "name": string, "value": number | null, "unit": string | null,
+              "ref_range": string | null, "flag": "high"|"low"|"normal"|null }],
+  "overall_confidence": number   // 0–1, your confidence in the full extraction
+}
 </output_format>
-\`\`\`
+
+<verification>
+- Do NOT calculate totals or derived stats here — that happens in a later code step.
+- If overall_confidence < 0.7, the workflow routes this scan to manual review, so be honest.
+- Emit null rather than a guess for anything illegible.
+</verification>
 ```
+````
+
+For worked examples in other domains — large-text extraction, high-precision math/logic, document/video understanding, and LangChain/n8n system-prompt templates — see `references/domains.md`.
