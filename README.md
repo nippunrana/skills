@@ -4,7 +4,7 @@ A collection of production-ready AI agent skills packaged as `SKILL.md` files. E
 
 **Compatible with:** Claude Code · Antigravity IDE · Gemini CLI · OpenAI Codex CLI · Cursor
 
----*
+---
 
 ## Skills
 
