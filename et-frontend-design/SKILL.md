@@ -68,7 +68,12 @@ Build an internal strategy brief using this structure (do NOT output it raw to t
 3. **Conversion architecture:** What is the single primary CTA? What objections need addressing?
    Where do trust signals go? What is the hero's one job? Commit to one strong composition — one
    headline, one supporting line, one CTA, one visual anchor. No cluttered heroes. No "everything
-   above the fold" syndrome.
+   above the fold" syndrome. **Narrative arc:** Choose a storytelling framework for this page —
+   PAS (Pain/Agitate/Solve), Before-After Bridge, or Hero's Journey (full reference in Section 2).
+   This choice determines which sections exist and in what order. A PAS page leads with pain; a
+   Before-After page leads with the transformation vision; a Hero's Journey positions the brand as
+   the guide, never the hero. Psychology is the highest-leverage input to conversion — lock this
+   in before designing any section.
 4. **Component hierarchy:** Map atoms (buttons, inputs, badges) → molecules (cards, nav items,
    form groups) → organisms (header, hero, feature grid, footer). Plan the page flow as a funnel,
    not a stack of sections.
@@ -173,34 +178,130 @@ the strategy before coding. Never force early assumptions onto a changed brief.
 
 ## 2. Conversion-Focused Design Psychology
 
-Design that converts is not about tricks — it's about removing friction and guiding attention.
-Understanding why certain patterns work helps you apply them with judgment, not as rigid formulas.
+Design that converts is not about tricks — it is about understanding what drives human decisions
+and removing every barrier between the visitor and their desired outcome. Psychology, when
+implemented correctly, is the single highest-leverage factor in conversion and user engagement —
+more than aesthetics, more than copy alone. Apply these principles with judgment, not as rigid
+formulas.
 
-**Visual hierarchy drives action:**
-- Use the Z-pattern for action-oriented pages (landing pages, product pages): logo top-left →
+### The Dream Outcome
+
+Before designing any section, identify the singular end result the customer wants — not the product
+feature, but the life change. This is the Dream Outcome. It is the North Star for every headline,
+visual, and CTA on the page.
+
+Perform a **cog-check** on every section you design: *"Does this move the visitor closer to the
+Dream Outcome, or resolve a specific objection?"* If the answer is no, the section is system
+leakage — cut it or redesign it around a real purpose.
+
+Example: For a physical therapy service, the Dream Outcome is "moving freely without pain" — not
+"booking a session." Every section must reinforce that transformation, not describe the service.
+
+### Above-the-Fold (ATF) Mastery: The 5-Second Rule
+
+60% of visitors never scroll past the fold. Concentrate 80–90% of creative effort here. The human
+brain processes images 60,000× faster than text — the ATF must function as a visual-emotional
+bridge before a single word is read.
+
+The six ATF components in priority order:
+
+1. **Headline** — Articulate the value proposition in 5 seconds or less. Clarity > cleverness.
+2. **Sub-headline** — Clarify the "how" and reduce perceived effort with "Without [Pain Point]" framing.
+3. **Hero visual** — Show the product in action or the transformation. Address all three dimensions
+   of value: Emotional (how they feel), Social (how others perceive them), Functional (what it does).
+4. **CTA button** — Single, obvious. Apply the **Blur Test:** if the page were blurred, the CTA
+   must remain the most visually dominant element on the screen. If any other element competes, subordinate it.
+5. **Social proof** — Immediate trust signals (star ratings, customer count) visible before the scroll.
+   Stack proof early to build trust before the visitor evaluates the offer.
+6. **FUD reduction** — Risk-reversal signals (money-back guarantee, security badge) placed directly
+   below the CTA to neutralize Fear, Uncertainty, and Doubt at the point of action.
+
+### Copywriting Psychology (Reference)
+
+These are reference tools to apply actively when generating headlines, section copy, and CTAs
+during design. The AI agent using this skill should reach for them at the right moments — not just
+know they exist.
+
+**"So That" bridge:** Connect every feature to its benefit. Every claim must survive the test:
+*"This has X, so that you get Y."* If you cannot complete that sentence, the feature is not ready
+to be shown on the page.
+- Weak: "Cloud-native CI/CD platform with 99.99% uptime SLA"
+- Strong: "Ship faster, so that you never miss a release because of downtime"
+
+**Headline formula:** `[End Result] + [Time Period] + [Emotional Payoff]`
+- "Calm Your Horse in Just 2 Weeks So You Can Enjoy Safer Rides"
+- "Get a Lean Body in 45 Minutes a Day and Feel Great in Your Clothes"
+- "Build a Six-Figure Practice in 30 Days and Change People's Lives"
+
+**Hormozi Value Equation (audit tool):** After drafting copy for any section, audit it against
+four variables. High-converting copy maximizes the top two and minimizes the bottom two:
+
+| Variable | Direction | How to apply |
+|---|---|---|
+| Dream Outcome | ↑ Maximize | Emphasize the transformation, not the feature |
+| Perceived Likelihood of Success | ↑ Maximize | Add visual proof, testimonials, before/after data |
+| Time Delay | ↓ Minimize | Highlight speed — "Results in 7 days," "Installs in 24 hours" |
+| Effort & Sacrifice | ↓ Minimize | Use "Without [pain]" — "Without surgery," "Without counting calories" |
+
+### Storytelling Frameworks
+
+Storytelling is a neurological strategy — not decoration. Choosing the right framework determines
+which sections exist and in what order they appear on the page. This choice is made in Phase 2
+(see Section 1) and should not change mid-implementation.
+
+Always use second person ("you") — the customer must be the protagonist of every sentence. The
+brand is always the guide, never the hero.
+
+**PAS — Pain → Agitate → Solve:**
+Best for visitors who are aware of their problem but have not found the right solution.
+- **Pain:** Name the problem directly and specifically — vague pain is ignored.
+- **Agitate:** Amplify the cost of inaction. What happens if they do nothing?
+- **Solve:** Present the solution as the only logical exit. Don't hedge or qualify.
+
+**Before-After Bridge:**
+Best for transformation-focused products (fitness, finance, education, coaching).
+- **Before:** Paint the current state — the struggle, the frustration, the limitation.
+- **Bridge:** Introduce the brand as the turning point, the mechanism of change.
+- **After:** Visualize the destination in vivid, specific detail. Every testimonial, visual, and
+  data point on the page reinforces this "after" state.
+
+**Hero's Journey:**
+Best for high-consideration purchases and service brands.
+- The customer is the **Hero** on a quest with a challenge to overcome.
+- The brand is the **Mentor** — who provides the tool (the Elixir) that enables their success.
+- Design "About" sections, testimonials, and brand story sections to reinforce the brand as
+  a wise guide, not a self-celebrating entity.
+
+### Visual Hierarchy
+
+- Use the **Z-pattern** for action-oriented pages (landing pages, product pages): logo top-left →
   nav top-right → hero content center-left → CTA bottom-right. Place the primary CTA at the
   Z-pattern's terminal point.
-- Use the F-pattern for text-heavy pages (blogs, documentation): users scan left-to-right at the
+- Use the **F-pattern** for text-heavy pages (blogs, documentation): users scan left-to-right at the
   top, then mostly down the left edge. Place key content and CTAs along this path.
 - Every section needs exactly one job. If you can't state what a section does in one sentence,
   split it or cut it.
+- Headlines must be 3–4× larger than body text for hierarchy to register in a scan.
+  Use bullet points, icons, and bolded subheadings to anchor the scanner's eye.
 
-**Hero section rules:**
-- Benefit-focused headline, not feature-focused. "Ship faster with zero downtime" beats
-  "Cloud-native CI/CD platform with 99.99% uptime SLA."
-- One primary CTA above the fold. Secondary actions can exist but must be visually subordinate.
-- Social proof close to the hero — logos, customer count, or a brief testimonial — builds
-  immediate credibility.
+### CTA Psychology
 
-**CTA psychology:**
 - High contrast against surrounding space — the button should be the most visually dominant
   element in its section. Isolation (generous whitespace around CTAs) draws the eye.
 - Action-oriented copy: "Get Started Free" > "Submit", "See Pricing" > "Learn More".
   First-person language ("Start my free trial") outperforms second-person ("Start your free trial")
-  by significant margins.
+  by measurable margins.
 - One primary CTA per viewport. Multiple competing CTAs create decision paralysis.
 
-**Trust signals near decision points:**
+### Trust Signals and FUD Reduction
+
+Every trust signal exists to remove a specific Fear, Uncertainty, or Doubt. Name the FUD before
+selecting the signal — the wrong trust signal placed in the wrong context adds noise, not confidence:
+- Fear of financial risk → money-back guarantee, zero-interest financing badge
+- Uncertainty about quality → third-party certifications, lab results, Certificate of Analysis
+- Doubt about results → specific before/after data, named testimonials with measurable outcomes
+
+**Placement:**
 - Place testimonials near pricing. Place client logos near the hero. Place ratings and reviews
   near buy buttons. Trust signals work because they reduce perceived risk at the moment of
   highest uncertainty.
@@ -208,18 +309,28 @@ Understanding why certain patterns work helps you apply them with judgment, not 
   Specific numbers feel authentic; round numbers feel fabricated.
 - Security badges near payment forms — max 3 badges, placed close to credit card fields.
 
-**Reduce cognitive load:**
-- Hick's law: fewer choices = faster decisions = more conversions. Max 3-5 navigation items.
+**Wall of Love:**
+Never hide social proof in carousels — carousel engagement is under 1%, meaning hidden proof
+is wasted proof. Display testimonials in a stacked or grid format where all proof is visible
+simultaneously. Place the wall near the highest-friction point on the page — typically at or
+just above pricing or the primary CTA.
+
+### Reduce Cognitive Load
+
+- **Hick's Law:** fewer choices = faster decisions = more conversions. Max 3–5 navigation items.
   If you have more, group them.
-- Progressive disclosure: show only what's needed now, reveal complexity on demand.
+- **Progressive disclosure:** show only what's needed now, reveal complexity on demand.
   Multi-step forms outperform single long forms.
 - Single-column form layouts outperform multi-column — they create a clear top-to-bottom flow.
 
-**Price presentation:**
-- Anchoring: show the higher price first (crossed out or as "was"), then the current price.
-- Three-tier pricing with the middle option highlighted and labeled "Most Popular" or
+### Price Presentation
+
+- **Anchoring:** show the higher price first (crossed out or as "was"), then the current price.
+- **Three-tier pricing** with the middle option highlighted and labeled "Most Popular" or
   "Recommended" leverages the decoy effect.
-- Annual/monthly toggle with savings percentage shown on annual.
+- **Annual/monthly toggle** with savings percentage shown on annual.
+- **Eliminate math:** never make the user calculate their savings. "Save $20" outperforms
+  "20% off" — do the arithmetic for them and state the result directly.
 
 Read `references/conversion-patterns.md` for page-type-specific playbooks (landing pages, product
 pages, homepages, e-commerce).
@@ -233,68 +344,26 @@ component code — they compound across every element.
 
 ### Spacing
 
-Use a 4px base unit. All spacing values are multiples — no arbitrary pixel values.
-Define as CSS custom properties:
-
-```css
-:root {
-  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
-  --space-4: 16px;  --space-5: 20px;  --space-6: 24px;
-  --space-7: 32px;  --space-8: 40px;  --space-9: 48px;
-  --space-10: 64px; --space-11: 80px; --space-12: 96px;
-}
-```
-
-If 14px "looks right," use 12px or 16px. Arbitrary values create visual noise that accumulates
-across components — the eye notices even when the brain doesn't.
+Use a 4px base unit (`--space-1: 4px` through `--space-12: 96px`). All spacing values are
+multiples — no arbitrary pixel values. If 14px "looks right," use 12px or 16px. Arbitrary
+values create visual noise that accumulates — the eye notices even when the brain doesn't.
 
 ### Color Tokens
 
-Use semantic naming so colors carry meaning, not just values:
+Use semantic naming so colors carry meaning, not just values (`--color-text-primary`,
+`--color-surface`, `--color-accent`). Follow the 60-30-10 rule: 60% neutral (backgrounds,
+body text), 30% secondary (borders, cards, muted text), 10% accent (CTAs, links, highlights).
+Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
 
-```css
-:root {
-  /* Atmospheric Neutrals (subtle blue-gray tinting for depth instead of flat grays) */
-  --color-text-primary: hsl(220, 40%, 12%);
-  --color-text-secondary: hsl(220, 16%, 36%);
-  --color-text-muted: hsl(220, 12%, 56%);
-  
-  /* Surface system with intrinsic depth */
-  --color-surface: hsl(220, 20%, 99%);
-  --color-surface-elevated: hsl(220, 20%, 97%);
-  --color-border: hsl(220, 12%, 90%);
-  --color-accent: hsl(224, 76%, 48%);
-  --color-accent-hover: hsl(224, 76%, 38%);
-}
-```
-
-Follow the 60-30-10 rule: 60% neutral (backgrounds, body text), 30% secondary (borders, cards,
-muted text), 10% accent (CTAs, links, highlights). Dominant colors with sharp accents outperform
-timid, evenly-distributed palettes.
-
-For dark mode when requested: map the same semantic token names to different values. Never swap
-individual colors ad-hoc — remap the entire system. Use `prefers-color-scheme: dark` or a
-`.dark-theme` class on the root element.
+For dark mode: map the same semantic token names to different values. Never swap individual
+colors ad-hoc — remap the entire system. Use `prefers-color-scheme: dark` or a `.dark-theme`
+class on the root element.
 
 ### Typography Scale
 
-Define 6-8 named sizes using a modular scale. Each carries its own line-height and letter-spacing
-as a triplet — never set font-size without its companions:
-
-```css
-:root {
-  --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.8rem);
-  --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 0.95rem);
-  --text-base: clamp(1rem, 0.9rem + 0.5vw, 1.1rem);
-  --text-lg: clamp(1.125rem, 1rem + 0.6vw, 1.25rem);
-  --text-xl: clamp(1.25rem, 1rem + 1.2vw, 1.75rem);
-  --text-2xl: clamp(1.5rem, 1rem + 2vw, 2.5rem);
-  --text-3xl: clamp(2rem, 1.2rem + 3vw, 3.5rem);
-  --text-4xl: clamp(2.5rem, 1.5rem + 4vw, 5rem);
-}
-```
-
-Maximum 2 font families — one display, one body. Never more.
+Define 6-8 named sizes using `clamp()` for fluid scaling. Each carries its own line-height and
+letter-spacing as a triplet — never set `font-size` without its companions. Maximum 2 font
+families — one display, one body. Never more.
 
 **Font loading:** Use `font-display: swap` and `<link rel="preload">` for the primary font.
 Define fallback font metrics with `size-adjust` and `ascent-override` to prevent layout shifts.
@@ -305,7 +374,8 @@ Define fallback font metrics with `size-adjust` and `ascent-override` to prevent
 - `text-wrap: pretty` for body text (avoids orphaned words)
 - `font-variant-numeric: tabular-nums` for any number that changes dynamically
 
-Read `references/design-tokens.md` for the complete token architecture template.
+Read `references/design-tokens.md` for complete CSS custom property templates — spacing scale,
+color primitives, semantic tokens, typography scale, shadows, transitions, and dark mode mapping.
 
 ### Code Structure
 
@@ -453,39 +523,13 @@ unprofessional in production.
 ## 8. Framework-Specific Guidance
 
 Adapt your approach to the stack being used. Determine from context — when unclear, default to
-vanilla HTML/CSS/JS as it covers the majority of use cases.
+vanilla HTML/CSS/JS (~70% of projects, no build tooling required).
 
-### HTML/CSS/JS (default — 70% of projects)
-
-- Vanilla CSS with custom properties. BEM naming for class structure.
-- Modular stylesheets: one `<link>` per major section, or scoped `<style>` blocks.
-- WordPress-ready structure: wrap sections in unique class names for style scoping
-  (e.g., `.hero-section-wrapper`). Structure assets to be compatible with
-  `wp_enqueue_style` / `wp_enqueue_script`.
-- Vanilla JavaScript with `defer` attribute. No framework overhead for simple interactions.
-
-### React / Next.js
-
-- CSS Modules or Tailwind for style scoping. One component per file.
-- Motion library (formerly Framer Motion) for animations.
-- Server components by default. Client components (`'use client'`) only when interactive
-  state or browser APIs are needed.
-- Use `next/image` for automatic image optimization in Next.js projects.
-
-### Tailwind CSS
-
-- Use `@apply` sparingly — prefer direct utility classes in markup.
-- Define design tokens (colors, spacing, fonts) in `tailwind.config.js` as the single source
-  of truth.
-- Extract repeated utility classes into component CSS classes (using `@apply`) only if the exact same combination of 4 or more Tailwind utilities is repeated across 3 or more separate components. Otherwise, keep utilities inline in the markup to preserve readability and design flexibility.
-
-### Mobile App Screens (Android / iOS)
-
-- Respect platform conventions: iOS safe area insets (`env(safe-area-inset-*)`), Android
-  material elevation patterns.
-- Use native-feeling navigation: bottom tab bars, stack navigation with back gestures.
-- Touch targets: 44pt minimum on iOS, 48dp minimum on Android.
-- Design for both portrait and landscape where applicable.
+Read `references/frameworks.md` for implementation rules per stack:
+- **HTML/CSS/JS** — BEM naming, WordPress-ready structure, vanilla JS with `defer`
+- **React / Next.js** — CSS Modules, Motion library, server components, `next/image`
+- **Tailwind CSS** — token config, `@apply` rules, when to extract vs. keep inline
+- **Mobile App (iOS/Android)** — safe area insets, touch targets, navigation patterns
 
 ---
 
