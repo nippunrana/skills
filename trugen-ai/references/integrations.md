@@ -86,7 +86,7 @@ Deploying TruGen on web applications can be done via two main approaches:
 Best for fast prototyping. The iFrame automatically requests permissions for camera/microphone and accesses vision systems.
 ```html
 <iframe 
-  src="https://embed.trugen.ai/agent/b63c2a53-266b-4b43-a71b-7ea8b5e2e916" 
+  src="https://app.trugen.ai/agent/b63c2a53-266b-4b43-a71b-7ea8b5e2e916" 
   allow="camera; microphone; display-capture" 
   width="100%" 
   height="600px">
@@ -96,7 +96,7 @@ Best for fast prototyping. The iFrame automatically requests permissions for cam
 ### 2. Widget Embed (Custom Layout)
 Best for embedding a clean floating window. Import the JavaScript library and pass config variables.
 ```html
-<script src="https://embed.trugen.ai/widget.js"></script>
+<script src="https://app.trugen.ai/widget.js"></script>
 <script>
   TruGenWidget.init({
     agentId: "b63c2a53-266b-4b43-a71b-7ea8b5e2e916",
