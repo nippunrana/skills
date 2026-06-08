@@ -1,0 +1,23 @@
+{
+  "skill_name": "gemini-integration",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to add an AI chatbot to my Next.js app using Gemini. It should stream responses in real-time and remember conversation context. The chatbot should act as a customer support agent for an e-commerce store. Can you set up the backend API route and the Gemini integration?",
+      "expected_output": "A complete implementation including: Gemini client initialization with API key from env vars, system instructions for customer support persona, streaming response via generateContentStream or Interactions API, multi-turn chat history management, and a Next.js API route that proxies the Gemini calls.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I need to extract structured product data from uploaded product images using Gemini. Each image shows a product with its price tag. I need the output as JSON with fields: product_name, price, currency, and category. This is for a Python Flask backend.",
+      "expected_output": "A Flask endpoint that accepts image uploads, sends them to Gemini with a multimodal request (inline base64 or File API), uses structured outputs with a Pydantic schema to enforce the JSON format (product_name, price, currency, category), and returns the parsed JSON response.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Build me a Gemini-powered search assistant for my Node.js Express app. It should be able to call my existing REST API to look up order status, and also use Google Search for general product questions. The assistant needs to handle both types of queries intelligently.",
+      "expected_output": "An Express route that configures Gemini with both function calling (for the order status API) and Google Search grounding (for product questions). Should include: function declaration for order_status lookup, the function call/response loop with thought signature handling, combined tools configuration, and system instructions to guide when to use which tool.",
+      "files": []
+    }
+  ]
+}
