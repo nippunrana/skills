@@ -55,13 +55,16 @@ All webhooks conform to the following JSON structure:
 
 | Event Name | Description | Payload Attributes |
 |---|---|---|
-| `agent.started_speaking` | The agent begins vocalizing text. | `payload.text` (str) |
-| `agent.stopped_speaking` | The agent completes its verbal utterance. | `payload.text` (str) |
+| `agent.started_speaking` | The agent begins vocalizing text. | `payload.text` (str or array) |
+| `agent.stopped_speaking` | The agent completes its verbal utterance. | `payload.text` (str or array) |
 | `agent.interrupted` | User speech cut off the agent mid-sentence. | *(Reserved / Empty)* |
-| `utterance_committed` | Streaming STT (Deepgram) transcription is finalized. | `payload.text` (str) |
+| `utterance_committed` | Streaming STT (Deepgram) transcription is finalized. | `payload.text` (str or array) |
 | `participant_left` | The user has disconnected. | `payload.id` (str) |
 | `call_ended` | The call session is fully concluded. | *(Reserved / Empty)* |
 | `max_call_duration_timeout` | The session was terminated for exceeding limits. | `payload.call_duration` (float) |
+
+> [!IMPORTANT]
+> **Payload Text Normalization**: The `payload.text` attribute for events like `agent.started_speaking`, `agent.stopped_speaking`, or `utterance_committed` can sometimes be delivered as an array of strings (especially for streaming/chunked completions). Always verify the payload type and implode array values into a flat string before processing to prevent `TypeError` exceptions.
 
 ---
 
