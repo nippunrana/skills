@@ -50,6 +50,7 @@ Write the agent's system prompt using the structured template in [prompting_and_
 - Set up Webhook receivers to listen to critical event callbacks like `utterance_committed`.
 - Handle active interruptions (checking if the application captures the `user.started_speaking` or `agent.interrupted` signals).
 - Set up frontend widget JS embeds or LiveKit plugins. Ensure `ctx.room.disconnect()` is called on agent shutdown to stop video rendering.
+- When embedding the agent via an iFrame, use the `/embed/` path prefix (not `/agent/`) and pass the candidate's name and email in the query parameters (`username=<NAME>&id=<EMAIL>`) to link the session context.
 
 ---
 
@@ -65,3 +66,31 @@ When building custom WebRTC clients:
 1. Configure webhooks to listen for the `utterance_committed` event.
 2. In your webhook handler, parse `payload.text` for qualifying intent.
 3. Push structured transcription snippets asynchronously to your database or CRM (like HubSpot or Salesforce) to keep customer logs updated in real-time.
+
+---
+
+## 4. BYO LLM Connection & Troubleshooting Checklist
+
+Ensure these checklist items are followed when configuring a **Bring Your Own LLM (BYO LLM)** provider to prevent the agent from hanging on the "Connecting to Agent" spinner or returning HTTP 500 errors:
+
+### 1. Non-Empty API Key Required
+TruGen's internal LLM client code requires a non-empty string in the **API Key** field in the provider settings. If your endpoint does not validate keys, enter a dummy value (e.g. `123` or `dummy`). Leaving it blank will cause connection setup failures.
+
+### 2. SSE Streaming Support
+The custom completions endpoint must support Server-Sent Events (SSE) streaming (`Content-Type: text/event-stream`). It must return chunked JSON data matching standard OpenAI chunk structure, followed by `data: [DONE]`.
+
+### 3. Disable Nginx Buffering
+Nginx by default buffers FastCGI responses, which prevents real-time chunk delivery. Set the `X-Accel-Buffering: no` response header in your PHP completions handler to disable this buffering.
+
+### 4. Robust URL Path Routing
+HTTP clients and SDKs concatenate base URLs differently (sometimes appending `/v1/chat/completions`, sometimes `/chat/completions`, and sometimes omitting trailing slashes). Use a robust regex matching block in Nginx:
+```nginx
+location ~ ^/(truinterview)?/?(v1/)?chat/completions$ {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME /var/www/codepane.com/html/truinterview/chat_completions.php;
+    fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+}
+```
+
+### 5. Concurrent Session Limits
+Developer/Free accounts restrict concurrent sessions to exactly 1. If the agent's simulator playground panel in the TruGen developer console is open or was recently closed, it holds an active WebRTC room connection that blocks any external embed connections with `concurrent session limit reached` errors. Always stop the console playground before testing the application embed.

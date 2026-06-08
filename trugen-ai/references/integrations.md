@@ -83,13 +83,17 @@ To replicate natural human conversation, TruGen uses event-driven feedback loops
 Deploying TruGen on web applications can be done via two main approaches:
 
 ### 1. iFrame Embed (Zero-Setup)
-Best for fast prototyping. The iFrame automatically requests permissions for camera/microphone and accesses vision systems.
+Best for embedding a clean fullscreen interface within your application. Use the `/embed/` path instead of `/agent/` to hide the outer navigation frame. Pass the candidate identity details in the query parameters to auto-associate the conversation session:
+- **`username`**: The candidate's name (e.g. `John+Doe`).
+- **`id`**: The candidate's email address or unique ID (e.g. `john@example.com`).
+
 ```html
 <iframe 
-  src="https://app.trugen.ai/agent/b63c2a53-266b-4b43-a71b-7ea8b5e2e916" 
+  src="https://app.trugen.ai/embed/b63c2a53-266b-4b43-a71b-7ea8b5e2e916?username=John+Doe&id=john%40example.com" 
   allow="camera; microphone; display-capture" 
   width="100%" 
-  height="600px">
+  height="600px"
+  style="border: none;">
 </iframe>
 ```
 
