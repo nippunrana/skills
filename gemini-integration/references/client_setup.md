@@ -140,7 +140,6 @@ GEMINI_API_KEY=your-api-key-here
 | `gemini-3.5-flash` | 1,000,000 tokens | Native (configurable) | Default choice. Fast reasoning, vision, and text. |
 | `gemini-3.1-pro` | 1,000,000+ tokens | Yes | Complex multimodal synthesis, long-document analysis. |
 | `gemini-3.1-flash-lite` | 1,000,000 tokens | Limited | High-throughput, low-latency, cost-optimized tasks. |
-| `gemini-2.5-pro` | 128,000 tokens | Yes | Legacy support, lower context window. |
 
 ### Thinking Configuration
 

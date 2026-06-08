@@ -17,7 +17,6 @@ Caches minimize repetitive processing costs when you send the same large context
 
 ### Minimum Token Requirements
 - **Gemini 3.5/3.1**: Minimum 4,096 tokens
-- **Gemini 2.5**: Minimum 2,048 tokens
 
 ### Creating an Explicit Cache
 
@@ -79,7 +78,7 @@ status = client.batches.get(name=batch_job.name)
 
 ## Safety Settings
 
-Configure content filtering thresholds per harm category. By default, safety filters are **Off** for Gemini 2.5+ and 3.x models.
+Configure content filtering thresholds per harm category. By default, safety filters are **Off** for Gemini 3.x models.
 
 ### Harm Categories
 - `HARM_CATEGORY_HATE_SPEECH`
@@ -193,7 +192,6 @@ console.log(`Token count: ${tokenCount.totalTokens}`);
 | Gemini 3.5 Flash | 1,000,000 |
 | Gemini 3.1 Pro | 1,000,000+ |
 | Gemini 3.1 Flash-Lite | 1,000,000 |
-| Gemini 2.5 Pro | 128,000 |
 
 ### Cost Monitoring
 

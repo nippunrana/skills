@@ -111,7 +111,6 @@ See [rag_and_embeddings.md](references/rag_and_embeddings.md) for trade-offs.
 | Gemini 3.5 Flash | 1,000,000 | General purpose, reasoning + vision | Fast |
 | Gemini 3.1 Pro | 1,000,000+ | Complex multimodal, long context | Moderate |
 | Gemini 3.1 Flash-Lite | 1,000,000 | High-throughput, low-cost | Fastest |
-| Gemini 2.5 Pro | 128,000 | Legacy, lower cost | Moderate |
 
 ---
 
