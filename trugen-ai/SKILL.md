@@ -67,6 +67,12 @@ When building custom WebRTC clients:
 2. In your webhook handler, parse `payload.text` for qualifying intent.
 3. Push structured transcription snippets asynchronously to your database or CRM (like HubSpot or Salesforce) to keep customer logs updated in real-time.
 
+### Programmatic Session Cleanup Pattern
+When implementing backend-driven completion or termination (e.g., due to conduct policy violations, timeouts, or admin override):
+1. Execute the TruGen conversation termination API call (`DELETE /v1/conversation/{id}`) unconditionally upon completion or report generation.
+2. Do NOT gate the termination API call behind checking whether the database session state is already marked as `COMPLETED`, since the state may have transitioned earlier in the lifecycle.
+3. Clear the saved `trugen_conversation_id` from the session record once deleted to prevent redundant API calls on subsequent page reloads.
+
 ---
 
 ## 4. BYO LLM Connection & Troubleshooting Checklist
