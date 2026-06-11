@@ -63,6 +63,17 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## 5. AI-Optimized File Size & Modularity
+**Keep files under 600 lines. Isolate responsibilities.**
+
+- **The 600 LOC Sweet Spot**: Never let a file exceed 600 lines of code. If it approaches this limit, break it down.
+- **Why 600?**: While models like Gemini 3.5 Flash and Claude Code have massive 200k+ token windows, their *attention mechanisms* and *surgical search-and-replace tools* work best on bounded contexts. 600 lines (approx. 4,500 tokens) is the "Goldilocks zone": it prevents attention drops, ensures line-editing tools find exact matches without ambiguity, and keeps the blast radius small.
+- **How**: Extract helper functions, database operations, and distinct UI components into separate, single-responsibility modules.
+- **Integration**: Always stitch modules back together using efficient, language-native inclusion (e.g., `require_once` in PHP, `import` in JS/Python) so runtime execution remains mathematically identical, fast, and highly efficient.
+- **Blast Radius**: Changes should only affect isolated modules to prevent cascading side-effects during automated edits.
+
+---
+
 ## After Every Fix or Edit
 After completing any fix or code change, always provide a brief **"Root Cause & Fix"** summary:
 
