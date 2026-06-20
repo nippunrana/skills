@@ -1,83 +1,94 @@
-# CLAUDE.md
+# AI Coding Guidelines
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 1. Think Before Coding
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-## What This Repository Is
+Before implementing:
+- **State assumptions explicitly**: If a request is ambiguous, state your interpretation before proceeding. If uncertain, ask—don't guess.
+- **Present multiple interpretations**: If there's more than one way to achieve a goal, present them with tradeoffs — don't pick silently.
+- **Push back when warranted**: If a simpler approach exists or if the requested approach is suboptimal/wrong, say so. Prioritize accuracy over agreement.
+- **Stop when confused**: Name exactly what is unclear and ask for clarification immediately.
 
-A collection of Claude Skills — specialized agents packaged as `SKILL.md` files. Each skill is a domain-expert workflow designed to be loaded by Claude Code via the Skill tool. This repo is the authoring environment for those skills.
+---
 
-## Skill Structure
+## 2. Simplicity First
+**Minimum code that solves the problem. Nothing speculative.**
 
-Every skill lives in its own directory and follows this pattern:
+- **No features beyond what was asked.**
+- **No abstractions for single-use code**: Don't build "frameworks" or complex patterns for one-off tasks.
+- **No speculative features**: Don't add "flexibility," "configurability," or features that weren't explicitly requested.
+- **No error handling for impossible scenarios.**
+- **The Senior Engineer Test**: If a senior engineer would call the code overcomplicated, simplify it. If 200 lines could be 50, rewrite it.
+- **Prefer readability**: Use simple, readable code over clever one-liners or complex abstractions.
 
-```
-skill-name/
-├── SKILL.md              # Primary artifact — YAML frontmatter + markdown body
-├── references/           # Deep-dive docs loaded on demand during skill execution
-├── agents/               # Subagent instruction files (used by skill-creator)
-└── scripts/              # Executable helpers (Python evaluation tools, etc.)
-```
+---
 
-`SKILL.md` frontmatter fields:
-- `name` — kebab-case identifier
-- `description` — written to maximize correct triggering by Claude's skill-routing logic
+## 3. Surgical Changes
+**Touch only what you must. Clean up only your own mess.**
 
-## Skills in This Repo
+When editing existing code:
+- **No orthogonal edits**: Don't "improve" adjacent code, comments, or formatting unless specifically asked.
+- **Don't refactor things that aren't broken.**
+- **Rule of Least Surprise**: Match the existing code style and conventions exactly. Do not introduce new patterns inconsistently.
+- **Mention, don't delete**: If you notice unrelated dead code, mention it — don't delete it.
 
-| Skill | Purpose |
-|---|---|
-| `et-frontend-design` | Conversion-focused frontend UI with 4-phase discovery before coding |
-| `skill-creator` | Create, test, benchmark, and iterate on Claude skills with an evaluation loop |
-| `prompt-checker-builder` | Pre-flight prompt scoring or Socratic prompt builder |
-| `debugger` | Hypothesis-driven bug diagnosis across visual/code/API/perf domains |
-| `code-security-and-cleanup` | 8-phase audit: dead code removal + OWASP security hardening |
-| `wp-block-theme` | WordPress FSE block theme development (templates, patterns, theme.json) |
+When your changes create orphans:
+- **Clean up your own mess**: Remove any imports, variables, or functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
 
-## Skill Design Conventions
+**The test:** Every changed line should trace directly to the user's request.
 
-**Layered loading:** The `description` field gets loaded first (for routing). The `SKILL.md` body is the primary guidance. Reference files in `references/` are loaded on demand when specific depth is needed — keep them modular.
+---
 
-**Triggering:** The `description` field is the only thing the routing system reads to decide whether to activate a skill. Write it to anticipate realistic user prompts, not abstract definitions.
+## 4. Goal-Driven Execution
+**Define success criteria. Loop until verified.**
 
-**Measurement-backed workflows:** The debugger, skill-creator, and code-security skills enforce a hypothesis-driven, data-before-fix protocol. New skills in these domains should maintain that discipline.
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass."
+- "Fix the bug" → "Write a test that reproduces it, then make it pass."
+- "Refactor X" → "Ensure tests pass before and after."
 
-**Production output only:** Skills must produce immediately deployable artifacts — no placeholder code, no "you could also try X" hedging.
-
-**Context variables:** The `wp-block-theme` skill uses `{{THEME_SLUG}}`, `{{THEME_NAME}}`, `{{TEXT_DOMAIN}}`, and `{{PARENT_THEME_SLUG}}` as placeholders that get resolved from an `AI_CONTEXT.md` file in the theme directory. All reference files in that skill use these placeholders — do not hardcode theme names.
-
-## Skill Creator Evaluation Framework
-
-The `skill-creator/` skill has a full evaluation pipeline:
-
-- **Test cases** — 2–3 realistic prompts per skill, defined as JSON with `assertions`
-- **Run evals** — parallel with-skill vs. baseline runs
-- **Grade** — `agents/grader.md` scores assertions; `agents/comparator.md` does blind A/B comparison
-- **Benchmark** — `scripts/aggregate_benchmark.py` aggregates pass rates and timing
-- **Review** — `eval-viewer/generate_review.py` generates an interactive HTML report; open `eval-viewer/viewer.html` to browse
-
-Eval JSON schema is documented in `skill-creator/references/schemas.md`.
-
-## Adding or Modifying Skills
-
-1. Keep each skill self-contained — no shared code or imports between skill directories.
-2. Update the `description` field whenever the skill's trigger conditions change.
-3. When adding reference files, keep each file focused on a single domain (e.g., one file per bug type, one file per CSS feature area). The skill body should cite which reference to load and when.
-4. Test description triggering with the skill-creator's optimization loop (`scripts/run_loop.py`) before shipping.
-
-## Working Style
-
-**Think before acting.** State assumptions explicitly before editing. If a request is ambiguous, name the ambiguity and ask — don't guess. If there's more than one way to achieve a goal, present the tradeoffs rather than picking silently. Push back when a simpler approach exists.
-
-**Simplicity first.** Write the minimum that solves the problem. No abstractions for single-use changes, no speculative features, no error handling for impossible scenarios. If a senior engineer would call it overcomplicated, simplify it. Prefer readable over clever.
-
-**Surgical edits.** Touch only what the request requires. Don't improve adjacent code, reformat, or refactor things that aren't broken. Match existing style exactly. If your changes leave orphaned imports or unused variables, remove them — but don't remove pre-existing dead code unless asked. If you notice unrelated dead code, mention it rather than deleting it.
-
-**Plan multi-step work.** For non-trivial tasks, state a brief plan with verification criteria before editing:
+For multi-step tasks, state a brief plan:
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
+3. [Step] → verify: [check]
 ```
 
-**After every fix or meaningful edit**, provide a brief summary:
-> **Root Cause:** what was actually wrong
-> **Fix:** what changed and why it solves it
+- **Propose a brief plan first**: For non-trivial tasks, outline the steps and verification criteria before making edits.
+- **Confirm the fix**: Always confirm that the change actually addresses the root cause of the problem. Don't assume it works.
+- **Highlight side effects**: Explicitly call out any breaking changes, side effects, or risks before proceeding.
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+## 5. AI-Optimized File Size & Modularity
+**Keep files under 600 lines. Isolate responsibilities.**
+
+- **The 600 LOC Sweet Spot**: Never let a file exceed 600 lines of code. If it approaches this limit, break it down.
+- **Why 600?**: While models like Gemini 3.5 Flash and Claude Code have massive 200k+ token windows, their *attention mechanisms* and *surgical search-and-replace tools* work best on bounded contexts. 600 lines (approx. 4,500 tokens) is the "Goldilocks zone": it prevents attention drops, ensures line-editing tools find exact matches without ambiguity, and keeps the blast radius small.
+- **How**: Extract helper functions, database operations, and distinct UI components into separate, single-responsibility modules.
+- **Integration**: Always stitch modules back together using efficient, language-native inclusion (e.g., `require_once` in PHP, `import` in JS/Python) so runtime execution remains mathematically identical, fast, and highly efficient.
+- **Blast Radius**: Changes should only affect isolated modules to prevent cascading side-effects during automated edits.
+
+---
+
+## After Every Fix or Edit
+After completing any fix or code change, always provide a brief **"Root Cause & Fix"** summary:
+
+> **Root Cause:** [1–2 plain-English sentences on what was actually wrong]
+> **Fix:** [1–2 plain-English sentences on what was changed and why it solves the problem]
+
+Keep it concise — no jargon, no lengthy explanations. Just the core insight.
+
+---
+
+## How to Know It's Working
+
+These guidelines are working if you see:
+
+- **Fewer unnecessary changes in diffs** — Only requested changes appear
+- **Fewer rewrites due to overcomplication** — Code is simple the first time
+- **Clarifying questions come before implementation** — Not after mistakes
+- **Clean, minimal PRs** — No drive-by refactoring or "improvements"

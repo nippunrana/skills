@@ -21,7 +21,13 @@ description: >
   checkout / order confirmation template", "style the Mini-Cart", "customize the Add to Cart
   block", "register a Cart/Checkout filter via registerCheckoutFilters()", "use is_shop() /
   is_product() / is_cart()", "call wc_get_logger()", or any work touching `woocommerce/*` blocks
-  or the `Automattic\WooCommerce` namespace.
+  or the `Automattic\WooCommerce` namespace. ALSO covers WooCommerce checkout extensibility —
+  "add a custom checkout field", "woocommerce_register_additional_checkout_field", "validate /
+  sanitize a checkout field", "conditional checkout field via JSON Schema", "onCheckoutValidation /
+  onPaymentSetup / onCheckoutSuccess", "checkout SlotFill (ExperimentalOrderMeta)",
+  "wc/store/checkout data store" — plus WooCommerce store performance ("exclude cart/checkout from
+  cache", "fix password reset loop", "Core Web Vitals for a store") and coding standards ("safe
+  WooCommerce customization", "child theme template override", "is_ssl behind a load balancer").
 ---
 
 # WordPress 7.0 Theme & Plugin Developer
@@ -526,6 +532,13 @@ Four additional pre-write gates apply on top of the four in "How to approach a r
 
 Overriding a WooCommerce template (`single-product.html`, `archive-product.html`, `page-cart.html`, etc.) uses the standard template-override mechanism — drop a same-named file in `templates/` and it wins over the WooCommerce default. The master-pattern / sub-pattern architecture from Sections 0 and 6 applies unchanged; the new file just happens to override a WooCommerce default. When recomposing a Single Product template, wrap product elements in `<!-- wp:woocommerce/single-product -->` so the Ancestor gate is satisfied.
 
+`references/woocommerce.md` covers the **rendering surface** (blocks, templates, CSS, conditional tags, logging). For deeper WooCommerce work, load the focused companion file instead:
+
+- **`references/woocommerce-checkout-fields.md`** — adding/modifying/validating checkout fields via `woocommerce_register_additional_checkout_field` (locations, persistence, sanitize/validate, JSON-Schema conditional logic, meta-key prefixes, stale-data trap, legacy compat).
+- **`references/woocommerce-checkout-lifecycle.md`** — the client-side checkout JS model: data stores (`wc/store/checkout`), status machine, observers (`onCheckoutValidation` / `onPaymentSetup` / `onCheckoutSuccess`), SlotFill components, and native DOM events.
+- **`references/woocommerce-performance.md`** — store caching/cookie exclusions, DB hygiene, GZIP, asset optimization, Core Web Vitals (store/infra config, not template authoring).
+- **`references/woocommerce-standards.md`** — safe customization (child themes, hooks, snippets), PHP/JS naming, isolation mandates, Webpack dependency extraction, `is_ssl()` behind load balancers, and the QA hierarchy.
+
 ---
 
 ## Reference Files
@@ -541,3 +554,7 @@ Overriding a WooCommerce template (`single-product.html`, `archive-product.html`
 | `references/abilities-api.md` | The user is registering an ability (server or client), or needs the REST method-mapping rules for `readonly` / `destructive` / `idempotent` annotations. |
 | `references/dataviews.md` | The user is building a DataViews admin screen, configuring `groupBy` / `onReset`, adding field validation, or formatting displayed values with `getValueFormatted`. |
 | `references/woocommerce.md` | The user is working with WooCommerce — overriding shop / cart / checkout / single-product / order-confirmation templates, composing `woocommerce/*` blocks, styling Cart/Checkout/Mini-Cart, registering Cart/Checkout filters, using conditional tags (`is_shop()` / `is_product()` / `is_cart()`), or calling `wc_get_logger()`. |
+| `references/woocommerce-checkout-fields.md` | The user is adding, modifying, validating, or reading a custom Cart/Checkout field — `woocommerce_register_additional_checkout_field`, sanitize/validate callbacks, JSON-Schema conditional fields, or checkout meta-key access. |
+| `references/woocommerce-checkout-lifecycle.md` | The user is writing Cart/Checkout JS — checkout status/observers (`onCheckoutValidation` / `onPaymentSetup` / `onCheckoutSuccess`), `wc/store/checkout` data store, SlotFill (`ExperimentalOrderMeta`, …), or native cart DOM events. |
+| `references/woocommerce-performance.md` | The user is configuring store caching/cookie exclusions, fixing a cache-induced cart/login bug, or optimizing a store's Core Web Vitals / assets / database. |
+| `references/woocommerce-standards.md` | The user needs safe-customization guidance (child themes / hooks / snippets), WooCommerce PHP/JS naming, conflict-free isolation, the dependency-extraction build, `is_ssl()` behind a load balancer, or QA/testing setup. |

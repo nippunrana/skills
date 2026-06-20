@@ -16,6 +16,13 @@ Load this file **before writing any code** when the user asks to:
 
 If the work is generic WP FSE with no WooCommerce surface, stay in the main `SKILL.md` and skip this file.
 
+This file is the **rendering surface** (blocks, templates, CSS, conditional tags, logging). For deeper WooCommerce work, load the focused companion instead of guessing:
+
+- **`woocommerce-checkout-fields.md`** — adding/modifying/validating custom checkout fields (`woocommerce_register_additional_checkout_field`, sanitize/validate, JSON-Schema conditional logic, meta-key prefixes, stale-data trap).
+- **`woocommerce-checkout-lifecycle.md`** — client-side checkout JS: data stores, status machine, observers (`onCheckoutValidation` / `onPaymentSetup` / `onCheckoutSuccess`), SlotFill, native DOM events. (The static value filters in §6 below stay here; the *event* layer lives there.)
+- **`woocommerce-performance.md`** — store caching/cookie exclusions, DB hygiene, GZIP, asset optimization, Core Web Vitals.
+- **`woocommerce-standards.md`** — safe customization (child themes/hooks/snippets), PHP/JS naming, isolation mandates, Webpack dependency extraction, `is_ssl()` behind load balancers, QA.
+
 ## 2. Pre-Write Gates (WooCommerce-Specific)
 
 These four gates apply **on top of** the four gates in `SKILL.md → How to approach a request → Pre-write gates`. All must pass before writing code.
