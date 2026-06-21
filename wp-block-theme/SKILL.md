@@ -95,7 +95,7 @@ underlying building blocks used during that process.
   - Parent Theme Context: if you are explicitly developing the parent core (active folder matches the theme folder and task is foundational), you may modify parent files. If a feature is project-specific, suggest moving it to a child theme instead.
 - **Native-first conversion.** Recreate designs using Core Blocks (`core/group`, `core/columns`, `core/heading`, `core/image`, `core/icon`, etc.). Use the Grid layout (`{"layout": {"type": "grid"}}` on `core/group`) for grid layouts. This keeps colors, typography, and spacing under Site Editor control. **NEVER use `wp:html`. NEVER paste raw HTML into a template file.** When a design cannot be expressed in core blocks, use this fallback hierarchy:
   1. Compose with `core/group`, `core/columns`, and the Grid layout. *(Default.)*
-  2. Register a **PHP-only block**: `register_block_type()` with `'supports' => ['autoRegister' => true]` and a `render_callback`. No `block.json`, no JS, no build step. WP 7.0 auto-generates Inspector Controls for string, number, integer, and boolean attributes. **Constraint:** Attributes must be stored in the block's JSON boundary; "sourced" attributes (e.g., from HTML) are not supported.
+  2. Register a **PHP-only block**: `register_block_type()` with `'supports' => array( 'autoRegister' => true )` and a `render_callback`. No `block.json`, no JS, no build step. WP 7.0 auto-generates Inspector Controls for string, number, integer, and boolean attributes. **Constraint:** Attributes must be stored in the block's JSON boundary; "sourced" attributes (e.g., from HTML) are not supported.
   3. **Classic dynamic block** (`register_block_type()` with full `block.json` + `render_callback`) — only when the block needs custom JS-driven editor controls beyond auto-generated ones.
   See `references/architecture.md → Native-First Decision Algorithm` for the full decision tree.
 - **Template registration — use exactly one mechanism per template name:**
@@ -119,7 +119,7 @@ underlying building blocks used during that process.
   - **Template parts** (outermost block of the backing PHP pattern): MUST carry `"lock": {"move": true, "remove": true}`.
 - **CSS scoping via Block Style Variations.** Scope CSS strictly to the block's variation class (e.g. `.is-style-hero-section`) and register that style with `register_block_style()`. WordPress then injects the CSS automatically into both the frontend and the editor iframe. All hand-authored CSS must follow `references/coding-standards.md` (tabs, logical property order, value formatting).
 - **Modern interactivity.** Reactive logic (state toggles, dynamic updates, user-event-driven UI) → use the Interactivity API. Register as a **Script Module** with `wp_register_script_module()` and bind via `script_module_handle` on `register_block_style()` so it loads only when the block is present. Save to `patterns/{sub-pattern}/view.js`. Non-reactive logic (IntersectionObserver animations, GSAP effects) that reads/writes no shared state → a `document.addEventListener('DOMContentLoaded', …)` guard is acceptable. Always gate on `if (window.frameElement) return;` to suppress in the editor iframe and scope all selectors to the variation class. Save to `patterns/{sub-pattern}/index.js`. Never use `document.addEventListener` for reactive state — that belongs in a Script Module.
-- **Block Hooks** can automatically attach a logic-providing block before/after a target block — useful for mandatory wiring that must not be missed by editors. In WP 7.0, hooks fire for all CPTs registered with `'show_in_rest' => true` and `'supports' => ['editor']` — not just posts and pages.
+- **Block Hooks** can automatically attach a logic-providing block before/after a target block — useful for mandatory wiring that must not be missed by editors. In WP 7.0, hooks fire for all CPTs registered with `'show_in_rest' => true` and `'supports' => array( 'editor' )` — not just posts and pages.
 - **Viewport block visibility.** Use `metadata.blockVisibility.viewport` to show/hide blocks by device type (`"mobile"`, `"tablet"`, `"desktop"`). Hiding is **CSS-based** — blocks remain in the DOM on all devices and are visually suppressed via an injected CSS class. Do not use CSS `display: none` on breakpoints for this purpose, and do not use this feature for access control. Enable with `settings.blockVisibility.viewport: true` in `theme.json`.
 - **Font Library.** The Font Library is enabled for all theme types in WP 7.0 (block, hybrid, and classic). Use `theme.json fontFamilies` for version-controlled font registration. When a user says "install a font", direct them to Appearance → Editor → Styles → Typography → Manage Fonts. Do not enqueue fonts via `wp_enqueue_style` that already exist in the Font Library.
 - **Synced Pattern Overrides.** For repeating sections (Hero, CTA), use synced patterns and mark overridable blocks with `metadata.bindings` + `metadata.name`. Set `Inserter: true` on these patterns so editors can re-insert them if deleted. Custom blocks must explicitly opt into Overrides via the `block_bindings_supported_attributes` filter.
@@ -498,9 +498,16 @@ $result = wp_ai_client_prompt()
     ->using_system_instruction( '…' )
     ->using_temperature( 0.4 )
     ->with_text( $input['prompt'] )
-    ->as_json_response( [ 'type' => 'object', 'properties' => [ 'summary' => [ 'type' => 'string' ] ] ] )
+    ->as_json_response( array(
+        'type'       => 'object',
+        'properties' => array(
+            'summary' => array( 'type' => 'string' ),
+        ),
+    ) )
     ->generate_text();
-if ( is_wp_error( $result ) ) { return $result; }
+if ( is_wp_error( $result ) ) {
+    return $result;
+}
 ```
 
 Read `references/ai-client.md` when:
