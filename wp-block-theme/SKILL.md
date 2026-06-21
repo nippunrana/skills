@@ -17,6 +17,12 @@ description: >
   "add an AI feature", "register an ability", "build an admin table", "call Claude/OpenAI from
   PHP", "register a custom AI provider", "manage API keys for AI", or implements anything that
   touches the AI Client, Abilities, Connectors, or DataViews APIs. ALSO use this skill for
+  WP 7.0 core-platform work — real-time collaboration gates (`wp_is_collaboration_enabled` /
+  `wp_is_collaboration_allowed`), AI environment checks and governance (`wp_supports_ai`,
+  `wp_ai_client_prevent_prompt`, the request-timeout filter), Block Hooks REST-injection scoping
+  (`rest_block_hooks_post_types`), Script Module translations (`wp_set_script_module_translations`),
+  admin View Transitions and the Command Palette, password-hashing filters (Argon2 via
+  `wp_hash_password_algorithm`), and image LCP / `fetchpriority` optimization. ALSO use this skill for
   WooCommerce work in a block theme — "override the WooCommerce shop / single product / cart /
   checkout / order confirmation template", "style the Mini-Cart", "customize the Add to Cart
   block", "register a Cart/Checkout filter via registerCheckoutFilters()", "use is_shop() /
@@ -516,6 +522,8 @@ Read `references/dataviews.md` when:
 - **Core Environment Changes:** WordPress 7.0 requires a minimum of PHP 7.4, uses PHPMailer 7.0.2, and transitioned JS linting to Espree. *(Note: Regardless of WP 7.0's minimum, this AI skill strictly enforces PHP 8.3+ via the API gate above).*
 - **Breadcrumb Block Filters:** The `block_core_breadcrumbs_items` filter modifies the trail. Security: If the `allow_html` flag is true, the label is sanitized via `wp_kses_post()`. If false or omitted, it is escaped via `esc_html()`.
 - **User Registration Roles:** Administrator and Editor roles are removed from the default user registration selector to prevent accidental privilege escalation. Modify this list via the `default_role_dropdown_excluded_roles` filter.
+- **AI environment & governance:** Use `wp_supports_ai()` as the outer gate before registering AI features, and the `wp_ai_client_prevent_prompt` / `wp_ai_client_default_request_timeout` filters for cost control and timeouts. See `references/ai-client.md` §1 and §5. Note: the prompt builder has **no** `using_abilities()` / `set_model()` / `with_options()` — expose capabilities to AI via the Abilities API instead.
+- **Real-time collaboration, admin UX, security, LCP:** For collaboration gates (`wp_is_collaboration_enabled()` / `wp_is_collaboration_allowed()`), admin View Transitions, the Command Palette, password-hashing filters (Argon2), and image LCP / `fetchpriority` (`wp_get_loading_optimization_attributes()`), load `references/core-7.0-apis.md`.
 
 ---
 
@@ -553,6 +561,7 @@ Overriding a WooCommerce template (`single-product.html`, `archive-product.html`
 | `references/ai-client.md` | The user wants to call an LLM from PHP, register a Connector, or manage AI API keys. |
 | `references/abilities-api.md` | The user is registering an ability (server or client), or needs the REST method-mapping rules for `readonly` / `destructive` / `idempotent` annotations. |
 | `references/dataviews.md` | The user is building a DataViews admin screen, configuring `groupBy` / `onReset`, adding field validation, or formatting displayed values with `getValueFormatted`. |
+| `references/core-7.0-apis.md` | The user asks about real-time collaboration gates, admin View Transitions, the Command Palette, password hashing / Argon2, or image LCP / `fetchpriority`. |
 | `references/woocommerce.md` | The user is working with WooCommerce — overriding shop / cart / checkout / single-product / order-confirmation templates, composing `woocommerce/*` blocks, styling Cart/Checkout/Mini-Cart, registering Cart/Checkout filters, using conditional tags (`is_shop()` / `is_product()` / `is_cart()`), or calling `wc_get_logger()`. |
 | `references/woocommerce-checkout-fields.md` | The user is adding, modifying, validating, or reading a custom Cart/Checkout field — `woocommerce_register_additional_checkout_field`, sanitize/validate callbacks, JSON-Schema conditional fields, or checkout meta-key access. |
 | `references/woocommerce-checkout-lifecycle.md` | The user is writing Cart/Checkout JS — checkout status/observers (`onCheckoutValidation` / `onPaymentSetup` / `onCheckoutSuccess`), `wc/store/checkout` data store, SlotFill (`ExperimentalOrderMeta`, …), or native cart DOM events. |

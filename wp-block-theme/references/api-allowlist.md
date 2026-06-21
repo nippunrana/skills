@@ -173,7 +173,7 @@ Block markup example (hidden on mobile):
 
 | Function / hook | Notes |
 |---|---|
-| `wp_register_ability( $name, $args )` | Registers an ability. Required `$args`: `label`, `description`, `category`, `execute_callback`. Optional: `input_schema`, `output_schema`, `permission_callback`. |
+| `wp_register_ability( $name, $args )` | Registers an ability (since 6.9; stable in 7.0). Returns `WP_Ability\|null`. Required `$args`: `label`, `description`, `category`, `execute_callback`, `permission_callback`. Optional: `input_schema`, `output_schema`, `meta` (annotations + `show_in_rest`), `ability_class` (custom class extending `WP_Ability`). |
 | `wp_register_ability_category( $slug, $args )` | Registers an ability category. Required `$args`: `label`. Categories must exist before abilities reference them. |
 | `wp_unregister_ability()` / `wp_unregister_ability_category()` | Removes registrations. |
 | Hook: `wp_abilities_api_init` | Hook your registration callbacks here, not on `init`. |
@@ -189,12 +189,17 @@ See `references/ai-client.md` for full coverage. Quick-reference surface:
 |---|---|
 | `wp_ai_client_prompt( $text = '' )` | Entry point. Returns `WP_AI_Client_Prompt_Builder`. Pass prompt text directly or build it via `->with_text()`. |
 | `WP_AI_Client_Prompt_Builder` | Fluent builder. Configuration methods: `with_text()`, `with_file()`, `with_history()`, `using_system_instruction()`, `using_temperature()`, `using_max_tokens()`, `using_top_p()`, `using_top_k()`, `using_stop_sequences()`, `using_model_preference()`, `as_output_modalities()`, `as_output_file_type()`, `as_json_response( $schema )`. |
-| Generation methods | `generate_text()`. Returns scalar text string or `WP_Error`. Note: Other modalities (image, video, speech, TTS) do not support scalar methods in WP 7.0; use result-form methods instead. |
+| Generation methods | Text and image have direct methods: `generate_text()` → `string`, `generate_texts( $n )` → `string[]`, `generate_image()` → `File` DTO (use `getDataUri()`), `generate_images( $n )` → `File[]`. Text-to-speech, native speech, and video are result-only (use the `*_result()` variants). All can return `WP_Error`. |
 | Result-form variants | `generate_text_result()`, `generate_image_result()`, `convert_text_to_speech_result()`, `generate_speech_result()`, `generate_video_result()`. Return `GenerativeAiResult` with `getContent()` (returns the generated content string, file path, or object), `getTokenUsage()` (input/output/thinking), `getProviderMetadata()`, `getModelMetadata()`. |
 | Feature detection (static) | `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`, `::is_supported_for_image_generation()`, `::is_supported_for_text_to_speech_conversion()`, `::is_supported_for_speech_generation()`, `::is_supported_for_video_generation()`. Pure capability checks — no API call, no cost. **Always gate generation calls behind these.** |
+| `wp_supports_ai()` | WP 7.0+. Returns `bool` — whether the environment supports AI at all (coarser than the modality `is_supported_for_*` checks). Use as the outer gate; filterable via the `wp_supports_ai` filter. |
+| Filter: `wp_ai_client_prevent_prompt` | WP 7.0+. Return `true` to block a prompt before it executes (rate-limiting / budget caps). Receives a read-only builder clone; the blocked call returns `WP_Error`. |
+| Filter: `wp_ai_client_default_request_timeout` | WP 7.0+. Filters the default HTTP timeout (`float`, seconds) for AI Client requests. |
 | Hook: `wp_connectors_init` | Fires once with `WP_Connector_Registry`. Use to register or modify connectors. |
 | `WP_Connector_Registry` | Methods: `is_registered( $id )`, `register( $id, $args )`, `unregister( $id )`. Use inside `wp_connectors_init`. |
 | `AiClient` | Class containing AI Client configuration. Method: `defaultRegistry()` (returns the default connector registry for discovery/auto-discovery of connectors). |
+| `wp_get_connector( $id )` | WP 7.0+. Returns a single connector's definition as `array` (or `null`). Available after `init`. |
+| Connector `type` | AI connectors register with `'type' => 'ai_provider'` (underscore — **not** `ai-provider`). WP 7.0 generalised the registry so `type` is no longer AI-only. |
 | Credential resolution order | 1) env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), 2) PHP constant `define( 'OPENAI_API_KEY', '…' )`, 3) DB option `connectors_{$type}_{$id}_api_key` where `{$type}` is the connector type (e.g. `ai`) and `{$id}` is the connector identifier — example: `connectors_ai_openai_api_key` (managed at **Settings → Connectors**). First match wins; subsequent sources are ignored. |
 | Connectors UI | Site admin enables OpenAI / Anthropic / Google credentials at **Settings → Connectors**. Shows current credential source (env / constant / DB) per connector. |
 
@@ -205,6 +210,8 @@ See `references/ai-client.md` for full coverage. Quick-reference surface:
 | `wp_register_script_module( $id, $src, $deps, $version )` | Registers a JavaScript module. |
 | `wp_enqueue_script_module()` | Enqueues a registered module. Usually automatic when bound via `script_module_handle` on `register_block_style`. |
 | `wp_deregister_script_module()` | Removes a registration. |
+| `wp_set_script_module_translations( $id, $domain = 'default', $path = '' )` | WP 7.0+. Sets the text domain / path for a script module's JSON translations. Returns `bool`. Call right after registering the module. |
+| `load_script_module_textdomain( $id, $domain = 'default', $path = '' )` | WP 7.0+. Loads translation data for a script module ID. Returns `string\|false`. Module equivalent of `load_script_textdomain()`. |
 | Interactivity API store | Use `store()` from `@wordpress/interactivity` in the module. |
 | HTML directives | `data-wp-interactive`, `data-wp-context`, `data-wp-on--<event>`, `data-wp-bind--<attr>`, `data-wp-class--<name>`, `data-wp-style--<prop>`, `data-wp-text`. |
 | `watch( fn )` from `@wordpress/interactivity` | WP 7.0+. Subscribes to signal changes. `fn` runs once immediately and again whenever any reactive state it reads changes. Returns a teardown cleanup function. |
@@ -225,6 +232,9 @@ See `references/ai-client.md` for full coverage. Quick-reference surface:
 | Filter: `hooked_block_types` | Returns the list of blocks to attach to a relative block. |
 | Filter: `hooked_block_{block-name}` | Per-block-specific hook variant. |
 | Manifest: `blockHooks` in `block.json` | Declarative form. |
+| Filter: `rest_block_hooks_post_types` | WP 7.0+. Filters the array of post-type slugs that run Block Hooks in the Posts REST controller. Whitelist post types that need injection; drop the rest to cut REST latency. Public lever for the WP 7.0 REST-based resolver. |
+| `resolve_pattern_blocks( array $blocks )` | Since 6.6 (wider use in 7.0). Replaces `core/pattern` references in a parsed block tree with their constituent blocks. Returns `array`. For headless/agent block-tree work — not needed for normal authoring (render resolves patterns automatically). |
+| `insert_hooked_blocks_into_rest_response()` (6.6), `apply_block_hooks_to_content_from_post_object()` (6.8) | **Private / core-only** — the mechanism behind REST Block Hooks. Do not call directly; control via `rest_block_hooks_post_types`. |
 
 ## Speculation Rules
 
@@ -270,16 +280,57 @@ See `references/dataviews.md` for full coverage. Quick-reference surface:
 | `wp_register_style()` / `wp_enqueue_style()` | Standard stylesheet registration. |
 | `wp_style_add_data( $handle, 'path', $absolute_path )` | Enables WordPress's small-CSS inlining. |
 
+## Real-Time Collaboration (WP 7.0+)
+
+See `references/core-7.0-apis.md`. Public gates only — the sync server / storage classes are core-internal.
+
+| API | Notes |
+|---|---|
+| `wp_is_collaboration_enabled()` | WP 7.0+. `bool` — collaboration is on now. Checks `WP_ALLOW_COLLABORATION` + the stored option. |
+| `wp_is_collaboration_allowed()` | WP 7.0+. `bool` — environment permits collaboration. Reads `WP_ALLOW_COLLABORATION` (allowed unless set to `"false"`). |
+| `WP_ALLOW_COLLABORATION` | Constant (wp-config.php) opting the environment in/out. |
+
+## Admin UX (WP 7.0+)
+
+See `references/core-7.0-apis.md`.
+
+| API | Notes |
+|---|---|
+| `wp_enqueue_view_transitions_admin_css()` | WP 7.0+. Enqueues the `wp-view-transitions-admin` stylesheet for cross-document admin View Transitions. Honors reduced-motion. |
+| `wp_admin_bar_command_palette_menu( WP_Admin_Bar $bar )` | WP 7.0+. Core `admin_bar_menu` callback that renders the Command Palette trigger (⌘K / Ctrl+K). Don't call directly; know it exists when customising the admin bar. |
+
+## Security — password hashing (since 6.8)
+
+See `references/core-7.0-apis.md`.
+
+| Filter | Notes |
+|---|---|
+| `wp_hash_password_algorithm` | Filters the algorithm for `password_hash()` / `password_needs_rehash()`. Default `PASSWORD_BCRYPT`. Guard Argon2 with `defined( 'PASSWORD_ARGON2ID' )` — it isn't available on every PHP build. |
+| `wp_hash_password_options` | Filters the `$options` array (`memory_cost`, `time_cost`, `threads`, …). |
+
+## Media & LCP (since 6.3)
+
+| API | Notes |
+|---|---|
+| `wp_get_loading_optimization_attributes( $tag_name, $attr, $context )` | Since 6.3. Public. Returns optimal `loading` / `decoding` / `fetchpriority` attributes for a media tag. Use in a dynamic block's `render_callback`. The companion `wp_maybe_add_fetchpriority_high_attr()` is **private** — do not call it directly. |
+
 ## Names that look real but are not (do not use)
 
 | Wrong | Correct |
 |---|---|
 | `register_block_ability()` | `wp_register_ability()` |
 | `wp_register_icons` filter | Does not exist in WP 7.0. The icon registry is internal/private. Custom theme icons cannot be registered against `core/icon` in WP 7.0 — a public API is planned for WP 7.1. Use inline SVG or `<img>` from a dynamic block instead. |
-| `WP_Icons_Registry::get_instance()->register(...)` | Not a public theme/plugin API in WP 7.0. Do not call this directly. Same guidance as above. |
+| `WP_Icons_Registry::get_instance()->register(...)` | The `WP_Icons_Registry` class **does** exist in WP 7.0 (internal singleton) but is **closed to third-party registration** — `register()` is `protected` and only core icons are registered. No public theme/plugin API to add icons in 7.0 (planned for 7.1). Use inline SVG or `<img>` from a dynamic block instead. |
 | `'is_ai_ready' => true` on `register_block_template` | Not a real parameter. Use the documented `title`, `description`, `content`, `post_types` keys. |
 | `__experimentalRole: 'content'` | Removed. Use `metadata.bindings` + `metadata.name` for Pattern Overrides. |
 | `"version": 4` in theme.json | No such version. Use `"version": 3`. |
 | `https://schemas.wp.org/trunk/theme.json` | Points to the development branch — validates against unreleased schema features. Use `https://schemas.wp.org/wp/7.0/theme.json` (pinned to the released version) instead. |
 | `@wordpress/viewport-visibility` | Does not exist. Use the `metadata.blockVisibility.viewport` key directly on the block's metadata attribute. |
 | `wp_register_font_library_font()` | Does not exist. The Font Library is a UI-only feature managed via Appearance → Editor → Styles → Typography → Manage Fonts, or via `theme.json fontFamilies` for version-controlled registration. |
+| `$builder->using_abilities()` | Not a method on the WP 7.0 AI Client prompt builder. The builder has no ability/tool-passing surface. Expose plugin capabilities to AI via the **Abilities API** (`wp_register_ability`) — see `references/abilities-api.md`. |
+| `$builder->set_model(...)` / `$builder->with_options([...])` | Not real builder methods. Use `using_model_preference( $model )` and the explicit `using_*` / `as_*` config methods in `references/ai-client.md`. |
+| `$builder->exception_to_wp_error()` + snake→camel `__call` magic | Not documented in WP 7.0. Generation methods already return `WP_Error` on failure — check with `is_wp_error()`. |
+| `can_user_sync_entity_type()` | No such public global function in WP 7.0. Collaboration entity permissions are handled inside the core sync layer. Gate with `wp_is_collaboration_enabled()` instead. |
+| `'type' => 'ai-provider'` (hyphen) | Wrong. The connector type is `'ai_provider'` (underscore). |
+| `wp_collaboration_inject_setting()`, `apply_block_hooks_to_content_from_post_object()`, `wp_maybe_add_fetchpriority_high_attr()`, `insert_hooked_blocks_into_rest_response()` | All **real but private** (core-only). Don't call directly — use the documented public lever (`wp_is_collaboration_enabled()`, `rest_block_hooks_post_types`, `wp_get_loading_optimization_attributes()`). |
+| `wp_generate_uuid4()` "new in 7.0" | The function is real but exists **since 4.7** — not a WP 7.0 feature. Don't present it as a 7.0 novelty. |

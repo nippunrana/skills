@@ -29,6 +29,8 @@ if ( ! WP_AI_Client_Prompt_Builder::is_supported_for_text_generation() ) {
 
 These are **static methods** on `WP_AI_Client_Prompt_Builder`. Call them at the call site or during admin notice rendering — not at plugin load (the connector registry may not be ready yet; wait until `init` or later).
 
+**`wp_supports_ai()` vs. the `is_supported_for_*` checks.** `wp_supports_ai(): bool` (WP 7.0+) answers a coarser question: *is this environment capable of AI at all* (PHP/runtime requirements met). The `is_supported_for_*` methods answer *can a configured connector do this specific modality right now*. Use `wp_supports_ai()` as the outer gate (e.g. to decide whether to register an AI feature or show its UI), then the modality check at the call site. The result is filterable via the `wp_supports_ai` filter for custom environment requirements.
+
 ---
 
 ## 2. The prompt builder
@@ -57,17 +59,17 @@ All methods return `$this` and can be chained in any order. Validation happens a
 
 ### Generation methods
 
-WordPress 7.0 supports a scalar return method for text generation (`generate_text()`), which returns a raw string. For other modalities (image, video, speech, and text-to-speech), developers must use the result-form methods (`*_result()`) which return a `GenerativeAiResult` object. To retrieve the generated content (string, file path, or object) from a `GenerativeAiResult` object, call its `getContent()` method.
+Text and image have **direct** methods that return the content itself; text-to-speech, native speech, and video are only available via the **result-form** (`*_result()`) methods, which return a `GenerativeAiResult` (call `getContent()` on it to retrieve the content). Every generation method can also return `WP_Error` — always check with `is_wp_error()` before using the result.
 
-| Modality | Scalar return | Result-form |
-|---|---|---|
-| Text | `generate_text()` | `generate_text_result()` |
-| Image | *Not supported* | `generate_image_result()` |
-| Text-to-speech | *Not supported* | `convert_text_to_speech_result()` |
-| Native speech | *Not supported* | `generate_speech_result()` |
-| Video | *Not supported* | `generate_video_result()` |
+| Modality | Direct (single) | Direct (multiple candidates) | Result-form |
+|---|---|---|---|
+| Text | `generate_text()` → `string` | `generate_texts( int $n )` → `string[]` | `generate_text_result()` |
+| Image | `generate_image()` → `File` DTO | `generate_images( int $n )` → `File[]` | `generate_image_result()` |
+| Text-to-speech | — | — | `convert_text_to_speech_result()` |
+| Native speech | — | — | `generate_speech_result()` |
+| Video | — | — | `generate_video_result()` |
 
-Every generation method can return `WP_Error`. Always check with `is_wp_error()` before using the result.
+A `File` DTO exposes the generated image via `getDataUri()` (a data URI you can embed or save). Pass a count to `generate_texts()` / `generate_images()` to get several variations of one prompt.
 
 ---
 
@@ -130,15 +132,15 @@ log_ai_spend( $usage->input, $usage->output, $provider->name, $model->id );
 
 ### Image generation
 
-Use `generate_image_result()` to get a `GenerativeAiResult` object, then call `getContent()` to retrieve the temporary file path of the generated image:
+Use the direct `generate_image()` for the image itself (a `File` DTO), or `generate_image_result()` when you also need provider/token metadata:
 
 ```php
-$result = wp_ai_client_prompt( 'A watercolour illustration of a fox in autumn leaves.' )
+$image = wp_ai_client_prompt( 'A watercolour illustration of a fox in autumn leaves.' )
     ->as_output_file_type( 'image/png' )
-    ->generate_image_result();
+    ->generate_image();
 
-if ( ! is_wp_error( $result ) ) {
-    $image_path = $result->getContent(); // returns the file path
+if ( ! is_wp_error( $image ) ) {
+    $data_uri = $image->getDataUri(); // File DTO → data URI you can embed or save
 }
 ```
 
@@ -166,6 +168,10 @@ add_action( 'wp_connectors_init', function ( WP_Connector_Registry $registry ) {
 - `is_registered( string $id ): bool`
 - `register( string $id, array $args ): void`
 - `unregister( string $id ): array` — returns the unregistered definition (handy for modify-and-re-register patterns)
+
+To read a single connector's definition outside the registry hook, use `wp_get_connector( string $id ): array|null` (WP 7.0+) — available after `init`, returns the connector array or `null` if it isn't registered.
+
+**Connector `type`.** AI connectors register with `'type' => 'ai_provider'` (underscore — *not* `ai-provider`). WP 7.0 generalised the registry so `type` is no longer restricted to AI; other connector categories can register under their own type. Credential masking and key-source resolution are handled internally by core (the underscore-prefixed `_wp_connectors_*` helpers are private — do not call them); the admin UI surfaces the masked key and its source automatically.
 
 ### Authentication
 
@@ -198,7 +204,30 @@ Plugins can register their own connector inside `wp_connectors_init` by calling 
 
 ---
 
-## 5. Common pitfalls
+## 5. Governance: cost control & timeouts
+
+Two filters (WP 7.0+) let you intercept generation before it bills tokens or hangs — the right place for rate-limiting, budget caps, and tuning slow providers.
+
+| Filter | Use |
+|---|---|
+| `wp_ai_client_prevent_prompt` | Return `true` to block a prompt from executing. The callback receives a read-only clone of the prompt builder, so you can inspect the request (model, text length) and deny based on a budget or per-user quota. The blocked call returns `WP_Error` — handle it like any other failure. |
+| `wp_ai_client_default_request_timeout` | Filters the default HTTP timeout (a `float`, in seconds) applied to AI Client requests. Raise it for slow image/video providers; lower it to fail fast in latency-sensitive paths. |
+
+```php
+// Hard budget cap: stop new prompts once today's spend is exceeded.
+add_filter( 'wp_ai_client_prevent_prompt', function ( bool $prevent, $builder ): bool {
+    if ( get_transient( 'ai_budget_exceeded' ) ) {
+        return true; // generation returns WP_Error to the caller
+    }
+    return $prevent;
+}, 10, 2 );
+```
+
+> **Not in WP 7.0:** the prompt builder has **no** `using_abilities()` method, `set_model()`, or `with_options()`, and there is no documented snake→camel `__call` magic. Configure via the explicit `using_*` / `as_*` methods in §2. To expose plugin capabilities to AI agents, register **Abilities** (`references/abilities-api.md`) — that is the WP 7.0 surface for AI-invokable functions, separate from the prompt builder.
+
+---
+
+## 6. Common pitfalls
 
 | Symptom | Cause | Fix |
 |---|---|---|

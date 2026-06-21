@@ -70,6 +70,50 @@
         "The filter callback receives the items array and returns a modified array (does not invent a different filter name)",
         "No file references the fabricated APIs (no register_block_ability, no WP_Icons_Registry, no __experimentalRole)"
       ]
+    },
+    {
+      "id": 6,
+      "prompt": "We use the WordPress 7.0 AI Client for an auto-tagging feature on posts. Two things I need in PHP: (1) only enable/show the feature if the environment actually supports AI, and (2) once we cross a daily token budget I want to hard-stop any further AI prompts site-wide so we don't keep getting billed by the provider. We're on WordPress 7.0, theme slug my-theme.",
+      "expected_output": "PHP that gates the feature on wp_supports_ai() and registers a wp_ai_client_prevent_prompt filter returning true once a stored daily-budget flag is set, so further wp_ai_client_prompt() calls return WP_Error. Generation code checks is_wp_error().",
+      "expectations": [
+        "Uses wp_supports_ai() to gate whether the AI feature is enabled/shown",
+        "Registers the wp_ai_client_prevent_prompt filter and returns true to block prompts when the budget is exceeded",
+        "Does not invent a non-existent stop/budget function (e.g. no wp_ai_client_stop(), no disable_ai())",
+        "Generation code handles the WP_Error returned when a prompt is prevented or fails"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "I have a plugin that runs a background job to rewrite post meta whenever a post is saved. On WordPress 7.0 with real-time collaboration turned on, I'm worried this background write stomps on other editors' changes while several people are in the editor together. How do I detect that a collaboration session is active and skip my background write in that case? Plugin text domain my-plugin.",
+      "expected_output": "Code that checks wp_is_collaboration_enabled() (and/or wp_is_collaboration_allowed()) and short-circuits the background meta write when collaboration is active. Does not use private/internal sync APIs.",
+      "expectations": [
+        "Uses wp_is_collaboration_enabled() (or wp_is_collaboration_allowed()) to detect active collaboration",
+        "Skips or guards the background post-meta write when collaboration is active",
+        "Does not call the private wp_collaboration_inject_setting() or the non-existent can_user_sync_entity_type()",
+        "Does not reach into internal classes like WP_Sync_Post_Meta_Storage or WP_HTTP_Polling_Sync_Server"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Our security review wants us to move WordPress password hashing from bcrypt to Argon2id. We control wp-config.php and a small mu-plugin. How do we do this safely on WordPress 7.0 without locking anyone out if a particular server build doesn't actually support Argon2? Give me the code.",
+      "expected_output": "A mu-plugin using the wp_hash_password_algorithm filter to return PASSWORD_ARGON2ID, guarded by a defined('PASSWORD_ARGON2ID') availability check that falls back to the default otherwise. Optionally wp_hash_password_options to tune cost.",
+      "expectations": [
+        "Uses the wp_hash_password_algorithm filter (not a fabricated function like wp_set_password_algorithm())",
+        "Guards Argon2 behind an availability check such as defined('PASSWORD_ARGON2ID') with a safe fallback",
+        "Mentions or uses wp_hash_password_options for tuning Argon2 cost parameters",
+        "Does not claim WordPress lets you swap the algorithm via a setting in wp-admin"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "On WordPress 7.0 I want my AI summarizer to be able to call my plugin's own functions as tools. I read that you pass them to the prompt builder with ->using_abilities(). Can you wire up wp_ai_client_prompt() with using_abilities() to expose my 'fetch_order_status' function to the model?",
+      "expected_output": "The response should correct the premise: there is no using_abilities() method on the WP 7.0 AI Client prompt builder. The right mechanism is the Abilities API — register fetch_order_status via wp_register_ability() (on wp_abilities_api_init, with category, schemas, permission_callback, execute_callback). It should NOT produce code that calls ->using_abilities() as if it were real.",
+      "expectations": [
+        "Does not write code that calls ->using_abilities() on the prompt builder as a real method",
+        "Explicitly states that using_abilities() is not part of the WP 7.0 AI Client prompt builder",
+        "Directs the user to the Abilities API (wp_register_ability) as the correct way to expose functions to AI",
+        "Shows registration on the wp_abilities_api_init hook with a category, schemas, and permission_callback"
+      ]
     }
   ]
 }

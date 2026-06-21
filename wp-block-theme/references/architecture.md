@@ -601,6 +601,12 @@ register_block_style( 'core/group', array(
 
 WordPress now automatically enqueues the module only when a block with the `is-style-my-pattern` class is present.
 
+**Step 3 (optional): Translations for the module (WP 7.0).** Script Modules use their own i18n path, separate from classic `wp_set_script_translations()`. Point a module at its JSON translation files with `wp_set_script_module_translations( string $id, string $domain = 'default', string $path = '' ): bool`, and (when loading data manually) read them with `load_script_module_textdomain( string $id, string $domain = 'default', string $path = '' ): string|false`. Both are WP 7.0+. Use `wp_set_script_module_translations()` right after registering the module; in JS the strings resolve through the standard `@wordpress/i18n` import.
+
+```php
+wp_set_script_module_translations( 'my-theme/logic', '{{TEXT_DOMAIN}}' );
+```
+
 **Elite Automation: Block Hooks**
 For mandatory pattern logic that should never be missed by clients, use Block Hooks to wrap the pattern in a logic-providing block automatically:
 
@@ -614,6 +620,19 @@ add_filter( 'hooked_block_types', function( array $hooked_blocks, string $relati
 ```
 
 **WP 7.0: Block Hooks across all content-like CPTs.** In WP 7.0, the Block Hooks resolver moved from individual post-type filters into the REST controller. Block Hooks now fire automatically for all custom post types registered with `'show_in_rest' => true` and `'supports' => ['editor']`. The previous workaround of filtering `wp_block_editor_settings` per-CPT is no longer needed on WP 7.0.
+
+**Scoping which post types run Block Hooks in the REST API (WP 7.0).** Because the resolver runs inside the Posts controller, every eligible post type pays the parsing cost on each REST read/write. Use the `rest_block_hooks_post_types` filter (WP 7.0+) to widen or narrow that set — whitelist the post types that actually need injected blocks and drop the ones that don't (attachments, logs, private CPTs) to cut JSON latency on busy sites:
+
+```php
+add_filter( 'rest_block_hooks_post_types', function ( array $post_types ): array {
+    $wanted = array_filter( array( 'portfolio', 'documentation' ), 'post_type_exists' );
+    return array_values( array_unique( array_merge( $post_types, $wanted ) ) );
+} );
+```
+
+The injection itself is done by core internals you normally don't call directly: `insert_hooked_blocks_into_rest_response()` (since 6.6) adds the first/last inner blocks to the Posts REST response, and `apply_block_hooks_to_content_from_post_object()` (since 6.8) runs the algorithm on a post object server-side. Both are marked **private** — drive behaviour through the filter above, not by calling them.
+
+**Resolving pattern references in a block tree.** `resolve_pattern_blocks( array $blocks ): array` (since 6.6, used more widely in 7.0) walks a parsed block tree and replaces `core/pattern` references with their actual constituent blocks. Relevant for headless/agent code that consumes `parse_blocks()` output and needs a fully-expanded tree rather than unresolved pattern placeholders. It is not needed for normal template/pattern authoring — WordPress resolves patterns during render automatically.
 
 ---
 
