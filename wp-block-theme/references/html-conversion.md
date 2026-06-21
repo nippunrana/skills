@@ -76,10 +76,10 @@ Using Core Blocks lets editors change colors, typography, and spacing via the Si
   </section>
 
   <script>
-    document.querySelectorAll('.card').forEach(card => {
-      card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-4px)');
-      card.addEventListener('mouseleave', () => card.style.transform = '');
-    });
+    document.querySelectorAll( '.card' ).forEach( ( card ) => {
+      card.addEventListener( 'mouseenter', () => card.style.transform = 'translateY(-4px)' );
+      card.addEventListener( 'mouseleave', () => card.style.transform = '' );
+    } );
   </script>
 </body>
 </html>
@@ -279,19 +279,19 @@ When you need reactive logic (e.g., a "Save to Favorites" toggle), use the Inter
 ```js
 import { store } from '@wordpress/interactivity';
 
-store('example-landing/hero', {
-    state: {
-        get saveLabel() {
-            const { isSaved } = context;
-            return isSaved ? 'Saved!' : 'Save for Later';
-        }
-    },
-    actions: {
-        toggleSave: () => {
-            context.isSaved = !context.isSaved;
-        }
-    }
-});
+store( 'example-landing/hero', {
+	state: {
+		get saveLabel() {
+			const { isSaved } = context;
+			return isSaved ? 'Saved!' : 'Save for Later';
+		},
+	},
+	actions: {
+		toggleSave: () => {
+			context.isSaved = ! context.isSaved;
+		},
+	},
+} );
 ```
 
 ### Accordion Conversion (WP 6.9+)
@@ -483,9 +483,9 @@ Enable in `theme.json settings` before using:
 Always wrap in this guard — WordPress sometimes loads scripts before the DOM is fully parsed:
 
 ```js
-document.addEventListener('DOMContentLoaded', function () {
-  // your code
-});
+document.addEventListener( 'DOMContentLoaded', function () {
+	// your code
+} );
 ```
 
 ### Scoping JS selectors
@@ -495,12 +495,12 @@ to the template wrapper to avoid accidental matches in the editor sidebar:
 
 ```js
 // Original
-document.querySelectorAll('.card').forEach(...);
+document.querySelectorAll( '.card' ).forEach( ... );
 
 // Safer — scoped to the component
-const wrapper = document.querySelector('.is-style-example-landing-features');
-if (!wrapper) return;
-wrapper.querySelectorAll('.card').forEach(...);
+const wrapper = document.querySelector( '.is-style-example-landing-features' );
+if ( ! wrapper ) return;
+wrapper.querySelectorAll( '.card' ).forEach( ... );
 ```
 
 ### Skipping animations in the editor
@@ -508,10 +508,10 @@ wrapper.querySelectorAll('.card').forEach(...);
 Some animations look jarring inside the Site Editor iframe. Gate them:
 
 ```js
-document.addEventListener('DOMContentLoaded', function () {
-  if (window.frameElement || document.body.classList.contains('editor-styles-wrapper')) return;
-  // animations here — won't run in editor
-});
+document.addEventListener( 'DOMContentLoaded', function () {
+	if ( window.frameElement || document.body.classList.contains( 'editor-styles-wrapper' ) ) return;
+	// animations here — won't run in editor
+} );
 ```
 
 ### Icon Conversion (WP 7.0)
@@ -683,22 +683,22 @@ Move CSS `@keyframes` and `animation` properties into the scoped stylesheet. The
 Works fine in `index.js` when properly guarded:
 
 ```js
-document.addEventListener('DOMContentLoaded', function () {
-  if (window.frameElement || document.body.classList.contains('editor-styles-wrapper')) return;
+document.addEventListener( 'DOMContentLoaded', function () {
+	if ( window.frameElement || document.body.classList.contains( 'editor-styles-wrapper' ) ) return;
 
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view');
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.15 });
+	const observer = new IntersectionObserver( ( entries ) => {
+		entries.forEach( ( entry ) => {
+			if ( entry.isIntersecting ) {
+				entry.target.classList.add( 'in-view' );
+				observer.unobserve( entry.target );
+			}
+		} );
+	}, { threshold: 0.15 } );
 
-  const wrapper = document.querySelector('.is-style-example-landing-features');
-  if (!wrapper) return;
-  wrapper.querySelectorAll('[data-animate]').forEach(el => observer.observe(el));
-});
+	const wrapper = document.querySelector( '.is-style-example-landing-features' );
+	if ( ! wrapper ) return;
+	wrapper.querySelectorAll( '[data-animate]' ).forEach( ( el ) => observer.observe( el ) );
+} );
 ```
 
 ### GSAP / external animation libraries

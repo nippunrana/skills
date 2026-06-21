@@ -118,7 +118,7 @@ underlying building blocks used during that process.
   - **Master/assembler patterns** (`Inserter: false`, called only via `wp:pattern`): MUST contain only a flat list of `<!-- wp:pattern -->` comments. No wrapper block. No lock attribute. No styles. No `className`.
   - **Template parts** (outermost block of the backing PHP pattern): MUST carry `"lock": {"move": true, "remove": true}`.
 - **CSS scoping via Block Style Variations.** Scope CSS strictly to the block's variation class (e.g. `.is-style-hero-section`) and register that style with `register_block_style()`. WordPress then injects the CSS automatically into both the frontend and the editor iframe. All hand-authored CSS must follow `references/coding-standards.md` (tabs, logical property order, value formatting).
-- **Modern interactivity.** Reactive logic (state toggles, dynamic updates, user-event-driven UI) → use the Interactivity API. Register as a **Script Module** with `wp_register_script_module()` and bind via `script_module_handle` on `register_block_style()` so it loads only when the block is present. Save to `patterns/{sub-pattern}/view.js`. Non-reactive logic (IntersectionObserver animations, GSAP effects) that reads/writes no shared state → a `document.addEventListener('DOMContentLoaded', …)` guard is acceptable. Always gate on `if (window.frameElement) return;` to suppress in the editor iframe and scope all selectors to the variation class. Save to `patterns/{sub-pattern}/index.js`. Never use `document.addEventListener` for reactive state — that belongs in a Script Module.
+- **Modern interactivity.** Reactive logic (state toggles, dynamic updates, user-event-driven UI) → use the Interactivity API. Register as a **Script Module** with `wp_register_script_module()` and bind via `script_module_handle` on `register_block_style()` so it loads only when the block is present. Save to `patterns/{sub-pattern}/view.js`. Non-reactive logic (IntersectionObserver animations, GSAP effects) that reads/writes no shared state → a `document.addEventListener( 'DOMContentLoaded', … )` guard is acceptable. Always gate on `if ( window.frameElement ) return;` to suppress in the editor iframe and scope all selectors to the variation class. Save to `patterns/{sub-pattern}/index.js`. Never use `document.addEventListener` for reactive state — that belongs in a Script Module. All JS (both lanes) follows `references/js-coding-standards.md`.
 - **Block Hooks** can automatically attach a logic-providing block before/after a target block — useful for mandatory wiring that must not be missed by editors. In WP 7.0, hooks fire for all CPTs registered with `'show_in_rest' => true` and `'supports' => array( 'editor' )` — not just posts and pages.
 - **Viewport block visibility.** Use `metadata.blockVisibility.viewport` to show/hide blocks by device type (`"mobile"`, `"tablet"`, `"desktop"`). Hiding is **CSS-based** — blocks remain in the DOM on all devices and are visually suppressed via an injected CSS class. Do not use CSS `display: none` on breakpoints for this purpose, and do not use this feature for access control. Enable with `settings.blockVisibility.viewport: true` in `theme.json`.
 - **Font Library.** The Font Library is enabled for all theme types in WP 7.0 (block, hybrid, and classic). Use `theme.json fontFamilies` for version-controlled font registration. When a user says "install a font", direct them to Appearance → Editor → Styles → Typography → Manage Fonts. Do not enqueue fonts via `wp_enqueue_style` that already exist in the Font Library.
@@ -164,7 +164,7 @@ Before handing off, verify every item:
 - [ ] Master patterns (assemblers) have no layout CSS — all styles live in sub-patterns
 - [ ] Sub-pattern CSS saved to its own directory (e.g., `patterns/faq-section/style.css`)
 - [ ] Every sub-pattern's outermost block has `"lock": {"move": true, "remove": true}` AND a unique variation class (e.g. `is-style-{pattern-slug}`)
-- [ ] Reactive JS registered as a Script Module (`wp_register_script_module()`) and bound via `register_block_style()` — saved to `patterns/{sub-pattern}/view.js`; non-reactive scripts (animations, observers) use a `DOMContentLoaded` guard gated on `window.frameElement`, scoped selectors — saved to `patterns/{sub-pattern}/index.js`
+- [ ] Reactive JS registered as a Script Module (`wp_register_script_module()`) and bound via `register_block_style()` — saved to `patterns/{sub-pattern}/view.js`; non-reactive scripts (animations, observers) use a `DOMContentLoaded` guard gated on `window.frameElement`, scoped selectors — saved to `patterns/{sub-pattern}/index.js`; JS style follows `references/js-coding-standards.md`
 - [ ] Image paths use `get_stylesheet_directory_uri()` — no hardcoded URLs
 
 #### Configuration (hard requirements)
@@ -233,7 +233,9 @@ Before handing off, verify every item:
   | JS lane | When | File | Registration |
   |---|---|---|---|
   | Reactive (state, directives, user-driven UI) | Shared state or Interactivity API directives | `patterns/{slug}/view.js` | Script Module via `wp_register_script_module()`, bound through `script_module_handle` on `register_block_style()` |
-  | Non-reactive (IntersectionObserver, GSAP, scroll animations) | Read-only DOM effects, no shared state | `patterns/{slug}/index.js` | Enqueued conditionally; always gate on `if (window.frameElement) return;` |
+  | Non-reactive (IntersectionObserver, GSAP, scroll animations) | Read-only DOM effects, no shared state | `patterns/{slug}/index.js` | Enqueued conditionally; always gate on `if ( window.frameElement ) return;` |
+
+  > JS style for both lanes (tabs, single quotes, spaces inside parens/brackets): see `references/js-coding-standards.md`.
 
   For mandatory logic injection regardless of the selected variation, use **Block Hooks**.
 
@@ -562,6 +564,7 @@ Overriding a WooCommerce template (`single-product.html`, `archive-product.html`
 | File | Load when… |
 |---|---|
 | `references/coding-standards.md` | Before writing any CSS or real HTML markup (PHP patterns, render callbacks, `<img>` etc.). |
+| `references/js-coding-standards.md` | Before writing any JavaScript — `view.js` Interactivity stores, `index.js` non-reactive scripts, WooCommerce checkout JS, or abilities client-side code. |
 | `references/html-conversion.md` | The user provides raw HTML/CSS/JS to convert. |
 | `references/architecture.md` | Before writing ANY code (mandatory pre-write read). |
 | `references/theme-json.md` | Modifying `theme.json` beyond a `customTemplates` entry. |
