@@ -117,7 +117,7 @@ underlying building blocks used during that process.
   - **Sub-patterns and inserter-visible patterns:** outermost block MUST carry `"lock": {"move": true, "remove": true}` AND `"className": "is-style-{pattern-slug}"`.
   - **Master/assembler patterns** (`Inserter: false`, called only via `wp:pattern`): MUST contain only a flat list of `<!-- wp:pattern -->` comments. No wrapper block. No lock attribute. No styles. No `className`.
   - **Template parts** (outermost block of the backing PHP pattern): MUST carry `"lock": {"move": true, "remove": true}`.
-- **CSS scoping via Block Style Variations.** Scope CSS strictly to the block's variation class (e.g. `.is-style-hero-section`) and register that style with `register_block_style()`. WordPress then injects the CSS automatically into both the frontend and the editor iframe.
+- **CSS scoping via Block Style Variations.** Scope CSS strictly to the block's variation class (e.g. `.is-style-hero-section`) and register that style with `register_block_style()`. WordPress then injects the CSS automatically into both the frontend and the editor iframe. All hand-authored CSS must follow `references/coding-standards.md` (tabs, logical property order, value formatting).
 - **Modern interactivity.** Reactive logic (state toggles, dynamic updates, user-event-driven UI) → use the Interactivity API. Register as a **Script Module** with `wp_register_script_module()` and bind via `script_module_handle` on `register_block_style()` so it loads only when the block is present. Save to `patterns/{sub-pattern}/view.js`. Non-reactive logic (IntersectionObserver animations, GSAP effects) that reads/writes no shared state → a `document.addEventListener('DOMContentLoaded', …)` guard is acceptable. Always gate on `if (window.frameElement) return;` to suppress in the editor iframe and scope all selectors to the variation class. Save to `patterns/{sub-pattern}/index.js`. Never use `document.addEventListener` for reactive state — that belongs in a Script Module.
 - **Block Hooks** can automatically attach a logic-providing block before/after a target block — useful for mandatory wiring that must not be missed by editors. In WP 7.0, hooks fire for all CPTs registered with `'show_in_rest' => true` and `'supports' => ['editor']` — not just posts and pages.
 - **Viewport block visibility.** Use `metadata.blockVisibility.viewport` to show/hide blocks by device type (`"mobile"`, `"tablet"`, `"desktop"`). Hiding is **CSS-based** — blocks remain in the DOM on all devices and are visually suppressed via an injected CSS class. Do not use CSS `display: none` on breakpoints for this purpose, and do not use this feature for access control. Enable with `settings.blockVisibility.viewport: true` in `theme.json`.
@@ -158,6 +158,7 @@ Before handing off, verify every item:
 - [ ] Design mapped to Core Blocks (Group, Columns, etc.); fallback to PHP-only block (`autoRegister: true`) before classic dynamic block; NEVER use `wp:html`
 
 #### CSS scoping (conventions)
+- [ ] CSS + HTML markup follows `references/coding-standards.md` (tabs not spaces, logical property order, quoted attributes, correct value formatting)
 - [ ] Layout CSS is strictly scoped to the block style variation class (e.g. `.is-style-hero-section`), avoiding a catch-all page wrapper to prevent style bleed into independent sub-patterns
 - [ ] Modular patterns (CTA, Header, FAQ, etc.) use their own separate CSS class (e.g. `.is-style-main-cta`) and are not placed inside a page-specific wrapper that alters their layout
 - [ ] Master patterns (assemblers) have no layout CSS — all styles live in sub-patterns
@@ -553,6 +554,7 @@ Overriding a WooCommerce template (`single-product.html`, `archive-product.html`
 
 | File | Load when… |
 |---|---|
+| `references/coding-standards.md` | Before writing any CSS or real HTML markup (PHP patterns, render callbacks, `<img>` etc.). |
 | `references/html-conversion.md` | The user provides raw HTML/CSS/JS to convert. |
 | `references/architecture.md` | Before writing ANY code (mandatory pre-write read). |
 | `references/theme-json.md` | Modifying `theme.json` beyond a `customTemplates` entry. |

@@ -114,6 +114,33 @@
         "Directs the user to the Abilities API (wp_register_ability) as the correct way to expose functions to AI",
         "Shows registration on the wp_abilities_api_init hook with a category, schemas, and permission_callback"
       ]
+    },
+    {
+      "id": 10,
+      "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme'. Create a standalone CTA sub-pattern called 'cta-section'. It should have a headline, a short paragraph, and a button. Give me the PHP pattern file and the scoped style.css for it. The button should have padding, a border-radius, a background colour (#e94560), white text, and a hover transition. Do not add any template or theme.json changes — just the pattern file and the CSS file.",
+      "expected_output": "A PHP pattern file (patterns/cta-section.php) with correct block markup, and a patterns/cta-section/style.css with: tabs for indentation, logical property ordering (Display → Box model → Colors → Other for the button rule), no magic numbers, rgba() without paren padding if used, unitless zero values, and the variation class .is-style-cta-section scoping all rules.",
+      "files": [],
+      "expectations": [
+        "style.css uses tabs (\\t) for indentation — not spaces",
+        "The button CSS rule orders Display before Box model before Colors before Other (transition last)",
+        "Hex colours are lowercase (#e94560, #fff — not #E94560 or #FFFFFF)",
+        "Zero values have no units (e.g. margin: 0 not margin: 0px) unless for transition-duration",
+        "All rules are scoped to .is-style-cta-section (no global selectors)",
+        "Pattern PHP file has correct header with Slug: nova-theme/cta-section"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme'. I need a hero sub-pattern called 'hero-section' that uses a PHP render_callback to output an <img> tag for a decorative icon (alt text 'Decorative Icon') and a disabled submit button in the markup. Give me just the PHP pattern file and the style.css. I care specifically that HTML attributes follow WordPress standards.",
+      "expected_output": "PHP pattern with: all HTML attributes double-quoted; the disabled attribute written as just 'disabled' (bare, no value, no =true or =false); the <img /> self-closing tag has exactly one space before the /; style.css uses tabs and logical property ordering.",
+      "files": [],
+      "expectations": [
+        "All HTML attributes in the PHP output are double-quoted (e.g. alt=\"Decorative Icon\" not alt='Decorative Icon' or alt=Decorative)",
+        "The disabled attribute is written as just 'disabled' with no value (not disabled=\"true\", not disabled=\"false\", not disabled=\"disabled\")",
+        "The <img> self-closing tag has exactly one space before the slash: <img ... />",
+        "style.css uses tabs for indentation — not spaces",
+        "style.css orders Box model properties before Colors & Typography properties"
+      ]
     }
   ]
 }

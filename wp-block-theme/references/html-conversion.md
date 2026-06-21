@@ -211,32 +211,32 @@ Using Core Blocks lets editors change colors, typography, and spacing via the Si
    ============================================================ */
 
 .is-style-example-landing-hero {
-  text-align: center;
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
+	background: linear-gradient(135deg, #1a1a2e, #16213e); /* 4. Colors — background before text properties */
+	text-align: center;                                     /* 4. Colors & Typography */
 }
 
 /* Note: Padding/Margin are now handled in theme.json Section Styles */
 
 .is-style-example-landing-hero h1 {
-  font-size: 3.5rem;
-  margin-bottom: 1rem;
-  color: #fff;
+	margin-bottom: 1rem;  /* 3. Box model */
+	font-size: 3.5rem;    /* 4. Colors & Typography */
+	color: #fff;          /* 4. Colors & Typography */
 }
 
 .is-style-example-landing-hero p {
-  font-size: 1.25rem;
-  opacity: 0.8;
-  color: #fff;
+	font-size: 1.25rem;  /* 4. Colors & Typography */
+	color: #fff;         /* 4. Colors & Typography */
+	opacity: 0.8;        /* 5. Other */
 }
 
 .is-style-example-landing-hero .btn-primary {
-  display: inline-block;
-  margin-top: 2rem;
-  padding: 1rem 2.5rem;
-  background: var(--wp--preset--color--accent, #e94560);
-  color: #fff;
-  border-radius: 8px;
-  text-decoration: none;
+	display: inline-block;                                  /* 1. Display */
+	margin-top: 2rem;                                       /* 3. Box model */
+	padding: 1rem 2.5rem;                                   /* 3. Box model */
+	border-radius: 8px;                                     /* 3. Box model */
+	background: var(--wp--preset--color--accent, #e94560); /* 4. Colors */
+	color: #fff;                                            /* 4. Colors */
+	text-decoration: none;                                  /* 4. Typography */
 }
 ```
 
@@ -246,10 +246,10 @@ Using Core Blocks lets editors change colors, typography, and spacing via the Si
 
 ```css
 .is-style-example-landing-features .card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 2rem;
-  transition: transform 0.2s ease;
+	padding: 2rem;                          /* 3. Box model */
+	border-radius: 12px;                    /* 3. Box model */
+	background: rgba(255, 255, 255, 0.05); /* 4. Colors */
+	transition: transform 0.2s ease;        /* 5. Other */
 }
 ```
 
