@@ -87,11 +87,11 @@ These are intentionally different. Setting `"supports": { "visibility": true }` 
 
 ```php
 $visibility = $block['attrs']['metadata']['blockVisibility'] ?? null;
-if ( $visibility === false ) {
-    // Block is hidden everywhere (legacy scalar form)
+if ( false === $visibility ) {
+	// Block is hidden everywhere (legacy scalar form)
 } elseif ( is_array( $visibility ) && isset( $visibility['viewport'] ) ) {
-    // Viewport-conditional visibility
-    $visible_on = $visibility['viewport']; // e.g. ["tablet", "desktop"]
+	// Viewport-conditional visibility
+	$visible_on = $visibility['viewport']; // e.g. array( 'tablet', 'desktop' )
 }
 ```
 

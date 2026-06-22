@@ -238,7 +238,7 @@ Conditional tags are only valid **after** the `posts_selection` action. The earl
 ```php
 // functions.php — DO NOT DO THIS
 if ( is_product() ) {
-    add_filter( 'body_class', fn( array $c ): array => [ ...$c, 'has-product' ] );
+	add_filter( 'body_class', fn( array $c ): array => array_merge( $c, array( 'has-product' ) ) );
 }
 ```
 
@@ -246,12 +246,12 @@ if ( is_product() ) {
 
 ```php
 add_action( 'wp', static function (): void {
-    if ( is_product() ) {
-        add_filter(
-            'body_class',
-            static fn( array $classes ): array => array_merge( $classes, [ 'has-product' ] )
-        );
-    }
+	if ( is_product() ) {
+		add_filter(
+			'body_class',
+			static fn( array $classes ): array => array_merge( $classes, array( 'has-product' ) )
+		);
+	}
 } );
 ```
 
@@ -263,10 +263,10 @@ WooCommerce ships a structured logger accessible via `wc_get_logger()`. Use it f
 
 ```php
 $logger  = wc_get_logger();
-$context = [
-    'source'    => '{{TEXT_DOMAIN}}',
-    'backtrace' => true, // include stack trace in the log entry
-];
+$context = array(
+	'source'    => '{{TEXT_DOMAIN}}',
+	'backtrace' => true, // include stack trace in the log entry
+);
 
 $logger->error( 'Payment gateway returned non-200 status while finalising order.', $context );
 ```

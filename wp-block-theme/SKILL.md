@@ -72,7 +72,7 @@ underlying building blocks used during that process.
 3. **Follow the architecture rules** in `references/architecture.md`.
 4. **Pre-write gates.** Before writing any code, all four gates must pass. If any gate fails, fix it before proceeding:
    - **API gate:** Every WordPress function or class name must appear in `references/api-allowlist.md`. The "Names that look real but are not" section lists fabricated APIs to never use (`register_block_ability`, `WP_Icons_Registry::register`, `is_ai_ready`, `__experimentalRole`, `"version": 4`). **Disambiguation:** `__experimentalSettings` (a per-block container attribute controlling content-only opt-out) is a distinct, supported escape hatch — do not conflate it with the fabricated `__experimentalRole`. Prefer the stable `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (site-wide) over the per-block `__experimentalSettings` attribute (experimental, may rename).
-   - **PHP 8.3 gate:** Every named function and anonymous callback must have typed parameters and a return type. Use `??`, `str_contains()`, `match`, and `?->` where appropriate. Full checklist: `references/architecture.md → PHP 8.3 Requirements`. `declare(strict_types=1);` requirement by file type:
+   - **PHP 8.3 gate:** Every named function and anonymous callback must have typed parameters and a return type. Use `??`, `str_contains()`, `match`, and `?->` where appropriate. Full checklist: `references/architecture.md → PHP 8.3 Requirements`. For WordPress PHP house style (Yoda conditions, `array()` syntax, tabs, naming, `$wpdb->prepare()`, prohibited constructs), load `references/php-coding-standards.md` before writing. `declare(strict_types=1);` requirement by file type:
 
      | File path pattern | `declare(strict_types=1);` required? |
      |---|---|
@@ -431,7 +431,7 @@ and block-specific targeting. Key rules:
 | **Template part exists in DOM but content is empty** | Pattern is missing or typo in the slug | Check the `slug` inside the `wp:pattern` comment matches the PHP registration exactly |
 | **Template part CSS not loading** | Outermost block missing style class | Ensure the PHP pattern powering the template part has a variation class like `is-style-header` on its root block. |
 | **PHP functions not running in template part** | Trying to put PHP directly in `.html` file | `.html` files cannot run PHP — put PHP in a `.php` pattern and call it via `<!-- wp:pattern {"slug":"..."} /-->` |
-| **`blockVisibility` PHP parsing error / type mismatch** | Treating `metadata.blockVisibility` as always an object — it can also be a scalar boolean | Check for boolean first: `if ( $visibility === false ) { /* hidden everywhere */ } elseif ( is_array( $visibility ) && isset( $visibility['viewport'] ) ) { /* viewport rules */ }`. Note: the block **support** key is `visibility`; the **metadata attribute** key is `blockVisibility` — these are different. |
+| **`blockVisibility` PHP parsing error / type mismatch** | Treating `metadata.blockVisibility` as always an object — it can also be a scalar boolean | Check for boolean first: `if ( false === $visibility ) { /* hidden everywhere */ } elseif ( is_array( $visibility ) && isset( $visibility['viewport'] ) ) { /* viewport rules */ }`. Note: the block **support** key is `visibility`; the **metadata attribute** key is `blockVisibility` — these are different. |
 | **Editor iframe breaks / styles bleed** | A legacy Block API v2 block was inserted | WordPress 7.0 dynamically un-iframes the editor if an API v2 block is present. Upgrade the custom block to API v3+ to restore iframed mode. |
 
 For DOM-level diagnostics, see the **Diagnostic Console Snippet** in `references/architecture.md`.
@@ -563,6 +563,7 @@ Overriding a WooCommerce template (`single-product.html`, `archive-product.html`
 
 | File | Load when… |
 |---|---|
+| `references/php-coding-standards.md` | Before writing any PHP — `functions.php`, `inc/**/*.php`, `render_callback` closures, or any PHP pattern file that contains function/class definitions. |
 | `references/coding-standards.md` | Before writing any CSS or real HTML markup (PHP patterns, render callbacks, `<img>` etc.). |
 | `references/js-coding-standards.md` | Before writing any JavaScript — `view.js` Interactivity stores, `index.js` non-reactive scripts, WooCommerce checkout JS, or abilities client-side code. |
 | `references/html-conversion.md` | The user provides raw HTML/CSS/JS to convert. |

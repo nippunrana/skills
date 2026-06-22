@@ -76,14 +76,14 @@ Registration happens inside the `woocommerce_init` action:
 
 ```php
 add_action( 'woocommerce_init', static function (): void {
-    woocommerce_register_additional_checkout_field( [
-        'id'            => '{{TEXT_DOMAIN}}/reference-code',
-        'label'         => __( 'Reference Code', '{{TEXT_DOMAIN}}' ),
-        'optionalLabel' => __( 'Reference Code (if available)', '{{TEXT_DOMAIN}}' ),
-        'location'      => 'address',
-        'type'          => 'text',
-        'required'      => false,
-    ] );
+	woocommerce_register_additional_checkout_field( array(
+		'id'            => '{{TEXT_DOMAIN}}/reference-code',
+		'label'         => __( 'Reference Code', '{{TEXT_DOMAIN}}' ),
+		'optionalLabel' => __( 'Reference Code (if available)', '{{TEXT_DOMAIN}}' ),
+		'location'      => 'address',
+		'type'          => 'text',
+		'required'      => false,
+	) );
 } );
 ```
 
@@ -112,19 +112,19 @@ Two equivalent registration styles exist; both appear in the source docs.
 **Inline callbacks on the registration:**
 
 ```php
-woocommerce_register_additional_checkout_field( [
-    'id'                => '{{TEXT_DOMAIN}}/government-id',
-    'label'             => __( 'Government ID', '{{TEXT_DOMAIN}}' ),
-    'location'          => 'address',
-    'type'              => 'text',
-    'sanitize_callback' => static fn( string $value ): string =>
-        strtoupper( str_replace( ' ', '', $value ) ), // "abc 123" -> "ABC123"
-    'validate_callback' => static function ( string $value, string $field_id, WP_Error $errors ): void {
-        if ( ! preg_match( '/^[A-Z0-9]{5}$/', $value ) ) {
-            $errors->add( '{{TEXT_DOMAIN}}-invalid-id', __( 'The ID must be 5 alphanumeric characters.', '{{TEXT_DOMAIN}}' ) );
-        }
-    },
-] );
+woocommerce_register_additional_checkout_field( array(
+	'id'                => '{{TEXT_DOMAIN}}/government-id',
+	'label'             => __( 'Government ID', '{{TEXT_DOMAIN}}' ),
+	'location'          => 'address',
+	'type'              => 'text',
+	'sanitize_callback' => static fn( string $value ): string =>
+		strtoupper( str_replace( ' ', '', $value ) ), // "abc 123" -> "ABC123"
+	'validate_callback' => static function ( string $value, string $field_id, WP_Error $errors ): void {
+		if ( ! preg_match( '/^[A-Z0-9]{5}$/', $value ) ) {
+			$errors->add( '{{TEXT_DOMAIN}}-invalid-id', __( 'The ID must be 5 alphanumeric characters.', '{{TEXT_DOMAIN}}' ) );
+		}
+	},
+) );
 ```
 
 **Or via the global filter/action hooks** (equivalent; useful when the field is registered elsewhere):
@@ -194,24 +194,24 @@ real-time validation message via the **non-standard `errorMessage` keyword** (a 
 extension to Draft-07):
 
 ```php
-woocommerce_register_additional_checkout_field( [
-    'id'       => '{{TEXT_DOMAIN}}/delivery-instructions',
-    'label'    => __( 'Delivery Instructions', '{{TEXT_DOMAIN}}' ),
-    'location' => 'order',
-    'type'     => 'text',
-    'required' => [
-        [ 'properties' => [ 'prefers_collection' => [ 'const' => false ] ] ],
-    ],
-    'hidden'   => [
-        [ 'properties' => [ 'prefers_collection' => [ 'const' => true ] ] ],
-    ],
-    'validation' => [
-        [
-            'minLength'    => 5,
-            'errorMessage' => __( 'Please provide a valid instruction.', '{{TEXT_DOMAIN}}' ),
-        ],
-    ],
-] );
+woocommerce_register_additional_checkout_field( array(
+	'id'       => '{{TEXT_DOMAIN}}/delivery-instructions',
+	'label'    => __( 'Delivery Instructions', '{{TEXT_DOMAIN}}' ),
+	'location' => 'order',
+	'type'     => 'text',
+	'required' => array(
+		array( 'properties' => array( 'prefers_collection' => array( 'const' => false ) ) ),
+	),
+	'hidden'   => array(
+		array( 'properties' => array( 'prefers_collection' => array( 'const' => true ) ) ),
+	),
+	'validation' => array(
+		array(
+			'minLength'    => 5,
+			'errorMessage' => __( 'Please provide a valid instruction.', '{{TEXT_DOMAIN}}' ),
+		),
+	),
+) );
 ```
 
 ### 6.3 Performance Caveat
@@ -225,11 +225,11 @@ To change attributes on a built-in field (e.g. the `optionalLabel` on Company), 
 it by its **core identifier** (no namespace slash) rather than using the legacy `unset()`:
 
 ```php
-woocommerce_register_additional_checkout_field( [
-    'id'            => 'billing_company', // core identifier — no namespace
-    'location'      => 'address',
-    'optionalLabel' => __( 'Business Name (optional)', '{{TEXT_DOMAIN}}' ),
-] );
+woocommerce_register_additional_checkout_field( array(
+	'id'            => 'billing_company', // core identifier — no namespace
+	'location'      => 'address',
+	'optionalLabel' => __( 'Business Name (optional)', '{{TEXT_DOMAIN}}' ),
+) );
 ```
 
 Common core identifiers for the `address` / `contact` locations:

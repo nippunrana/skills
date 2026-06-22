@@ -105,6 +105,49 @@
       ]
     },
     {
+      "id": 12,
+      "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme'. Write the full functions.php (not a snippet — the real file) that registers pattern categories and block styles for three sub-patterns: hero-section, faq-section, and cta-section. Each sub-pattern has its own style.css. Follow WordPress PHP coding standards exactly — I care about tabs vs spaces, array syntax, string quote style, and naming.",
+      "expected_output": "A complete functions.php file with: tabs for indentation (not 4-space), array() long syntax (not []), single-quoted string literals where no interpolation is needed, snake_case function names, proper spacing inside control structure parens, declare(strict_types=1) on line 2, and no closing ?>. All three sub-patterns are registered via register_block_style() using array() for the arguments.",
+      "files": [],
+      "assertions": [
+        "functions.php uses tab characters (\\t) for indentation inside function bodies — not 4 spaces",
+        "All PHP array literals use array() syntax — no short [] literals present in the file",
+        "String literals that require no variable interpolation use single quotes",
+        "Function names follow snake_case (e.g. nova_theme_register_pattern_categories not camelCase)",
+        "declare(strict_types=1); appears on line 2 of functions.php",
+        "The file does not end with a closing ?> tag",
+        "register_block_style() is called for all three sub-patterns (hero-section, faq-section, cta-section)"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "I need a render_callback for a dynamic block in my 'nova-theme' WP 7.0 theme. The block takes a user_id attribute (integer) and a status attribute (string). The callback should: (1) check if the user_id attribute is zero and return early, (2) fetch a row from a custom table called nova_cache using $wpdb->prepare() with the user_id and status as placeholders, (3) return HTML if a row is found, empty string if not. Follow WordPress PHP coding standards.",
+      "expected_output": "A render_callback function with: Yoda conditions (0 === $user_id, not $user_id === 0), $wpdb->prepare() with %d and %s placeholders (not manual quoting or sprintf), array() for all array literals, tabs for indentation, typed parameters and return type, single quotes for string literals, and the early-return check using Yoda style.",
+      "files": [],
+      "assertions": [
+        "Early-return condition uses Yoda style: 0 === $user_id (not $user_id === 0 or $user_id == 0)",
+        "$wpdb->prepare() is used with %d and %s placeholders — no string interpolation or manual quoting in the SQL",
+        "All array literals in PHP use array() syntax — no short [] present",
+        "Tab characters are used for indentation — not spaces",
+        "The function has typed parameters and a return type declaration",
+        "String literals use single quotes where no interpolation is needed"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "In my 'nova-theme' WP 7.0 theme I want a PHP class called Nova_Theme_Asset_Registry that manages which block style handles are registered. It should have: a private static property $instance (nullable self), a public static getInstance() method, a private array $registered property initialized to empty, and a public register(string $handle, string $src) method that adds to $registered. Put it in the right file. Follow WordPress PHP coding standards for class naming, file naming, and visibility.",
+      "expected_output": "A file named class-nova-theme-asset-registry.php containing exactly one class. The class uses Capitalized_Snake_Case naming (Nova_Theme_Asset_Registry). All properties and methods have explicit visibility. The $registered property is initialized with array() not []. The getInstance() method is public static. The file has declare(strict_types=1) and no closing ?>.",
+      "files": [],
+      "assertions": [
+        "File is named class-nova-theme-asset-registry.php (underscores in class name replaced with hyphens, prefixed with class-)",
+        "The class is named Nova_Theme_Asset_Registry — Capitalized_Snake_Case",
+        "All properties and methods have explicit visibility keywords (public/private/protected — no var keyword)",
+        "$registered is initialized with array() not []",
+        "The file contains exactly one class definition",
+        "declare(strict_types=1); is present and no closing ?> at the end of the file"
+      ]
+    }
+    {
       "id": 9,
       "prompt": "On WordPress 7.0 I want my AI summarizer to be able to call my plugin's own functions as tools. I read that you pass them to the prompt builder with ->using_abilities(). Can you wire up wp_ai_client_prompt() with using_abilities() to expose my 'fetch_order_status' function to the model?",
       "expected_output": "The response should correct the premise: there is no using_abilities() method on the WP 7.0 AI Client prompt builder. The right mechanism is the Abilities API — register fetch_order_status via wp_register_ability() (on wp_abilities_api_init, with category, schemas, permission_callback, execute_callback). It should NOT produce code that calls ->using_abilities() as if it were real.",

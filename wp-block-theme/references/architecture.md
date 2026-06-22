@@ -943,6 +943,8 @@ Every PHP file emitted by this skill must pass all ten gates below before writin
 
 WP snake_case function names and hook names are unchanged. These PHP 8.3 rules apply to function bodies and signatures only, not to the WordPress API surface.
 
+> **House style vs. modern features:** this section answers "which PHP 8.3 features to use". For WordPress PHP formatting rules — Yoda conditions, `array()` syntax, tabs, naming conventions, `$wpdb->prepare()`, and prohibited constructs — load `references/php-coding-standards.md`. The two files are complementary.
+
 ### Required Header
 
 Every PHP pattern file MUST start with this header comment (PHP comment, not HTML):
@@ -1057,12 +1059,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * Enqueue parent and child stylesheets.
  */
 function mytheme_child_enqueue_styles(): void {
-    wp_enqueue_style(
-        'mytheme-parent-style',
-        get_template_directory_uri() . '/style.css',
-        array(),
-        wp_get_theme()->parent()->get( 'Version' )
-    );
+	wp_enqueue_style(
+		'mytheme-parent-style',
+		get_template_directory_uri() . '/style.css',
+		array(),
+		wp_get_theme()->parent()->get( 'Version' )
+	);
 }
 add_action( 'wp_enqueue_scripts', 'mytheme_child_enqueue_styles', 9 );
 
@@ -1070,10 +1072,10 @@ add_action( 'wp_enqueue_scripts', 'mytheme_child_enqueue_styles', 9 );
  * Register pattern categories. Must run on 'init' — the canonical hook for block pattern APIs.
  */
 function mytheme_child_register_pattern_categories(): void {
-    register_block_pattern_category(
-        '{{THEME_SLUG}}',
-        array( 'label' => __( '{{THEME_NAME}}', '{{TEXT_DOMAIN}}' ) )
-    );
+	register_block_pattern_category(
+		'{{THEME_SLUG}}',
+		array( 'label' => __( '{{THEME_NAME}}', '{{TEXT_DOMAIN}}' ) )
+	);
 }
 add_action( 'init', 'mytheme_child_register_pattern_categories' );
 
@@ -1081,51 +1083,51 @@ add_action( 'init', 'mytheme_child_register_pattern_categories' );
  * Register block styles and assets for patterns.
  */
 function mytheme_child_pattern_assets(): void {
-    // Use wp_enqueue_block_style for global child resets so they load after core block styles.
-    wp_enqueue_block_style(
-        'core/group',
-        array(
-            'handle' => 'mytheme-child-global-resets',
-            'src'    => get_stylesheet_directory_uri() . '/assets/css/global-resets.css',
-            'path'   => get_stylesheet_directory() . '/assets/css/global-resets.css',
-        )
-    );
+	// Use wp_enqueue_block_style for global child resets so they load after core block styles.
+	wp_enqueue_block_style(
+		'core/group',
+		array(
+			'handle' => 'mytheme-child-global-resets',
+			'src'    => get_stylesheet_directory_uri() . '/assets/css/global-resets.css',
+			'path'   => get_stylesheet_directory() . '/assets/css/global-resets.css',
+		)
+	);
 
-    // 1. Register the stylesheet for a specific sub-pattern
-    wp_register_style(
-        handle: 'my-section-style',
-        src:    get_stylesheet_directory_uri() . '/patterns/my-section/style.css',
-        deps:   array(),
-        ver:    '1.0.0'
-    );
-    // Passing 'path' enables WordPress's built-in CSS inlining: for files under ~2 KB,
-    // WP outputs the CSS directly in <head> instead of issuing a render-blocking HTTP request.
-    wp_style_add_data(
-        'my-section-style',
-        'path',
-        get_stylesheet_directory() . '/patterns/my-section/style.css'
-    );
+	// 1. Register the stylesheet for a specific sub-pattern
+	wp_register_style(
+		handle: 'my-section-style',
+		src:    get_stylesheet_directory_uri() . '/patterns/my-section/style.css',
+		deps:   array(),
+		ver:    '1.0.0'
+	);
+	// Passing 'path' enables WordPress's built-in CSS inlining: for files under ~2 KB,
+	// WP outputs the CSS directly in <head> instead of issuing a render-blocking HTTP request.
+	wp_style_add_data(
+		'my-section-style',
+		'path',
+		get_stylesheet_directory() . '/patterns/my-section/style.css'
+	);
 
-    // 2. Register the script module for the pattern.
-    //    view.js = reactive (Interactivity API, shared state, data-wp-* directives)
-    //    index.js = non-reactive (IntersectionObserver, GSAP, scroll effects — no shared state)
-    wp_register_script_module(
-        id:      'my-section-logic',
-        src:     get_stylesheet_directory_uri() . '/patterns/my-section/view.js',
-        deps:    array( '@wordpress/interactivity' ),
-        version: '1.0.0'
-    );
+	// 2. Register the script module for the pattern.
+	//    view.js = reactive (Interactivity API, shared state, data-wp-* directives)
+	//    index.js = non-reactive (IntersectionObserver, GSAP, scroll effects — no shared state)
+	wp_register_script_module(
+		id:      'my-section-logic',
+		src:     get_stylesheet_directory_uri() . '/patterns/my-section/view.js',
+		deps:    array( '@wordpress/interactivity' ),
+		version: '1.0.0'
+	);
 
-    // 3. Bind it to a block style variation
-    register_block_style(
-        'core/group',
-        array(
-            'name'                 => 'my-section',
-            'label'                => 'My Section',
-            'style_handle'         => 'my-section-style',
-            'script_module_handle' => 'my-section-logic',
-        )
-    );
+	// 3. Bind it to a block style variation
+	register_block_style(
+		'core/group',
+		array(
+			'name'                 => 'my-section',
+			'label'                => 'My Section',
+			'style_handle'         => 'my-section-style',
+			'script_module_handle' => 'my-section-logic',
+		)
+	);
 }
 add_action( 'init', 'mytheme_child_pattern_assets' );
 ```
