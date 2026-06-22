@@ -496,17 +496,19 @@ Do NOT use `<!-- wp:icon {"icon":"{{THEME_SLUG}}/..."} /-->` — custom namespac
 
 The Abilities API is stable in WordPress 7.0. Themes and plugins register named "abilities" — server-side callbacks with JSON Schema input/output contracts — that the WP AI Client and other tools can discover and invoke.
 
-The registration sequence is: register an ability **category** first, then register the ability itself. Both calls must happen on the `wp_abilities_api_init` action.
+The registration sequence is: register an ability **category** first (on `wp_abilities_api_categories_init`), then register the ability itself (on `wp_abilities_api_init`). These are **two separate hooks** — do not register the category inside `wp_abilities_api_init` or it will not exist when the ability tries to reference it.
 
 ```php
-add_action( 'wp_abilities_api_init', function() {
-    // 1. Register a category that groups related abilities.
+// Step 1: register the category.
+add_action( 'wp_abilities_api_categories_init', function() {
     wp_register_ability_category( '{{THEME_SLUG}}/editorial', array(
         'label'       => __( 'Editorial Tools', '{{TEXT_DOMAIN}}' ),
         'description' => __( 'AI-assisted writing helpers for this theme.', '{{TEXT_DOMAIN}}' ),
     ) );
+} );
 
-    // 2. Register the ability inside that category.
+// Step 2: register the ability (category must already exist).
+add_action( 'wp_abilities_api_init', function() {
     wp_register_ability( '{{THEME_SLUG}}/tone-shift', array(
         'label'              => __( 'Tone Shift', '{{TEXT_DOMAIN}}' ),
         'description'        => __( 'Rewrites the selected copy in a chosen tone.', '{{TEXT_DOMAIN}}' ),

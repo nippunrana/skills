@@ -41,7 +41,11 @@ description: >
 
 ## Required Context (Dynamic Variables)
 
-Before executing this skill, you MUST read the `AI_CONTEXT.md` (or `AI_CONTEXT-Child.md`) to resolve the following variables:
+Before executing this skill, resolve the following variables. The preferred source is `AI_CONTEXT.md`
+(parent theme) or `AI_CONTEXT-Child.md` (child theme) in the project root — read whichever is
+present. **If neither file exists**, derive the values from context instead (theme directory name,
+inline information in the user's request, or ask the user directly). Never leave a `{{placeholder}}`
+literal in generated output.
 
 - `{{THEME_SLUG}}`: The kebab-case slug of the active theme (e.g., `my-theme`).
 - `{{THEME_NAME}}`: The human-readable name of the theme.
@@ -103,6 +107,20 @@ underlying building blocks used during that process.
   - Use `register_block_template()` if the template ships inside a plugin or must be reused across themes.
   - **NEVER use both for the same template name** — silent double-registration is one of the hardest FSE bugs to diagnose.
   See `references/architecture.md` for the full `register_block_template()` signature.
+- **Pattern types at a glance — the single most important decision before writing any pattern file:**
+
+  | Pattern type | Outermost block? | `lock`? | `className`? | `Inserter`? |
+  |---|---|---|---|---|
+  | **Master / assembler** (`Inserter: false`) | ❌ No wrapper block | ❌ No | ❌ No | `false` |
+  | **Sub-pattern** (standalone section) | ✅ Yes | ✅ `{move:true, remove:true}` | ✅ `is-style-{slug}` | `true` (or `false` if internal-only) |
+  | **Template-part backing pattern** | ✅ Yes | ✅ `{move:true, remove:true}` | ✅ `is-style-{slug}` | `false` |
+
+  Master patterns MUST contain only flat `<!-- wp:pattern -->` calls — no wrapper, no lock, no CSS. All layout and CSS live in sub-patterns.
+
+- **Two independent locking axes — apply each independently:**
+  - **Structural lock** (`lock` attribute): controls whether editors can move/delete the block. Apply to sub-patterns and template-part backing patterns; omit on master patterns.
+  - **Content-editability lock** (`templateLock`/`role`): controls whether editors can restructure *inner* content. These are orthogonal — a block can have both, either, or neither.
+
 - **`contentOnly` templateLock — apply by pattern type:**
 
   | Pattern type | `templateLock` value |
@@ -113,7 +131,7 @@ underlying building blocks used during that process.
   | Pattern with editable inner blocks (e.g., FAQ items) | Omit, then mark editable child attributes with `"role": "content"` in `block.json` (or use `"contentRole": true` in the block's `supports`). |
 
   To opt out site-wide: use the stable `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` (see `references/api-allowlist.md → contentOnly Pattern Opt-Out`). To opt out per-pattern: `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` on the outermost block (experimental, may rename). **Custom blocks nested inside contentOnly patterns MUST declare `"role": "content"` on every editable attribute in `block.json` (or declare `"contentRole": true` in `supports`)** — without this the block is hidden from List View with no error. See `references/architecture.md → Content-Only Locking` for the full decision tree.
-- **Block locking — three non-overlapping rules:**
+- **Block locking — three non-overlapping rules** (structural lock only; see table above):
   - **Sub-patterns and inserter-visible patterns:** outermost block MUST carry `"lock": {"move": true, "remove": true}` AND `"className": "is-style-{pattern-slug}"`.
   - **Master/assembler patterns** (`Inserter: false`, called only via `wp:pattern`): MUST contain only a flat list of `<!-- wp:pattern -->` comments. No wrapper block. No lock attribute. No styles. No `className`.
   - **Template parts** (outermost block of the backing PHP pattern): MUST carry `"lock": {"move": true, "remove": true}`.
