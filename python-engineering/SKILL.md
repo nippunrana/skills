@@ -29,7 +29,7 @@ description: >
 
 Route the task to the correct section, then run the verification loop before finalizing.
 
-1. **Writing new code** — apply inline design principles below → run verification loop → done.
+1. **Writing new code** — if this is a brand-new standalone script or CLI, load `references/writing-scripts.md` first (skeleton, argparse, error handling, venv/deps, secrets); then apply inline design principles below → run verification loop → done.
 2. **Modifying existing code** — read the Surgical-Edit Rule section first; touch only what the request requires.
 3. **Reviewing / auditing code** — load `references/clean-code-and-solid.md` and `references/idiomatic-python.md`; report violations without rewriting unless explicitly asked.
 4. **Setting up tooling or pyproject.toml** — load `references/tooling-and-packaging.md`.
@@ -147,3 +147,4 @@ Load the relevant file before executing a complex or unfamiliar sub-task.
 | `references/clean-code-and-solid.md` | Reviewing or writing functions and classes; applying SOLID principles; enforcing DRY; naming audit |
 | `references/style-and-typing.md` | Adding type hints (PEP 484), applying PEP 8 layout rules, using `TypedDict` / `TypeVar` / `Generic`, writing stub files |
 | `references/tooling-and-packaging.md` | Configuring Ruff / Mypy / Pytest, writing or updating `pyproject.toml`, setting up the quality toolchain |
+| `references/writing-scripts.md` | Standing up a new script or CLI from scratch — project layout, entry point, argparse, error handling/exit codes, logging, venv/deps, secrets/`.env` |

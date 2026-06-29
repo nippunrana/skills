@@ -123,6 +123,23 @@
       ],
       "boundary_test": true,
       "expected_skill": "code-security-and-cleanup"
+    },
+    {
+      "id": 9,
+      "prompt": "Write a command-line Python script that takes an input JSON file path and an output CSV path as arguments, reads an array of records from the JSON, filters out records where the 'active' field is false, and writes the remaining records to the CSV. Handle the case where the input file doesn't exist.",
+      "expected_output": "A Python script with: (1) an `if __name__ == '__main__': raise SystemExit(main())` entry point, (2) argparse with two positional Path arguments (input_json, output_csv), (3) a `main() -> int` function that returns 0 on success and a non-zero int on error, (4) specific exception handling for FileNotFoundError (not bare except) that logs an error and returns 1, (5) type annotations on all function signatures, (6) logging (not just print) for diagnostic messages, (7) pathlib.Path for file operations.",
+      "files": [],
+      "assertions": [
+        "Script has `if __name__ == '__main__': raise SystemExit(main())` entry point",
+        "argparse is used to define the two file path arguments",
+        "main() has return type annotation `-> int`",
+        "main() returns 0 on success",
+        "FileNotFoundError is caught specifically — no bare `except:` or `except Exception:`",
+        "The except clause returns a non-zero exit code (e.g. 1), not sys.exit()",
+        "All function parameters and return types are annotated",
+        "logging is used for diagnostic messages (not exclusively print)",
+        "pathlib.Path is used for file path handling"
+      ]
     }
   ]
 }
