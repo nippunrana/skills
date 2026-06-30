@@ -127,6 +127,37 @@
         "Gives a concrete recommendation (e.g., 'use P@5 and MAP') rather than listing all metrics without guidance",
         "Does NOT confuse sklearn.average_precision_score (PR-curve AP) with ranking MAP"
       ]
+    },
+    {
+      "id": 9,
+      "prompt": "I have 2 million product descriptions stored as precomputed embeddings in a .npy file. I want to run semantic search against them from Python on a CPU server with 8 GB RAM. The embedding matrix itself is about 3 GB. How do I score queries against all 2M docs without running out of memory?",
+      "expected_output": "Uses np.load with mmap_mode='r' to avoid loading 3 GB into RAM at once. Scores queries against the corpus using chunked matmul (queries @ chunk.T for each corpus chunk) with a running top-k, never materializing the full (N_queries, M_docs) score matrix. Alternatively uses util.semantic_search with corpus_chunk_size parameter. Does NOT suggest loading the full embedding matrix with np.load() (no mmap), does NOT suggest a Python per-pair loop.",
+      "files": [],
+      "expectations": [
+        "Uses np.load(path, mmap_mode='r') to load the embedding matrix without reading all 3 GB into RAM",
+        "Scores queries against the corpus in chunks (never materializes the full N×M score matrix)",
+        "The scoring primitive is a matmul (queries @ chunk.T or equivalent), NOT a Python element-wise loop",
+        "Maintains a running top-k across chunks rather than sorting all 2M scores at once",
+        "OR uses util.semantic_search with corpus_chunk_size parameter as the alternative approach",
+        "Does NOT recommend np.load() without mmap_mode when the file exceeds available RAM",
+        "Does NOT suggest a per-document Python loop for scoring",
+        "Does NOT suggest the (N, M, D) element-wise broadcast pattern"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "I'm building BM25 search over 5 million documents stored in a Parquet file. Loading the whole file with pandas read_parquet is slow and uses too much RAM. I also need to tokenize each document (lowercase, remove punctuation, split on spaces). How should I handle this efficiently?",
+      "expected_output": "Uses Polars pl.scan_parquet (lazy evaluation) with .collect(engine='streaming') to process the file without loading it all into RAM. Tokenizes with Polars vectorized .str expressions (.str.to_lowercase().str.replace_all(...).str.split(' ')) instead of per-row .map_elements() or .apply(). The same tokenizer function is applied to queries for symmetric BM25 tokenization.",
+      "files": [],
+      "expectations": [
+        "Uses pl.scan_parquet (lazy scan, not pl.read_parquet which loads everything)",
+        "Calls .collect(engine='streaming') to process in chunks without full RAM load",
+        "Tokenizes using vectorized .str chain: .str.to_lowercase(), .str.replace_all(...), .str.split(' ')",
+        "Does NOT use .map_elements(lambda ...) or .apply() for tokenization (triggers PolarsInefficientMapWarning and is slow)",
+        "Does NOT use pandas read_parquet for the large-file case",
+        "Applies the same tokenization to queries (symmetric tokenization — Gate 1)",
+        "Feeds the resulting List[List[str]] directly to BM25Okapi"
+      ]
     }
   ]
 }

@@ -145,10 +145,18 @@ import numpy as np
 # Save
 np.save("corpus_embs.npy", corpus_embs.cpu().numpy())
 
-# Load
+# Load (standard — full matrix into RAM)
 import torch
 corpus_embs = torch.from_numpy(np.load("corpus_embs.npy"))
+
+# Load as memory-mapped array (large corpora that exceed RAM)
+# The OS pages in only the slices that are actually read — no full copy into RAM.
+corpus_np = np.load("corpus_embs.npy", mmap_mode="r")  # (M, D) float32
 ```
+
+Use `mmap_mode="r"` when the corpus embedding matrix is too large to fit in RAM.
+For scoring a memory-mapped matrix against queries, see `references/performance-at-scale.md`
+(chunked matmul top-k works transparently with mmap arrays).
 
 Invalidate the cache if the corpus changes or the model is swapped.
 

@@ -8,7 +8,9 @@ description: >
   BM25Okapi, hybrid search, Reciprocal Rank Fusion, RRF, NDCG, MAP, P@k, MRR,
   Recall@k, retrieval evaluation metrics, ranking metrics, mean average precision,
   normalized discounted cumulative gain, retrieval pipeline, CPU-friendly embeddings,
-  local embeddings without API, static embeddings, model2vec, offline retrieval.
+  local embeddings without API, static embeddings, model2vec, offline retrieval,
+  large corpus, scale, millions of documents, memory-safe retrieval, out-of-core
+  embeddings, Polars, BM25 tokenization at scale, chunked matmul, corpus chunking.
   Invoke when the user wants to: add or improve a retrieval function, build a
   semantic search script, implement BM25 lexical retrieval, combine BM25 and
   semantic search, validate retrieval quality with NDCG/MAP/P@k, measure ranking
@@ -37,6 +39,7 @@ Route to the matching section before writing a single line:
 | BM25 / keyword / lexical retrieval | `references/bm25.md` | Preprocess, init `BM25Okapi`, call `get_scores` |
 | Hybrid BM25 + semantic | both above + `references/hybrid-fusion.md` | Run both, fuse with RRF |
 | NDCG / MAP / P@k / MRR evaluation | `references/evaluation.md` | Use `scripts/metrics.py`; see conventions |
+| Large corpus / scale / memory-bound | `references/performance-at-scale.md` | Chunked matmul, mmap, Polars streaming; load when scale is mentioned |
 | Scaling: FAISS / vector DB / reranking | `references/scaling.md` | Only load when explicitly requested |
 
 **Workflow for every request:**
@@ -78,6 +81,14 @@ No `openai`, `cohere`, `anthropic`, or other cloud embedding/reranking calls in 
 retrieval paths. All embeddings run locally via `sentence-transformers`. If the user
 explicitly asks for an API integration, note the trade-off (cost, latency, online-only)
 before adding it.
+
+**Gate 5 — Memory at scale**
+For large corpora, never materialize a full (N_queries, M_docs) score matrix or an
+(N, M, D) element-wise broadcast. The right primitive for dot/cosine similarity is a
+BLAS matmul (`queries @ corpus.T`), which returns an (N, M) matrix directly. When that
+(N, M) matrix is itself too large, chunk the corpus and maintain a running top-k. Load
+`references/performance-at-scale.md` when the corpus has more than ~100k documents or
+when the user mentions memory, scale, or large data.
 
 ---
 
@@ -135,6 +146,35 @@ def reciprocal_rank_fusion(*rankings: list[int], k: int = 60) -> list[int]:
 Load `references/hybrid-fusion.md` for the full end-to-end pattern combining BM25 and
 semantic retrievals into one fused ranking.
 
+### Scoring at scale (chunked matmul top-k)
+
+For corpora too large to fit the full (N, M) score matrix in RAM, chunk the corpus:
+
+```python
+import numpy as np
+
+def chunked_top_k(query_embs, corpus_embs, k=10, chunk_size=50_000):
+    n_docs = len(corpus_embs)
+    best_ids = np.full((len(query_embs), k), -1, dtype=np.int64)
+    best_scores = np.full((len(query_embs), k), -np.inf, dtype=np.float32)
+    for start in range(0, n_docs, chunk_size):
+        chunk = corpus_embs[start : start + chunk_size]
+        chunk_scores = query_embs @ chunk.T                                   # BLAS matmul
+        chunk_ids = np.arange(start, start + len(chunk), dtype=np.int64)
+        all_scores = np.concatenate([best_scores, chunk_scores], axis=1)
+        all_ids = np.concatenate(
+            [best_ids, np.broadcast_to(chunk_ids, (len(query_embs), len(chunk)))], axis=1
+        )
+        topk = np.argpartition(all_scores, -k, axis=1)[:, -k:]
+        best_scores = np.take_along_axis(all_scores, topk, axis=1)
+        best_ids    = np.take_along_axis(all_ids,    topk, axis=1)
+    order = np.argsort(best_scores, axis=1)[:, ::-1]
+    return np.take_along_axis(best_ids, order, axis=1), np.take_along_axis(best_scores, order, axis=1)
+```
+
+See `references/performance-at-scale.md` for the full explanation, mmap loading, and
+the `corpus_chunk_size` param in `util.semantic_search`.
+
 ### Local evaluation metrics
 
 ```python
@@ -159,6 +199,7 @@ See `references/evaluation.md` for convention documentation and the metric-selec
 | `references/bm25.md` | Implementing BM25 / keyword / full-text retrieval with `rank_bm25` |
 | `references/hybrid-fusion.md` | Combining BM25 and semantic rankings via Reciprocal Rank Fusion |
 | `references/evaluation.md` | Measuring retrieval quality with NDCG, MAP, P@k, MRR, Recall@k |
+| `references/performance-at-scale.md` | Large corpus or memory concerns: chunked matmul, mmap embeddings, Polars streaming I/O, BM25 tokenization at scale |
 | `references/scaling.md` | **Only when explicitly asked:** FAISS/HNSW, vector DBs, cross-encoder reranking, quantization, Matryoshka, fine-tuning |
 
 ---
@@ -182,3 +223,6 @@ See `references/evaluation.md` for convention documentation and the metric-selec
 | Comparing MAP to `sklearn.average_precision_score` | Inflated or deflated MAP | sklearn computes PR-curve AP (different formula); use `scripts/metrics.py` |
 | Using NDCG for binary labels without checking convention | Metric looks high; all look equal | For binary labels MAP or P@k is more discriminative; or use `gains="linear"` NDCG |
 | Choosing k1 too low | TF saturates too fast | Start at k1=1.5; increase toward 2.0 for longer docs with term repetition |
+| Materializing full (N, M) score matrix for large N×M | OOM — process killed | Chunk the corpus with `chunked_top_k` or use `corpus_chunk_size` in `util.semantic_search` |
+| Element-wise `(N, M, D)` broadcast for cosine similarity | OOM — 3D array D× larger than needed | Use `queries @ corpus.T` (BLAS matmul) — no 3D array ever needed for dot/cosine |
+| Polars `.map_elements(lambda ...)` for BM25 tokenization | `PolarsInefficientMapWarning`; slow | Use `.str.to_lowercase().str.replace_all(...).str.split(" ")` vectorized chain instead |

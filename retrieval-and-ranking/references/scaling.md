@@ -3,6 +3,11 @@
 *Load this file only when the user explicitly asks for one of the topics below.
 The core skill covers CPU-scale retrieval; this file handles beyond-CPU concerns.*
 
+> **Boundary:** This file covers *which index or infrastructure* to adopt when exact
+> search is too slow (FAISS, HNSW, vector DBs, quantization). For *how to write
+> memory-safe vectorized Python* — chunked matmul, out-of-core mmap embeddings, Polars
+> streaming I/O — see `references/performance-at-scale.md` instead.
+
 ---
 
 ## FAISS — Approximate Nearest-Neighbor Search
