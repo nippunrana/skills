@@ -1,6 +1,6 @@
 ---
 name: gemini-integration
-description: Help developers integrate Google Gemini AI API into any website, webapp, or mobile app. Use this skill whenever the user mentions Gemini, Google AI, generative AI integration, LLM-powered features, AI chatbot, multimodal AI, structured AI outputs, function calling with Gemini, grounding with Google Search, streaming AI responses, context caching, or embeddings. Make sure to trigger this skill even if the user asks simple questions about Gemini API setup, needs help with API key configuration, wants to add AI text generation, image analysis, or document processing to their app, or mentions @google/genai or google-genai SDK.
+description: Help developers integrate Google Gemini AI API into any website, webapp, or mobile app — including Gemma open-weights models (Gemma 4, gemma-4-31b-it, gemma-4-26b-a4b-it) served through the same Gemini API and Google AI Studio. Use this skill whenever the user mentions Gemini, Gemma, Google AI, generative AI integration, LLM-powered features, AI chatbot, multimodal AI, structured AI outputs, function calling with Gemini or Gemma, grounding with Google Search, streaming AI responses, context caching, embeddings, or open-weight/open-source model integration via Google's API. Make sure to trigger this skill even if the user asks simple questions about Gemini or Gemma API setup, needs help with API key configuration, wants to add AI text generation, image analysis, or document processing to their app, mentions @google/genai or google-genai SDK, or is deciding between Gemini and Gemma for a project.
 ---
 
 # Gemini AI API Integration
@@ -22,6 +22,7 @@ Read these reference files on demand based on the task at hand:
 | [built_in_tools.md](references/built_in_tools.md) | Google Search grounding, Maps, code execution, URL context |
 | [rag_and_embeddings.md](references/rag_and_embeddings.md) | File Search, vector embeddings, custom RAG pipelines, semantic search |
 | [production_optimization.md](references/production_optimization.md) | Caching, inference tiers, safety settings, token management, cost control, error handling |
+| [gemma_models.md](references/gemma_models.md) | Using Gemma 4 (open-weights) models via the Gemini API, choosing Gemma vs Gemini, Gemma-specific sampling/thinking config |
 
 ---
 
@@ -38,7 +39,8 @@ Before writing code, clarify these with the developer:
    - **Gemini 3.5 Flash**: Best balance of speed and reasoning. Native thinking. Default recommendation.
    - **Gemini 3.1 Pro**: Complex multimodal synthesis, longest context (1M+ tokens).
    - **Gemini 3.1 Flash-Lite**: High-throughput, low-latency, cost-optimized.
-3. **Modality**: Text-only, or multimodal (images, video, audio, PDFs)?
+   - **Gemma 4** (`gemma-4-31b-it` or `gemma-4-26b-a4b-it`): Open-weights (Apache 2.0) alternative on the same API, when cost or portability to self-hosting matters more than absolute frontier capability or audio support. See [gemma_models.md](references/gemma_models.md).
+3. **Modality**: Text-only, or multimodal (images, video, audio, PDFs)? Note Gemma 4 does not support audio — steer to a Gemini model if audio is required.
 4. **Response Pattern**: One-shot generation, streaming, or multi-turn chat?
 5. **Deployment Target**: Server-side (Python/Node.js), client-side (browser), or mobile?
 
@@ -60,12 +62,14 @@ Route to the appropriate reference file based on the feature being built:
 |---|---|
 | Text generation or chat | [content_generation.md](references/content_generation.md) |
 | Image/video/audio/PDF analysis | [content_generation.md](references/content_generation.md) |
+| Generating images from a text prompt | [content_generation.md](references/content_generation.md) |
 | Streaming responses for real-time UI | [content_generation.md](references/content_generation.md) |
 | Extracting structured data (JSON) | [structured_outputs.md](references/structured_outputs.md) |
 | Calling external APIs from Gemini | [function_calling.md](references/function_calling.md) |
 | Search-grounded or location-aware answers | [built_in_tools.md](references/built_in_tools.md) |
 | Document search / knowledge base | [rag_and_embeddings.md](references/rag_and_embeddings.md) |
 | Semantic search / classification | [rag_and_embeddings.md](references/rag_and_embeddings.md) |
+| Using Gemma 4 / open-weights models | [gemma_models.md](references/gemma_models.md) |
 
 ### Phase 4: Production Hardening
 
@@ -111,6 +115,8 @@ See [rag_and_embeddings.md](references/rag_and_embeddings.md) for trade-offs.
 | Gemini 3.5 Flash | 1,000,000 | General purpose, reasoning + vision | Fast |
 | Gemini 3.1 Pro | 1,000,000+ | Complex multimodal, long context | Moderate |
 | Gemini 3.1 Flash-Lite | 1,000,000 | High-throughput, low-cost | Fastest |
+| Gemma 4 31B (`gemma-4-31b-it`) | 256,000 | Open-weights, reasoning + coding, no audio | Moderate |
+| Gemma 4 26B A4B (`gemma-4-26b-a4b-it`) | 256,000 | Open-weights, high-throughput MoE, no audio | Fast |
 
 ---
 

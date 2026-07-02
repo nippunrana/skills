@@ -4,9 +4,10 @@
 1. [Basic Text Generation](#basic-text-generation)
 2. [System Instructions](#system-instructions)
 3. [Multimodal Inputs](#multimodal-inputs)
-4. [Streaming Responses](#streaming-responses)
-5. [Multi-Turn Chat](#multi-turn-chat)
-6. [Media Tokenization Rates](#media-tokenization-rates)
+4. [Image Generation](#image-generation)
+5. [Streaming Responses](#streaming-responses)
+6. [Multi-Turn Chat](#multi-turn-chat)
+7. [Media Tokenization Rates](#media-tokenization-rates)
 
 ---
 
@@ -137,6 +138,42 @@ const response = await ai.models.generateContent({
 });
 ```
 
+### Audio Input
+
+Gemini accepts audio directly — transcription, summarization, and non-speech sound understanding all happen in a single call, without a separate speech-to-text step. Supported formats: WAV, MP3, AIFF, AAC, OGG, FLAC. Same 20MB inline threshold as other media — use the File API above that.
+
+**Python (small file, inline):**
+```python
+with open("voice_memo.mp3", "rb") as f:
+    audio_bytes = f.read()
+
+response = client.models.generate_content(
+    model="gemini-3.5-flash",
+    contents=[
+        "Transcribe this audio, then give a 2-sentence summary.",
+        types.Part.from_bytes(data=audio_bytes, mime_type="audio/mp3"),
+    ],
+)
+```
+
+**Node.js (larger file via File API):**
+```javascript
+const audioFile = await ai.files.upload({ file: "/path/to/meeting.wav" });
+const response = await ai.models.generateContent({
+  model: "gemini-3.5-flash",
+  contents: [
+    createUserContent([
+      "Transcribe this audio, then give a 2-sentence summary.",
+      createPartFromUri(audioFile.uri, audioFile.mimeType),
+    ]),
+  ],
+});
+```
+
+Reference specific moments with `MM:SS` timestamps in the prompt (e.g. "what's said at 1:30?"). Combine with `structured_outputs.md`'s schema enforcement to get a transcript back as clean JSON instead of free text.
+
+> **Gemma 4 note**: the two API-hosted Gemma 4 models do not support audio input — use a Gemini model for any audio task. See [gemma_models.md](gemma_models.md).
+
 ### PDF / Document Input
 
 ```python
@@ -157,6 +194,52 @@ Use `media_resolution` to balance quality vs. token cost:
 - **`"low"`**: Optimized for speed and lower token consumption.
 - **`"medium"`**: Standard balance for most OCR and object detection.
 - **`"high"`**: Essential for fine print, small artifacts in video.
+
+---
+
+## Image Generation
+
+Some Gemini models generate images as output, not just understand them. This is a separate capability from the multimodal *input* handling above — it needs a dedicated image-generation model and `response_modalities` set to request image output.
+
+**Models**: `gemini-3-pro-image` (highest quality, complex compositions), `gemini-3.1-flash-image` (default choice — fast, high-volume), `gemini-3.1-flash-lite-image` (fastest/cheapest, simpler images).
+
+**Python:**
+```python
+from google.genai import types
+
+response = client.models.generate_content(
+    model="gemini-3.1-flash-image",
+    contents="Generate an infographic-style image of a butterfly life cycle.",
+    config=types.GenerateContentConfig(
+        response_modalities=["TEXT", "IMAGE"],
+    ),
+)
+
+for part in response.parts:
+    if part.text:
+        print(part.text)
+    elif image := part.as_image():
+        image.save("butterfly.png")
+```
+
+**Node.js:**
+```javascript
+const response = await ai.models.generateContent({
+  model: "gemini-3.1-flash-image",
+  contents: "Generate an infographic-style image of a butterfly life cycle.",
+  config: { responseModalities: ["TEXT", "IMAGE"] },
+});
+
+for (const part of response.candidates[0].content.parts) {
+  if (part.inlineData) {
+    fs.writeFileSync("butterfly.png", Buffer.from(part.inlineData.data, "base64"));
+  }
+}
+```
+
+`response_modalities` (or `responseModalities` in Node.js) must include `"IMAGE"` to get image output at all — omit `"TEXT"` if you only want the image with no accompanying caption. Aspect ratio and resolution are configurable per-request via an `image_config`/`imageConfig` field; check current SDK types for the exact shape, since this part of the API has moved fastest since the Gemini 3 image models launched. Multi-turn image editing (refining a previously generated image) is supported by referencing the prior response in the next turn, same as any other multi-turn chat.
+
+> **Gemma 4 note**: image generation is a Gemini-only capability — Gemma 4 models understand images as input but do not generate them. See [gemma_models.md](gemma_models.md).
 
 ---
 

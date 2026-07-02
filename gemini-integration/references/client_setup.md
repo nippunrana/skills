@@ -140,6 +140,10 @@ GEMINI_API_KEY=your-api-key-here
 | `gemini-3.5-flash` | 1,000,000 tokens | Native (configurable) | Default choice. Fast reasoning, vision, and text. |
 | `gemini-3.1-pro` | 1,000,000+ tokens | Yes | Complex multimodal synthesis, long-document analysis. |
 | `gemini-3.1-flash-lite` | 1,000,000 tokens | Limited | High-throughput, low-latency, cost-optimized tasks. |
+| `gemma-4-31b-it` | 256,000 tokens | Yes (`thinking_config`) | Open-weights (Apache 2.0) dense model; cost/portability priority, no audio. |
+| `gemma-4-26b-a4b-it` | 256,000 tokens | Yes (`thinking_config`) | Open-weights MoE model; high-throughput, no audio. |
+
+Gemma 4 models share the same `generateContent` call shape as Gemini — see [gemma_models.md](gemma_models.md) for Gemma-specific guidance (sampling defaults, when to prefer it over Gemini, Interactions API support).
 
 ### Thinking Configuration
 
