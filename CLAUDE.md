@@ -31,6 +31,7 @@ When editing existing code:
 - **Don't refactor things that aren't broken.**
 - **Rule of Least Surprise**: Match the existing code style and conventions exactly. Do not introduce new patterns inconsistently.
 - **Mention, don't delete**: If you notice unrelated dead code, mention it — don't delete it.
+- **Git Commits**: Do not include the AI assistant's name (e.g., 'Antigravity', 'Gemini', 'Claude') in git commit messages or contributors list.
 
 When your changes create orphans:
 - **Clean up your own mess**: Remove any imports, variables, or functions that YOUR changes made unused.
