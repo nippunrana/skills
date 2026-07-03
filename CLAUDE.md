@@ -54,10 +54,12 @@ When your changes create orphans:
 ## 4. Goal-Driven Execution
 **Define success criteria. Loop until verified.**
 
-Transform tasks into verifiable goals:
+Transform tasks into verifiable goals. When the project has test infrastructure, prefer test-first verification:
 - "Add validation" → "Write tests for invalid inputs, then make them pass."
 - "Fix the bug" → "Write a test that reproduces it, then make it pass."
 - "Refactor X" → "Ensure tests pass before and after."
+
+If the project has no test infrastructure, verify by running or exercising the code directly instead.
 
 For multi-step tasks, state a brief plan:
 ```
@@ -75,29 +77,32 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 ## 5. File Size & Modularity
-**Keep files under 600 lines. Isolate responsibilities.**
+**Keep new code under 600 lines per file. Isolate responsibilities.**
 
-- Never let a file exceed 600 lines; if it approaches the limit, split it.
+- When writing new files, never let them exceed 600 lines; if a new file approaches the limit, split it.
 - Extract helper functions, data-access code, and distinct UI components into separate, single-responsibility modules.
 - Wire modules back together with normal language-native imports (`require_once`, `import`, etc.).
+- Don't split pre-existing files that already exceed 600 lines unless the user asks — mention that they're oversized instead (see Rule 3: Surgical Changes).
 
 ---
 
 ## After Every Fix or Edit
-After completing any fix or code change, always provide a brief **"Root Cause & Fix"** summary:
+After completing a **bug fix**, always provide a brief **"Root Cause & Fix"** summary:
 
 > **Root Cause:** [1–2 plain-English sentences on what was actually wrong]
 > **Fix:** [1–2 plain-English sentences on what was changed and why it solves the problem]
+
+For other changes (features, refactors, config), give a brief **"What changed & why"** line instead — a root cause doesn't apply when nothing was broken.
 
 Keep it concise — no jargon, no lengthy explanations. Just the core insight.
 
 ---
 
-## How to Know It's Working
+## Final Self-Check (before ending any task)
 
-These guidelines are working if you see:
+Before considering a task done, verify:
 
-- **Fewer unnecessary changes in diffs** — Only requested changes appear
-- **Fewer rewrites due to overcomplication** — Code is simple the first time
-- **Clarifying questions come before implementation** — Not after mistakes
-- **Clean, minimal PRs** — No drive-by refactoring or "improvements"
+- **Traceability**: Every changed line traces directly to the user's request.
+- **No drive-by changes**: No unrelated refactoring, comments, or formatting were touched.
+- **Questions asked first**: Ambiguity was clarified before implementing, not discovered after.
+- **Senior Engineer Test**: The solution is the simplest one that solves the problem — nothing speculative was added.
