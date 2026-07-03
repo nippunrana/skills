@@ -1,5 +1,15 @@
 # AI Coding Guidelines
 
+## 0. Project Context First
+**Read the project's context file before doing anything else.**
+
+At the start of every session or task:
+- Look for `ai-context.md` in the project root; if not found, look for `AGENTS.md`.
+- If either exists, read it fully before planning or editing — it holds project-specific context these global rules can't.
+- If neither exists, tell the user the project is missing an `ai-context.md` file and offer to create one.
+
+---
+
 ## 1. Think Before Coding
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
