@@ -33,7 +33,7 @@ boundaries. Product mode perfects ergonomics. Never confuse the two.
 
 ## 1. Strategic Discovery
 
-Unless the request is trivial (e.g., fixing an alignment issue, changing a single color, or tweaking a button label), run through the four phases of Strategic Discovery before writing any code. Skipping this for major components or pages produces generic, low-converting layouts. The user hired a design strategist, not a code printer.
+Unless the request is trivial (see strict criteria below), run through the four phases of Strategic Discovery before writing any code. Skipping this for major components or pages produces generic, low-converting layouts. The user hired a design strategist, not a code printer.
 
 ### Phase 1 — Diagnose (silent)
 
@@ -84,19 +84,16 @@ Do not output the brief as a formatted list to the user. Hold it internally — 
 
 ### Phase 3 — Strategic Questions
 
-Now share your thinking and ask the user **3-5 diagnostic questions**. These are not preference
-polls — they are strategic probes that change the design direction.
+Now share your thinking and ask the user **3-5 diagnostic questions**. These are not preference polls — they are strategic probes that change the design direction.
 
-Present a brief strategy summary first (2-3 sentences showing you understood the problem and
-what direction you're leaning). Then ask your questions.
+**CRITICAL INSTRUCTION FOR ASKING QUESTIONS:** You must ask these questions using standard markdown text output. **Do NOT use the `ask_question` multiple-choice tool.** These questions require open-ended discussion and nuance that a rigid multiple-choice modal cannot support.
+
+Present a brief strategy summary first (2-3 sentences showing you understood the problem and what direction you're leaning). Then ask your questions.
 
 **How to structure each question:**
-- **Lead with your read of the situation** — show what you concluded from Phase 1-2 and what
-  decision you're trying to make
-- **Offer 2-3 concrete options** with real-world references (name actual brands, aesthetics,
-  techniques — not abstract categories)
-- **State the conversion/UX impact** of each option in one sentence — what changes for the
-  end user
+- **Lead with your read of the situation** — show what you concluded from Phase 1-2 and what decision you're trying to make
+- **Offer 2-3 concrete options** with real-world references (name actual brands, aesthetics, techniques)
+- **State the conversion/UX impact** of each option in one sentence — what changes for the end user
 
 **The three types of questions that top designers ask** (use the right mix, not all three every
 time):
@@ -157,22 +154,23 @@ time):
 designer's job, asks for information the designer should already be able to infer or propose)*
 
 **Complexity-based scaling:**
-- Trivial request (fix a button, center a div): Skip discovery entirely — just execute
 - Single component: 1-2 questions if ambiguity exists, otherwise execute
 - Full page or section: 3-4 questions
 - Full site or design system: 4-5 questions
 
-For trivial requests where the user's intent is completely clear, skip Phases 1-3 and go
-straight to code.
+### When to Skip Strategic Discovery (STRICT CRITERIA)
+You may ONLY skip Phases 1-3 and go straight to code if the user's request meets ALL of the following criteria:
+1. It is a modification to an **already existing** component.
+2. It does not introduce any new layouts, sections, or user flows.
+3. The user explicitly dictates the exact mechanical change (e.g., "Change the header background to #111111", "Center the div on line 42", "Fix the broken margin").
+
+**Trigger Words:** If the user's prompt includes words like *"design"*, *"build"*, *"create"*, *"improve"*, *"make it look better"*, or if they provide a mockup/screenshot, **you are strictly forbidden from skipping Phases 1-3.** You must execute the full strategic discovery process.
 
 ### Phase 4 — Refine and Execute
 
-Incorporate the user's answers into the strategy brief. State any remaining decisions you're
-making and why (briefly — one sentence each). Then proceed to implementation following
-Sections 2-10 below.
+Incorporate the user's answers into the strategy brief. State any remaining decisions you're making and why. Then proceed to implementation, actively applying the rules and guidelines found in the `references/` directory.
 
-If the user's answers reveal a fundamentally different direction than your draft brief, rebuild
-the strategy before coding. Never force early assumptions onto a changed brief.
+If the user's answers reveal a fundamentally different direction than your draft brief, rebuild the strategy before coding. Never force early assumptions onto a changed brief.
 
 ---
 
@@ -379,245 +377,16 @@ one screen rather than a single conversion moment.
 
 ---
 
-## 3. Design System Foundations
+## 3. Design & Implementation Standards (MANDATORY REFERENCES)
 
-Consistency separates professional design from decoration. Establish these systems before writing
-component code — they compound across every element.
+To keep this primary skill file focused on strategy and conversion, all technical design execution standards have been extracted into the `references/` directory. 
 
-### Spacing
-
-Use a 4px base unit (`--space-1: 4px` through `--space-12: 96px`). All spacing values are
-multiples — no arbitrary pixel values. If 14px "looks right," use 12px or 16px. Arbitrary
-values create visual noise that accumulates — the eye notices even when the brain doesn't.
-
-### Color Tokens
-
-Use semantic naming so colors carry meaning, not just values (`--color-text-primary`,
-`--color-surface`, `--color-accent`). Follow the 60-30-10 rule: 60% neutral (backgrounds,
-body text), 30% secondary (borders, cards, muted text), 10% accent (CTAs, links, highlights).
-Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
-
-For dark mode: map the same semantic token names to different values. Never swap individual
-colors ad-hoc — remap the entire system. Use `prefers-color-scheme: dark` or a `.dark-theme`
-class on the root element.
-
-### Typography Scale
-
-Define 6-8 named sizes using `clamp()` for fluid scaling. Each carries its own line-height and
-letter-spacing as a triplet — never set `font-size` without its companions. Maximum 2 font
-families — one display, one body. Never more.
-
-**Font loading:** Use `font-display: swap` and `<link rel="preload">` for the primary font.
-Define fallback font metrics with `size-adjust` and `ascent-override` to prevent layout shifts.
-
-**Typography craft:**
-- `-webkit-font-smoothing: antialiased` for consistent rendering
-- `text-wrap: balance` for headings (equal line lengths)
-- `text-wrap: pretty` for body text (avoids orphaned words)
-- `font-variant-numeric: tabular-nums` for any number that changes dynamically
-
-Read `references/design-tokens.md` for complete CSS custom property templates — spacing scale,
-color primitives, semantic tokens, typography scale, shadows, transitions, and dark mode mapping.
-
-### Code Structure
-
-Organize output for AI readability and maintainability:
-- One component per file when possible. Clear section comments marking boundaries.
-- CSS custom properties at `:root` level — never hardcode colors or spacing in component styles.
-- BEM naming for vanilla CSS (`.card`, `.card__title`, `.card--featured`).
-  Utility classes for Tailwind projects.
-- Modular asset loading — each section can include its own `<style>` block or linked stylesheet.
-
----
-
-## 4. Frontend Aesthetics
-
-This is where the creative vision meets the design system. The system provides consistency — this
-section provides character.
-
-**Typography as expression:**
-Choose fonts that are beautiful, distinctive, and unexpected. Pair a characterful display font
-with a refined body font. Use negative letter-spacing on large headings (the Vercel/Geist
-technique — tighter text feels more "designed"). Explore variable fonts for responsive weight and
-width adjustments.
-
-**Color as atmosphere:**
-Create depth and mood rather than flat backgrounds. Apply gradient meshes, noise textures (via SVG
-`feTurbulence` filters), layered transparencies, and contextual effects that match the aesthetic.
-Full-bleed backgrounds with subtle texture outperform stark white surfaces.
-
-**Spatial composition:**
-Unexpected layouts create visual interest. Asymmetry. Overlap. Diagonal flow. Grid-breaking
-elements that extend beyond their containers. Generous negative space OR controlled density —
-choose one and commit. The tension between elements is what makes a layout feel designed.
-
-**Visual depth and texture:**
-Use layered transparent `box-shadow` (2-4 layers at different offsets and blurs) instead of single
-solid shadows — this mimics how light actually works. Apply concentric border radii for nested
-elements: inner radius = `calc(var(--outer-radius) - var(--gap))`. Add grain overlays, decorative
-borders, and custom cursor effects where they serve the aesthetic.
-
-### The NEVER List
-
-These patterns are the telltale signs of generic AI output. Avoid them in Brand mode (Product
-mode may legitimately use neutral system fonts and restrained patterns in service of clarity):
-
-- **Never** use Inter, Roboto, Arial, or system-ui as the primary display font
-- **Never** default to purple gradients on white backgrounds
-- **Never** use a SaaS card grid as the hero section
-- **Never** add a carousel with no narrative purpose
-- **Never** stack identical cards instead of designing a real layout
-- **Never** default to a single "signature" font pair across different contexts; tailor the typography to the specific brand personality of the current workspace/brief (e.g., monospace details for tech, serif for editorial, geometric sans for modern consumer brands)
-- **Never** pair a beautiful stock image with weak, generic typography
-- **Never** use cookie-cutter component patterns without context-specific adaptation
-
-Every project should feel distinct. Vary light/dark themes, font choices, color palettes, and
-layout approaches. Interpret creatively and make unexpected choices that feel genuinely designed
-for the specific context.
-
----
-
-## 5. Motion and Animation
-
-Animation is a design tool, not decoration. Every animation must answer: **"Why does this
-animate?"** Valid reasons: spatial consistency, state indication, explanation, user feedback,
-preventing jarring visual changes. If you can't articulate the reason, remove the animation.
-
-**Key principles:**
-- Never animate keyboard-initiated actions (typing, tab navigation) — they repeat hundreds of
-  times daily and animation makes them feel sluggish.
-- Use spring physics for physical properties (position, scale, rotation). Use duration-based
-  easing for non-physical properties (opacity, color, blur).
-- Stagger enter animations ~100ms between sibling elements. One well-orchestrated page load
-  with staggered reveals creates more delight than scattered micro-interactions everywhere.
-- Hover transitions: ~200ms with CSS. Use interruptible CSS transitions for interactive states.
-- Use `cubic-bezier(0.16, 1, 0.3, 1)` for expressive deceleration. Never use `linear` for UI
-  motion — it feels robotic.
-
-**Technical approach:**
-- CSS for simple state transitions (hover, focus, fade, slide)
-- CSS `animation-timeline: scroll()` for scroll-driven effects — zero JavaScript, zero
-  main-thread blocking
-- Motion library for React projects (formerly Framer Motion)
-- GSAP for complex choreographed sequences
-
-**Always honor `prefers-reduced-motion: reduce`.** Provide instant state changes as fallback —
-not "no change," but immediate transitions without animation.
-
----
-
-## 6. Mobile-First and Responsive Design
-
-Design mobile first, always. Most web traffic is mobile — the mobile experience IS the
-primary experience, not an afterthought.
-
-**Fluid typography:** Use `clamp()` for all type sizes. No rigid breakpoint jumps — text should
-scale smoothly between minimum and maximum sizes as the viewport changes.
-
-**Component-level responsiveness:** Prefer container queries (`@container`) over media queries for
-reusable components. A card inside a sidebar should respond to its container width, not the
-browser window. Reserve media queries for page-level layout shifts only.
-
-**Breakpoints** (when media queries are needed): `640px / 768px / 1024px / 1280px`,
-mobile-first approach using `min-width`.
-
-**Touch and interaction:**
-- Touch targets: 44px minimum for all mobile interactive elements (buttons, form inputs, navigation items). 24px is only acceptable for inline text links within paragraphs on desktop viewports. This is both a usability requirement and a conversion factor — small targets lose taps and lose customers.
-- Thumb-friendly zones: place primary actions in the bottom third of the screen on mobile.
-  The top corners are the hardest to reach on modern phones.
-- Navigation: hamburger menus on mobile. Max 5 items in the visible top navigation on desktop.
-
-**Images:**
-- In Next.js projects, always use `next/image` as it handles responsive sizing and modern formats (AVIF/WebP) automatically. For vanilla HTML or other frameworks, use the `<picture>` element with AVIF/WebP sources and `<img>` fallback.
-- Always include `srcset` and `sizes` for responsive resolution selection when using standard HTML tags.
-- `loading="lazy"` for below-fold images. `loading="eager"` and `fetchpriority="high"` for the
-  hero/LCP image.
-- Set `width`, `height`, or `aspect-ratio` on every image to prevent layout shifts.
-
-**Performance targets:**
-- LCP (Largest Contentful Paint) < 2.5 seconds — preload hero image and primary font.
-- CLS (Cumulative Layout Shift) < 0.1 — no layout shifts above the fold.
-- Minimize render-blocking resources. Inline critical CSS when possible.
-
----
-
-## 7. Interaction States
-
-Every interactive component needs all its states designed — not just the default. AI-generated
-interfaces commonly ship only the "happy path" default state, which feels incomplete and
-unprofessional in production.
-
-**Buttons and links:** default, hover, focus-visible, active/pressed, disabled, loading.
-
-**Form inputs:** default, placeholder, focus, filled, error (with message), disabled, readonly.
-
-**Data views:** loading (skeleton screen), empty state (message + illustration + CTA), error
-(message + retry action), populated.
-
-**Guidelines:**
-- Skeleton screens > spinners. Match the skeleton shape to the final content layout.
-- Empty states are never blank — provide a helpful message and a call-to-action.
-- Error states always include a recovery action (retry button, help link, alternative path).
-- Loading states should appear after ~200ms delay — instant loaders for fast operations feel
-  jittery.
-
----
-
-## 8. Framework-Specific Guidance
-
-Adapt your approach to the stack being used. Determine from context — when unclear, default to
-vanilla HTML/CSS/JS (~70% of projects, no build tooling required).
-
-Read `references/frameworks.md` for implementation rules per stack:
-- **HTML/CSS/JS** — BEM naming, WordPress-ready structure, vanilla JS with `defer`
-- **React / Next.js** — CSS Modules, Motion library, server components, `next/image`
-- **Tailwind CSS** — token config, `@apply` rules, when to extract vs. keep inline
-- **Mobile App (iOS/Android)** — safe area insets, touch targets, navigation patterns
-
----
-
-## 9. Modern CSS
-
-Prefer CSS-native solutions over JavaScript wherever possible. The CSS platform in 2025-2026
-provides powerful features that eliminate entire JavaScript libraries:
-
-- **CSS nesting** — reduce selector repetition, improve readability.
-- **Container queries** (`@container`) — component-level responsiveness without media queries.
-- **`:has()` selector** — parent selection, form validation styling, conditional layouts based
-  on content presence.
-- **Subgrid** — align nested grid children perfectly to parent grid tracks.
-- **Scroll-driven animations** (`animation-timeline: scroll()`) — parallax, progress bars,
-  reveal-on-scroll effects without any JavaScript.
-- **View Transitions API** — smooth page and state transitions with minimal code.
-- **`@starting-style`** — animate elements entering from `display: none` (modals, popovers).
-- **Anchor positioning** — tooltips and popovers positioned relative to triggers, pure CSS.
-
-Read `references/modern-css-patterns.md` for code examples and browser support notes.
-
----
-
-## 10. Design Engineering Craft
-
-These details separate good from exceptional. They're invisible individually but compound into
-the feeling that something was "designed by a human, not generated."
-
-- **Optical alignment over mathematical:** Center text and icons visually, not geometrically.
-  Play button icons need a slight right offset. Circles need padding adjustment to appear
-  visually centered in a square container.
-- **Concentric border radii:** Inner element radius = outer radius minus the gap between them.
-  `border-radius: calc(var(--outer-radius) - var(--gap))`. Parallel curves look intentional;
-  mismatched radii look sloppy.
-- **Layered shadows:** Use 2-4 transparent `box-shadow` layers at different offsets, blurs, and
-  opacities instead of a single solid shadow. This mimics real-world light diffusion.
-- **Number formatting:** `font-variant-numeric: tabular-nums` for prices, counters, timers,
-  or any number that updates — prevents layout jitter from variable-width digits.
-- **Text wrapping:** `text-wrap: balance` for headings. `text-wrap: pretty` for paragraphs.
-  Balanced headings prevent awkward short last lines; pretty paragraphs avoid orphaned words.
-- **Easing quality:** `cubic-bezier(0.16, 1, 0.3, 1)` for expressive deceleration. Never use
-  `linear` for UI motion. Spring-based easing for physical interactions (drag, toss, snap).
-- **Accessibility basics:** Semantic HTML (`<nav>`, `<main>`, `<article>`), `:focus-visible`
-  focus indicators (never `outline: none` without replacement), color contrast ratio 4.5:1
-  minimum for body text, `alt` text on all images, `aria-label` on icon-only buttons.
+**You MUST read and apply the guidelines in these files when writing code:**
+- Read `references/design-system-foundations.md` for spacing, typography scale, color tokens, and aesthetic principles.
+- Read `references/motion-and-interaction.md` for animation physics, interaction states, and accessibility defaults.
+- Read `references/mobile-first.md` for container queries, fluid typography, touch targets, and image optimization.
+- Read `references/modern-css-and-craft.md` for CSS-native features (nesting, `:has()`, view transitions) and design engineering craft (layered shadows, optical alignment).
+- Read `references/frameworks.md` for stack-specific rules (React vs Tailwind vs Vanilla).
 
 ---
 
