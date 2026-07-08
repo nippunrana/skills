@@ -43,6 +43,8 @@ Place nothing else in the hero. Every additional element dilutes attention.
 - Single-column layout. Multi-column forms create confusion about reading order.
 - Label above field (not placeholder-only — labels disappear when typing).
 - Smart defaults: pre-select the most common option, auto-detect country from IP.
+  For the psychology behind why defaults work and how to sequence them, see
+  `references/behavioral-psychology.md` §3.
 
 ---
 
@@ -157,3 +159,83 @@ On mobile, performance IS conversion:
 - Lazy-load everything below the fold
 - Minimize third-party scripts
 - Target LCP < 2.5s on 4G connections
+
+---
+
+## Trial / Paywall Screens
+
+These are product-mode, not brand-mode: the user already has the app open and is
+deciding whether to commit, not whether to click through from an ad. The psychology
+here is about trust at a high-friction moment — read `references/behavioral-psychology.md`
+§2 and §7 for the reasoning behind these patterns before applying them.
+
+- **Headline:** process-driven beats feature-driven. "How your free trial works"
+  lowers the stakes by explaining the mechanics rather than asking the user to judge
+  the value of a subscription they haven't tried yet. Save the feature-pitch headline
+  ("Get access to 1,000+ games") for users who've already used the product and are
+  deciding to upgrade — not for a first-touch paywall.
+- **Structure: a timeline, not a bullet list.** Lay out what happens at each point
+  the user cares about, in order — today's access, the reminder before anything is
+  charged, and the charge date itself. A guided sequence reads as a plan; a feature
+  list reads as a pitch.
+- **Imagery:** use real product screenshots or actual in-app content, not abstract or
+  decorative illustration. The user is trying to answer "what am I actually getting,"
+  and decoration doesn't answer that.
+- **CTA:** lead with a low-commitment verb ("Start" rather than "Subscribe") and pair
+  it with an effort-quantifier subtext ("Start in 2 taps") that answers the unspoken
+  question about how much friction is involved (credit card? long form?).
+- **Cancellation:** state the cancel-anytime policy near the CTA, not buried in terms.
+  Proactively disclosing the exit path is what makes the trial feel safe to enter.
+
+---
+
+## Booking / High-Ticket Flows
+
+Bookings, reservations, and other high-consideration purchases need to move the user
+from "evaluating a database entry" to "picturing themselves there." See
+`references/behavioral-psychology.md` §1 and §8 for the underlying reasoning on
+evaluative ease and anchoring.
+
+- **Imagery:** a large hero image (dominating roughly the top half of the screen)
+  outperforms a small thumbnail — the user can't commit to what they can't visualize.
+- **Copy:** rewrite functional descriptions into sensory, spatial ones. "Beach house
+  with garden" states a fact; "Beachside escape steps from the sand" lets the user
+  picture standing there. Keep it specific and spatial, not just adjective-heavy —
+  vague sensory language ("amazing," "incredible") is as empty as vague functional
+  language.
+- **Dates:** show the day name alongside the date ("Friday, March 28") and the
+  computed duration ("5 nights"), not a bare date range the user has to do the
+  subtraction on themselves.
+- **Pricing:** pair a genuine strikethrough anchor price with the discounted price and
+  percentage saved, and show the final inclusive total directly on or under the CTA
+  button ("Reserve — $445 total") so there's no hidden-fee surprise waiting on the next
+  screen.
+- **Risk reversal:** place a specific, dated cancellation policy ("Free cancellation
+  until March 26") near the CTA — this answers the single most common objection at
+  this decision point ("what if my plans change?") before the user has to ask.
+- **Social proof:** a small trust badge (host rating, verified status) near the price
+  reinforces the decision at the exact moment the user is committing.
+
+---
+
+## Onboarding & Signup Flows
+
+The signup wall is usually the wrong place to start extracting commitment. Structure
+onboarding so the account-creation prompt arrives after the user already has
+something worth keeping — see `references/behavioral-psychology.md` §4, §5, and §6 for
+the full reasoning (goal gradient, reciprocity, investment/ownership).
+
+- **Sequence:** let the user make a few real, meaningful choices — a goal, a
+  preference, one completed unit of actual product value — before asking for an
+  email or password. A language app that has the user pick a goal and finish one
+  lesson before signup retains better than one that asks for credentials first.
+- **Progress:** never render a 0% progress state. If the user has taken any real
+  action to get to this screen, credit it — start the meter partway and keep the
+  remaining distance visible.
+- **CTA reframe:** once the user has invested real choices, the account-creation
+  button should say "Continue" or "Save my progress" rather than "Sign Up" — this is
+  accurate, not manipulative, because there genuinely is something to save at that
+  point.
+- **First screen defaults:** where the flow supports it, pre-fill the first screen
+  from context (detected locale, common starting choice) so the user's first action
+  is confirming rather than creating from a blank state.

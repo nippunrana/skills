@@ -184,6 +184,12 @@ implemented correctly, is the single highest-leverage factor in conversion and u
 more than aesthetics, more than copy alone. Apply these principles with judgment, not as rigid
 formulas.
 
+This section is weighted toward a single high-intent moment — a landing page, a hero, a pricing
+table — which makes it mostly Brand-mode psychology. Product-mode work is more often a *flow*:
+onboarding, a trial, a paywall, a booking sequence, where trust and momentum build across several
+screens rather than one. For that, read `references/behavioral-psychology.md` alongside this
+section.
+
 ### The Dream Outcome
 
 Before designing any section, identify the singular end result the customer wants — not the product
@@ -196,6 +202,13 @@ leakage — cut it or redesign it around a real purpose.
 
 Example: For a physical therapy service, the Dream Outcome is "moving freely without pain" — not
 "booking a session." Every section must reinforce that transformation, not describe the service.
+
+Pair the cog-check with a **question audit**: every screen implicitly asks the visitor a
+question, and a question that requires evaluation ("Is this worth it?") stalls the visitor at
+the exact moment they have the least information to answer it. Where possible, sequence an easy
+action question ("Want to see how it works?") before the hard evaluative one. This principle
+does most of its work in multi-screen product flows — trials, paywalls, onboarding — where
+`references/behavioral-psychology.md` covers it in depth.
 
 ### Above-the-Fold (ATF) Mastery: The 5-Second Rule
 
@@ -227,6 +240,13 @@ know they exist.
 to be shown on the page.
 - Weak: "Cloud-native CI/CD platform with 99.99% uptime SLA"
 - Strong: "Ship faster, so that you never miss a release because of downtime"
+
+**Specificity directive:** A number or a concrete sensory detail removes ambiguity that an
+adjective leaves the reader to fill in — usually with a skeptical interpretation. Reach for
+this whenever copy leans on a vague qualifier like "fast," "easy," or "close by."
+- Weak: "Quick setup" → Strong: "Start in 2 taps"
+- Weak: "Fast delivery" → Strong: "Arrives in 23 minutes"
+- Weak: "Beach house with garden" → Strong: "Beachside escape steps from the sand"
 
 **Headline formula:** `[End Result] + [Time Period] + [Emotional Payoff]`
 - "Calm Your Horse in Just 2 Weeks So You Can Enjoy Safer Rides"
@@ -291,6 +311,15 @@ Best for high-consideration purchases and service brands.
 - Action-oriented copy: "Get Started Free" > "Submit", "See Pricing" > "Learn More".
   First-person language ("Start my free trial") outperforms second-person ("Start your free trial")
   by measurable margins.
+- Verb weight matters as much as person: "Subscribe" carries the psychological weight of a
+  recurring commitment and a hard-to-find cancel flow; "Start" implies a beginning with no
+  baggage. Prefer "Start," "Try," or "Get" over "Subscribe" on first-touch CTAs. Where signup
+  is preceded by real user investment (see product-mode onboarding in
+  `references/behavioral-psychology.md` §6), "Continue" or "Save my progress" can outperform
+  both — it accurately names what the user is actually doing.
+- Pair the CTA with an effort-quantifier subtext when the hidden objection is about friction:
+  "Start in 2 taps" answers "do I need a credit card?" before it's asked, the same way a price
+  or shipping subtext answers a cost objection.
 - One primary CTA per viewport. Multiple competing CTAs create decision paralysis.
 
 ### Trust Signals and FUD Reduction
@@ -330,10 +359,22 @@ just above pricing or the primary CTA.
   "Recommended" leverages the decoy effect.
 - **Annual/monthly toggle** with savings percentage shown on annual.
 - **Eliminate math:** never make the user calculate their savings. "Save $20" outperforms
-  "20% off" — do the arithmetic for them and state the result directly.
+  "20% off" — do the arithmetic for them and state the result directly. The same logic applies
+  to add-on pricing: state it as a fraction of a purchase the user already committed to
+  ("$50 protection plan — 2.6% of your order") rather than as an isolated figure.
+- **Single number over a range:** a price range (e.g. "$13-17") makes the brain anchor to the
+  high end and treat the low end as unlikely, which turns a simple choice into a mental
+  negotiation. Where you control the pricing model, show one fixed number — it converts "how
+  much am I risking?" into the much easier "do I want this?"
+- **Convenience reframing:** where relevant, attach a heuristic badge ("Cheaper," "2 min away")
+  next to a price so the visitor can categorize the choice at a glance instead of comparing
+  raw numbers themselves.
 
 Read `references/conversion-patterns.md` for page-type-specific playbooks (landing pages, product
-pages, homepages, e-commerce).
+pages, homepages, e-commerce, trial/paywall screens, booking flows, onboarding). Read
+`references/behavioral-psychology.md` for the psychology behind multi-screen product flows —
+onboarding, trials, paywalls, and other moments where trust and momentum build across more than
+one screen rather than a single conversion moment.
 
 ---
 
