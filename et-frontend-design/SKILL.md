@@ -33,7 +33,15 @@ boundaries. Product mode perfects ergonomics. Never confuse the two.
 
 ## 1. Strategic Discovery
 
-Unless the request is trivial (see strict criteria below), run through the four phases of Strategic Discovery before writing any code. Skipping this for major components or pages produces generic, low-converting layouts. The user hired a design strategist, not a code printer.
+Unless the request qualifies as an explicitly scoped micro-edit, you MUST run through the four phases of Strategic Discovery before writing any code. Skipping this for major components or pages produces generic, low-converting layouts. The user hired a design strategist, not a code printer.
+
+### When to Skip Strategic Discovery (STRICT CRITERIA)
+You may ONLY skip Phases 1-3 and go straight to code if the user's request meets ALL of the following criteria:
+1. It is a modification to an **already existing** component.
+2. It does not introduce any new layouts, sections, or user flows.
+3. The user explicitly dictates the exact mechanical change (e.g., "Change the header background to #111111", "Center the div on line 42", "Fix the broken margin").
+
+**Trigger Words:** If the user's prompt includes words like *"design"*, *"build"*, *"create"*, *"improve"*, *"make it look better"*, or if they provide a mockup/screenshot, **you are strictly forbidden from skipping Phases 1-3.** You must execute the full strategic discovery process.
 
 ### Phase 1 — Diagnose (silent)
 
@@ -157,14 +165,6 @@ designer's job, asks for information the designer should already be able to infe
 - Single component: 1-2 questions if ambiguity exists, otherwise execute
 - Full page or section: 3-4 questions
 - Full site or design system: 4-5 questions
-
-### When to Skip Strategic Discovery (STRICT CRITERIA)
-You may ONLY skip Phases 1-3 and go straight to code if the user's request meets ALL of the following criteria:
-1. It is a modification to an **already existing** component.
-2. It does not introduce any new layouts, sections, or user flows.
-3. The user explicitly dictates the exact mechanical change (e.g., "Change the header background to #111111", "Center the div on line 42", "Fix the broken margin").
-
-**Trigger Words:** If the user's prompt includes words like *"design"*, *"build"*, *"create"*, *"improve"*, *"make it look better"*, or if they provide a mockup/screenshot, **you are strictly forbidden from skipping Phases 1-3.** You must execute the full strategic discovery process.
 
 ### Phase 4 — Refine and Execute
 
