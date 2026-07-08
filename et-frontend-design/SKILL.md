@@ -59,7 +59,7 @@ Think like a conversion strategist, not a decorator. Silently analyze:
   converting? What does "trust" look like in this industry?
 - **Brand mode vs Product mode:** Determined from context (see mode definitions above).
 
-Do not output anything during this phase. Just think.
+Use your internal thought/scratchpad block to run through this phase. If you do not have a hidden thought block, do not output the full analysis; instead, compress it into a short summary.
 
 ### Phase 2 — Strategy Brief (silent)
 
@@ -88,7 +88,7 @@ Build an internal strategy brief using this structure (do NOT output it raw to t
 5. **Design system seeds:** Light or dark? Font pairing direction? Color mood? Commit before
    coding — don't switch mid-implementation.
 
-Do not output the brief as a formatted list to the user. Hold it internally — it feeds Phase 3.
+Use your internal thought/scratchpad block to run through this phase. If you do not have a hidden thought block, do not output the full raw brief; instead, compress it into a short summary for the user rather than dumping the raw internal structure.
 
 ### Phase 3 — Strategic Questions
 
@@ -96,7 +96,7 @@ Now share your thinking and ask the user **3-5 diagnostic questions**. These are
 
 Exception: if the user's brief already answers every strategic question (audience, aesthetic, stack, constraints), do not invent filler questions — present your strategy summary with stated assumptions and proceed to Phase 4.
 
-**CRITICAL INSTRUCTION FOR ASKING QUESTIONS:** You must ask these questions using standard markdown text output. **Do NOT use a structured multiple-choice question tool (e.g. `AskUserQuestion`).** These questions require open-ended discussion and nuance that a rigid multiple-choice modal cannot support.
+**CRITICAL INSTRUCTION FOR ASKING QUESTIONS:** You must ask these questions using standard markdown text output. **Do NOT use any interactive questioning tools (such as `ask_question`).** These questions require open-ended discussion and nuance that a rigid multiple-choice modal cannot support.
 
 Present a brief strategy summary first (2-3 sentences showing you understood the problem and what direction you're leaning). Then ask your questions.
 
@@ -265,6 +265,8 @@ four variables. High-converting copy maximizes the top two and minimizes the bot
 
 ### Storytelling Frameworks
 
+To maintain focus and avoid design paralysis, select ONLY ONE storytelling framework and ONE primary psychological constraint per section. Do not attempt to satisfy all frameworks simultaneously.
+
 Storytelling is a neurological strategy — not decoration. Choosing the right framework determines
 which sections exist and in what order they appear on the page. This choice is made in Phase 2
 (see Section 1) and should not change mid-implementation.
@@ -383,7 +385,7 @@ one screen rather than a single conversion moment.
 
 To keep this primary skill file focused on strategy and conversion, all technical design execution standards have been extracted into the `references/` directory. 
 
-**You MUST read and apply the guidelines in these files when writing code:**
+**Before executing Phase 4, use your file reading tools to ingest ONLY the `references/` files that are strictly necessary for the chosen stack and design requirements. Do not blindly read all reference files if they are not relevant to the current task:**
 - Read `references/design-system-foundations.md` for spacing, typography scale, color tokens, and aesthetic principles.
 - Read `references/motion-and-interaction.md` for animation physics, interaction states, and accessibility defaults.
 - Read `references/mobile-first.md` for container queries, fluid typography, touch targets, and image optimization.
