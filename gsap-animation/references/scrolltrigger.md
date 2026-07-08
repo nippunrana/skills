@@ -160,7 +160,7 @@ See [ScrollTrigger.scrollerProxy()](https://gsap.com/docs/v3/Plugins/ScrollTrigg
 
 ## Scrub
 
-Scrub ties animation progress to scroll. Use for "scroll-driven" feel:
+Scrub ties animation progress to scroll. Use for a "scroll-driven" feel:
 
 ```javascript
 gsap.to(".box", {
@@ -169,44 +169,55 @@ gsap.to(".box", {
     trigger: ".box",
     start: "top center",
     end: "bottom center",
-    scrub: true        // or number (smoothness delay in seconds), so 0.5 means it'd take 0.5 seconds to "catch up" to the current scroll position.
+    scrub: true        // or number (smoothness delay in seconds)
   }
 });
 ```
 
-With **scrub: true**, the animation progresses as the user scrolls through the start–end range. Use a number (e.g. `scrub: 1`) for smooth lag.
+### Scrub UX: Direct vs. Smooth Lag
+- **`scrub: true`**: Links progress 1:1 with the scrollbar position immediately. Best for precise data visualization.
+- **`scrub: 2` (or other numeric values)**: Adds physics-based inertia. The playhead takes 2 seconds to "catch up" to the current scroll position, smoothing out jerky scroll inputs and creating a fluid, premium, "expensive" tactile feel.
 
 ## Pinning
 
-Pin the trigger element while the scroll range is active:
+Pinning locks an element in the viewport while the scroll range is active:
 
 ```javascript
 scrollTrigger: {
-  trigger: ".section",
+  trigger: ".section", // parent container
   start: "top top",
-  end: "+=1000",   // pin for 1000px scroll
+  end: "+=1000",        // pin for 1000px scroll
   pin: true,
   scrub: 1
 }
 ```
 
-- **pinSpacing** — default `true`; adds spacer element so layout doesn't collapse when the pinned element is set to `position: fixed`. Set `pinSpacing: false` only when layout is handled separately.
+- **pinSpacing** — default `true` (adds spacer so layout doesn't collapse). Set `pinSpacing: false` only when absolute positioning is handled manually.
+- **The Strict Rule of Pinning**: **Always trigger and pin the parent container**, NOT the child element being animated. Triggering/pinning the child itself breaks transform offsets, causes layout shifts, and triggers rendering bugs.
 
+## Directional Scroll & Marquee Logic
 
-## Markers (Development)
+For interactions that react to scroll direction rather than scroll position, monitor the `wheel` event's `deltaY` parameter:
+- **`deltaY > 0`**: User is scrolling down (Forward).
+- **`deltaY < 0`**: User is scrolling up (Reverse).
 
-Use during development to see trigger positions:
+### Implementation: Directional Infinite Text Marquee
+1. **CSS Layout Prerequisite**: The marquee container must have `display: flex` and `overflow: hidden`. Every child marquee element must be set to `flex-shrink: 0` in CSS. Without `flex-shrink: 0`, the browser will shrink the text to fit, collapsing the width and causing horizontal animation math to fail.
+2. **JS Animation**: Loop with `repeat: -1` and `ease: "none"` (linear motion) to prevent acceleration/deceleration.
 
 ```javascript
-scrollTrigger: {
-  trigger: ".box",
-  start: "top center",
-  end: "bottom center",
-  markers: true
-}
+window.addEventListener("wheel", (dets) => {
+  if (dets.deltaY > 0) {
+    // Scrolling Down: Move marquee left, flip direction indicator
+    gsap.to(".marquee", { xPercent: -100, repeat: -1, duration: 4, ease: "none" });
+    gsap.to(".marquee img", { rotate: 180 });
+  } else {
+    // Scrolling Up: Move marquee right, reset direction indicator
+    gsap.to(".marquee", { xPercent: 0, repeat: -1, duration: 4, ease: "none" });
+    gsap.to(".marquee img", { rotate: 0 });
+  }
+});
 ```
-
-Remove or set **markers: false** for production.
 
 ## Timeline + ScrollTrigger
 
