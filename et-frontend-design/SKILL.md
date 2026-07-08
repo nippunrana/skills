@@ -41,7 +41,7 @@ You may ONLY skip Phases 1-3 and go straight to code if the user's request meets
 2. It does not introduce any new layouts, sections, or user flows.
 3. The user explicitly dictates the exact mechanical change (e.g., "Change the header background to #111111", "Center the div on line 42", "Fix the broken margin").
 
-**Trigger Words:** If the user's prompt includes words like *"design"*, *"build"*, *"create"*, *"improve"*, *"make it look better"*, or if they provide a mockup/screenshot, **you are strictly forbidden from skipping Phases 1-3.** You must execute the full strategic discovery process.
+**Trigger Words:** If the user's prompt includes words like *"design"*, *"build"*, *"create"*, *"improve"*, *"make it look better"*, or if they provide a mockup/screenshot, **you are strictly forbidden from skipping Phases 1-3.** You must execute the full strategic discovery process. If a request meets ALL three strict skip criteria above, the explicit mechanical instruction takes priority over trigger words.
 
 ### Phase 1 — Diagnose (silent)
 
@@ -94,7 +94,9 @@ Do not output the brief as a formatted list to the user. Hold it internally — 
 
 Now share your thinking and ask the user **3-5 diagnostic questions**. These are not preference polls — they are strategic probes that change the design direction.
 
-**CRITICAL INSTRUCTION FOR ASKING QUESTIONS:** You must ask these questions using standard markdown text output. **Do NOT use the `ask_question` multiple-choice tool.** These questions require open-ended discussion and nuance that a rigid multiple-choice modal cannot support.
+Exception: if the user's brief already answers every strategic question (audience, aesthetic, stack, constraints), do not invent filler questions — present your strategy summary with stated assumptions and proceed to Phase 4.
+
+**CRITICAL INSTRUCTION FOR ASKING QUESTIONS:** You must ask these questions using standard markdown text output. **Do NOT use a structured multiple-choice question tool (e.g. `AskUserQuestion`).** These questions require open-ended discussion and nuance that a rigid multiple-choice modal cannot support.
 
 Present a brief strategy summary first (2-3 sentences showing you understood the problem and what direction you're leaning). Then ask your questions.
 
@@ -386,7 +388,9 @@ To keep this primary skill file focused on strategy and conversion, all technica
 - Read `references/motion-and-interaction.md` for animation physics, interaction states, and accessibility defaults.
 - Read `references/mobile-first.md` for container queries, fluid typography, touch targets, and image optimization.
 - Read `references/modern-css-and-craft.md` for CSS-native features (nesting, `:has()`, view transitions) and design engineering craft (layered shadows, optical alignment).
-- Read `references/frameworks.md` for stack-specific rules (React vs Tailwind vs Vanilla).
+- Read `references/frameworks.md` once the stack is known, for stack-specific rules (React vs Tailwind vs Vanilla).
+
+For a micro-edit that skips Strategic Discovery, only the reference files relevant to the edited code apply.
 
 ---
 

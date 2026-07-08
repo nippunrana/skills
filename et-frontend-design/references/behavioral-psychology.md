@@ -337,7 +337,7 @@ function processReciprocityFlow(state: UserState) {
     promptRegistration({
       title: "Save your progress and unlock the full report",
       primaryCTA: "Save My Progress", // Reframe signup as preservation
-      secondaryCTA: "I'll Risk Losing My Data" // Honest threat acknowledgment
+      secondaryCTA: "Not now"
     });
   } else {
     continueProvidingMicroValue(state);
@@ -356,9 +356,9 @@ Trigger urgency framing only when real progress/streaks are at stake. Frame dism
   "content": {
     "headline": "Wait! Your progress is not saved.",
     "risk_factors": ["Project_Q3_Draft.pdf", "Custom_Palette_01"],
-    "countdown_timer": "04:59",
+    "countdown_timer": null, // only populate from a real deadline — never fabricate one
     "primary_cta": "Save My Progress",
-    "secondary_cta": "I'll Risk Losing My Data"
+    "secondary_cta": "Not now"
   }
 }
 ```
