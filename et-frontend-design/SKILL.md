@@ -212,9 +212,9 @@ does most of its work in multi-screen product flows — trials, paywalls, onboar
 
 ### Above-the-Fold (ATF) Mastery: The 5-Second Rule
 
-60% of visitors never scroll past the fold. Concentrate 80–90% of creative effort here. The human
-brain processes images 60,000× faster than text — the ATF must function as a visual-emotional
-bridge before a single word is read.
+Most visitors never scroll past the fold. Concentrate 80–90% of creative effort here. Visitors
+process images far faster than text — the ATF must function as a visual-emotional bridge before a
+single word is read.
 
 The six ATF components in priority order:
 
@@ -269,8 +269,9 @@ Storytelling is a neurological strategy — not decoration. Choosing the right f
 which sections exist and in what order they appear on the page. This choice is made in Phase 2
 (see Section 1) and should not change mid-implementation.
 
-Always use second person ("you") — the customer must be the protagonist of every sentence. The
-brand is always the guide, never the hero.
+Always use second person ("you") in narrative and section copy — the customer must be the
+protagonist of every sentence. The brand is always the guide, never the hero. (CTA button copy is
+the exception — see CTA Psychology below, where first-person outperforms second-person.)
 
 **PAS — Pain → Agitate → Solve:**
 Best for visitors who are aware of their problem but have not found the right solution.
@@ -339,7 +340,7 @@ selecting the signal — the wrong trust signal placed in the wrong context adds
 - Security badges near payment forms — max 3 badges, placed close to credit card fields.
 
 **Wall of Love:**
-Never hide social proof in carousels — carousel engagement is under 1%, meaning hidden proof
+Never hide social proof in carousels — carousel engagement is low, meaning hidden proof
 is wasted proof. Display testimonials in a stacked or grid format where all proof is visible
 simultaneously. Place the wall near the highest-friction point on the page — typically at or
 just above pricing or the primary CTA.
@@ -458,7 +459,8 @@ borders, and custom cursor effects where they serve the aesthetic.
 
 ### The NEVER List
 
-These patterns are the telltale signs of generic AI output. Avoid them:
+These patterns are the telltale signs of generic AI output. Avoid them in Brand mode (Product
+mode may legitimately use neutral system fonts and restrained patterns in service of clarity):
 
 - **Never** use Inter, Roboto, Arial, or system-ui as the primary display font
 - **Never** default to purple gradients on white backgrounds
@@ -506,7 +508,7 @@ not "no change," but immediate transitions without animation.
 
 ## 6. Mobile-First and Responsive Design
 
-Design mobile first, always. Over 80% of web traffic is mobile — the mobile experience IS the
+Design mobile first, always. Most web traffic is mobile — the mobile experience IS the
 primary experience, not an afterthought.
 
 **Fluid typography:** Use `clamp()` for all type sizes. No rigid breakpoint jumps — text should
