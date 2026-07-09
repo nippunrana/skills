@@ -26,7 +26,7 @@ Right-click the request in DevTools → Network tab → "Copy as cURL" (this ste
 
 **Before replaying, classify the method:**
 - **Safe/idempotent (GET, HEAD, or a known-idempotent endpoint)** — run it yourself per Phase 4's Agentic Execution path if you have shell access. Don't ask the user to do it.
-- **Mutating (POST, PUT, PATCH, DELETE)** — replaying it re-triggers the side effect (a real order, a real charge, a real email). Only replay against a dev/staging environment, or confirm with the user first that a replay against this environment is safe. This is a probe-safety rule (see Probe Rule §4 in `instrumentation-protocol.md`), not optional caution.
+- **Mutating (POST, PUT, PATCH, DELETE)** — replaying it re-triggers the side effect (a real order, a real charge, a real email). Only replay against a dev/staging environment, and only after explicit confirmation from the user that it is safe to do so. This is a probe-safety rule (see Probe Rule §4 in `instrumentation-protocol.md`), not optional caution.
 
 Only ask the user to run the curl themselves if you're in a read-only environment with no shell access. Strip auth tokens before *sharing* the command in chat (not before running it — the token is needed to reproduce the request).
 

@@ -23,7 +23,8 @@ LLMs often "fix" bugs by pattern-matching on symptoms — adding null checks, wr
 
 Before generating any output:
 1. **Project context check:** Look for `ai-context.md` or `AGENTS.md` in the project root. Read them to check if there are custom logging setups or diagnostic commands before proceeding.
-2. **Scan:** Silently scan the conversation and the user's open files for:
+2. **Leftover-instrumentation check:** Search the project for the string `[DEBUG-` before starting. Any hit is a leftover from a prior interrupted session — surface it to the user before starting new work (see [references/instrumentation-protocol.md](references/instrumentation-protocol.md) §6) rather than debugging around it.
+3. **Scan:** Silently scan the conversation and the user's open files for:
    - **The symptom** — what is wrong, exactly? Wrong output? Wrong layout? No response? Slow? Crashes?
    - **The expectation** — what should happen instead?
    - **Locality hints** — file paths, class names, function names, endpoints, route patterns, error messages, framework names
@@ -70,7 +71,7 @@ Probes are for filling gaps in what's already observable. Before generating any 
 - Server / application logs — tail the log file or check the log aggregator (Sentry, Datadog, Papertrail, `wp-content/debug.log`, etc.)
 - Existing monitoring dashboards — error rate spike? Latency anomaly?
 
-If existing signals already identify the failure point, still state the one-line symptom + expectation (1c) before jumping — the delta check (1b) may be skipped. Then go directly to Phase 5 with that data. Don't add probes for things you can already see.
+If existing signals already identify the failure point, still state the one-line symptom + expectation (1c) before jumping — the delta check (1b) may be skipped. Then go directly to Phase 5 with that data, treating the observed signal itself as the working hypothesis (Phase 2's ranked-hypothesis list is skipped, but still open the relevant domain reference file first — Phase 5/6's signal matching and fix discipline depend on it). In Planning Mode, fill the "Debugging Hypothesis & Probes" section with the observed signal and proposed fix instead of ranked hypotheses. Don't add probes for things you can already see.
 
 **1b — Delta check: is this a regression?**
 
