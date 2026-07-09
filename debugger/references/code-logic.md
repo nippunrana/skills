@@ -78,14 +78,14 @@ When a bug is a confirmed regression, do not check out older commits or modify t
 3. **Check diffs for specific suspect files/directories:**
    If the symptom points to a specific component or file, view its history over the last 5 commits:
    ```bash
-   git log -p -n 5 -- path/to/file.js
+   git log -p -n 5 -- path/to/file.<extension>
    # Or see the cumulative changes over the last N commits:
-   git diff HEAD~5 -- path/to/file.js
+   git diff HEAD~5 -- path/to/file.<extension>
    ```
 4. **Inspect dependency changes:**
    Check if package versions or dependencies were recently modified:
    ```bash
-   git diff HEAD~5 -- package.json package-lock.json composer.json composer.lock requirements.txt
+   git diff HEAD~5 -- <dependency-manifest-files>
    ```
 
 By reading the diffs, you can spot the exact line that introduced the bug. This is faster and much safer than checking out older commits, which triggers dependency mismatches and state issues.

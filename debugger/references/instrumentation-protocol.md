@@ -53,10 +53,10 @@ Maintain a running ledger in the conversation as you inject probes. It lists eve
 
 | File | Line | Purpose |
 |---|---|---|
-| src/api/checkout.js | 42 | log inbound payload |
-| src/api/checkout.js | 58 | log validation result |
-| src/services/orders.js | 17 | log order.create input |
-| src/services/orders.js | 26 | log order.create return value |
+| src/api/checkout.<extension> | 42 | log inbound payload |
+| src/api/checkout.<extension> | 58 | log validation result |
+| src/services/orders.<extension> | 17 | log order.create input |
+| src/services/orders.<extension> | 26 | log order.create return value |
 ```
 
 Also track anything that isn't a tagged line but still needs cleanup: whole files created for the investigation (e.g. a captured build log) and config flags flipped for diagnostics (e.g. a query-logging or debug-display flag). Add them to the same ledger with a `Line` value of `(file)` or `(config)`:
@@ -82,8 +82,8 @@ These keep probes safe to run in real codebases — even on the user's main bran
   - **Sanctioned narrow exception — a debug trace header.** Attaching a same-origin, per-session tracing header to outbound requests (see `api-network.md` → trace-correlation) is allowed even though it edits the request: it changes headers only, never the body/payload, and the server ignores it unless explicitly read. Confirm the server's CORS config already allow-lists the header (or the request is same-origin) before adding it — otherwise the probe can *create* a CORS failure or break a request signed with HMAC/SigV4, which defeats the "observe, don't change behavior" goal. Remove both client and server sides in Phase 7.
 - **Probes are strictly additive.** Never modify or replace an existing line of application code — probes add new lines, they don't rewrite old ones. If a config value must change (a debug-logging flag, a query-logging flag), record the original value in the ledger so the revert steps in §5 can restore it. If the only way to observe something is to wrap an *existing* block of code (forcing it to be re-indented), that's not additive — prefer a hook that reads a post-execution buffer/log, or a middleware/handler-boundary probe that only adds new lines around the existing block, not inside it.
 - **No async side effects.** Don't `await` anything new inside a probe. A probe that itself takes time changes the timing of the very thing it measures.
-- **Don't log secrets.** If a payload may contain tokens, passwords, or PII, log only the keys/shape: `Object.keys(body)` not `body`. When in doubt, ask the user before logging.
-- **Bounded output.** If a value could be huge (full DB row dump, entire DOM), slice it: `body.slice(0, 500)`, `JSON.stringify(x).slice(0, 1000)`.
+- **Don't log secrets.** If a payload may contain tokens, passwords, or PII, log only the structure or dictionary keys, not the raw values. When in doubt, ask the user before logging.
+- **Bounded output.** If a value could be huge (full database row dump, entire DOM tree, large file), slice or truncate it (e.g. logging only the first few entries, or capping the output length) so it doesn't overflow the log size limits or clutter outputs.
 - **One probe per concern.** Don't combine state snapshot + flow marker + timing in one log line — interpreting the output later is harder. Separate concerns, separate lines.
 
 ---

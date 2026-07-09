@@ -140,7 +140,7 @@ If you arrived here directly from Phase 1a (existing signals already showed the 
 ### Phase 7 — Cleanup (NEVER SKIP THIS)
 Remove every line of debug instrumentation injected during Phases 3–5. 
 1. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them.
-2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed.
+2. **Clean up orphaned imports:** Ensure any helper libraries (e.g., logging imports, utility packages) imported solely for the probe are also removed.
 3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in `references/instrumentation-protocol.md`. Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback.
 
 The search must return **zero matches** in source files (matches inside documentation/skill files, or probes the user chose to keep per the recovery flow, are excluded and should be listed, not removed). Console snippets are discarded; the ledger is marked CLOSED (or PARTIAL, if any probes were intentionally kept) per the protocol.
@@ -173,7 +173,7 @@ The domain reference files describe probes as specs, not code: what a probe must
 
 Read `references/instrumentation-protocol.md` for the full spec. The non-negotiables:
 
-1. **Tag every line.** Format: `// [DEBUG-<4char-id>] <one-line purpose>` (use `# [DEBUG-<id>]` for Python/Ruby/shell, `/* [DEBUG-<id>] */` for CSS/SCSS, `<!-- [DEBUG-<id>] -->` for HTML/templates).
+1. **Tag every line.** Format: Embed the tag inside the printed output and as a trailing comment using the target language's native comment syntax (e.g. `//`, `#`, `--`, `/* */`), following the `[DEBUG-<4char-id>] <one-line purpose>` format.
 2. **Use the same `<id>` for one hypothesis-testing round.** All probes generated to test the same hypothesis share an id, so a single search removes them all.
 3. **Maintain a debug ledger** in the conversation — a running list of `<file>:<line>: [DEBUG-<id>] <purpose>`.
 4. **Never inject probes with persistent side effects** — no DB writes, no extra network calls, no re-ordered flow. Two narrow exceptions are sanctioned in `instrumentation-protocol.md` §4: in-memory, behavior-preserving interception (fetch wrappers, property/descriptor traps — removed by a page refresh in the browser, or by Phase 7 removal on the server) and a same-origin debug trace header. Nothing else qualifies.
