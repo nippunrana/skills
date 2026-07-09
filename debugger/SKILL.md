@@ -56,9 +56,7 @@ Every debugging session walks through these seven phases. Each phase has a logic
 > **Planning Mode Compliance:** 
 > - If you are in Planning Mode, you must draft your platform's implementation plan document first. 
 > - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** inside that plan, under a dedicated "Debugging Hypothesis & Probes" section.
-> - **Handling Single-Gate Platforms:** In platforms that enforce a single planning/approval loop before execution, list the temporary debug code to be injected in the 'Proposed Changes' section, stating: *"Injecting temporary read-only debug instrumentation in [file]. The final bug fix will be determined after analyzing the probe output."* This satisfies single-gate validation without committing to a premature fix.
-> - Request approval to run/inject the probe. Once approved, execute the probe, collect the diagnostic data, and then edit the plan to specify the final fix before making any changes to production code. Do not make unapproved source edits.
-> - Only if you are *not* in Planning Mode may you proceed through multiple phases autonomously in a single execution loop — this includes Phase 4's "execute it yourself" instruction below, which is subject to this approval gate whenever Planning Mode is active.
+> - **Handling Single-Gate Platforms:** In platforms that enforce a single planning/approval loop before execution, define the debugging workflow as a single, multi-step plan in your implementation plan: (1) Inject probe X, (2) Execute and gather data, (3) Restore code & apply the fix based on the gathered data. This allows the user to approve the *workflow* once. You do not need to re-request plan approval to transition from Probe (Phase 3) to Fix (Phase 6) unless the final fix requires a major architectural change. Do not make unapproved source edits outside the approved workflow.
 
 ### Phase 1 — Observe
 
@@ -107,6 +105,9 @@ Then list **2–3 ranked hypotheses** for the root cause. For each, name the **c
 
 ### Phase 3 — Probe
 
+> [!TIP]
+> **Recall Domain Specs:** Re-read the selected section of the domain reference file (e.g., [references/code-logic.md](references/code-logic.md)) to ensure your probe syntax, wrappers, and constraints exactly follow the domain specs.
+
 Generate the instrumentation for the chosen hypothesis. First, select the appropriate probe mode:
 
 | Situation | Probe Mode |
@@ -145,6 +146,9 @@ If you inject code, every line MUST follow the tagging protocol in [references/i
 
 ### Phase 5 — Confirm or refute
 
+> [!TIP]
+> **Recall Analysis Signals:** Re-open the domain reference file and look at the "Signals to look for" section. Match your collected output against these signals to verify if the hypothesis is confirmed or refuted.
+
 Match data against the ranked hypotheses:
 
 - **Confirmed?** Trace the infection chain *upstream*. The first wrong value is closer to the root than the visible failure. Keep going until you find the defect that caused it.
@@ -162,6 +166,9 @@ Match data against the ranked hypotheses:
 
 **Address the design root for recurring bug classes.** The infection chain (Phase 5) finds *the first wrong value*. For severe, architectural, or "this keeps happening in different forms" bugs, ask one more question: *why was that value allowed to be wrong in the first place?* If the answer points at shared mutable state, a missing invariant, a leaky abstraction, or an implicit contract, the design root is where the fix belongs — not the data root. Patching only the data root means the bug will resurface under a different symptom.
 
+> [!IMPORTANT]
+> **Surgical Boundary Alignment:** If addressing the design root requires refactoring code outside the immediate defect area, do NOT execute it autonomously (which would violate Global Rule 3: Surgical Changes). Instead, apply the surgical data-root fix to resolve the immediate bug, then outline the design-root issue in your final "Root Cause & Fix" summary and ask the user if they want to schedule a separate refactoring task.
+
 **Checkpoint:** failing test written and confirmed failing (when a test runner exists — otherwise the fix verified by directly exercising the code); fix applied; test now passes; for architectural bugs, the design-level cause is named even if a follow-up issue is filed rather than fixed in this pass.
 
 ### Phase 7 — Cleanup (NEVER SKIP THIS)
@@ -174,6 +181,9 @@ Remove every line of debug instrumentation injected during Phases 3–5.
 The search must return **zero matches** in source files (matches inside documentation/skill files, or probes the user chose to keep per the recovery flow, are excluded and should be listed, not removed). Console snippets are discarded; the ledger is marked CLOSED (or PARTIAL, if any probes were intentionally kept) per the protocol.
 
 **Checkpoint:** search returns nothing. Tell the user "all debug instrumentation removed."
+
+> [!IMPORTANT]
+> **Final Check:** You must complete Phase 7 cleanup BEFORE you trigger the "Final Self-Check" of the global rules. Do not summarize or end the conversation while files still contain `[DEBUG-` tags.
 
 ---
 
