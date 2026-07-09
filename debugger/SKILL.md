@@ -40,13 +40,13 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 **Routing rules:**
 - If the context is **clear** → pick the domain silently and proceed to Step 2.
 - If **two domains apply** (e.g., "API returns wrong data AND the UI doesn't render it") → start with the *upstream* domain. Fix the cause before the consequence.
-- If the context is **unclear** → use `AskUserQuestion` with the four domains above as options. Don't guess.
+- If the context is **unclear** → use the `ask_question` tool with the four domains above as options. Don't guess.
 
 ---
 
 ## Step 2 — Run the phase-gated workflow
 
-Every debugging session walks through these seven phases. **Don't advance until the checkpoint is met.** Each phase has a purpose; understanding the purpose lets you handle edge cases without breaking the workflow.
+Every debugging session walks through these seven phases. Each phase has a logical checkpoint. **Checkpoints are logical gates, not conversational pauses.** You may proceed through multiple phases autonomously in a single execution loop. You do not need to pause for user confirmation unless you explicitly require manual user action. Each phase has a purpose; understanding the purpose lets you handle edge cases without breaking the workflow.
 
 ### Phase 1 — Observe
 
@@ -95,15 +95,14 @@ Cheapest = least invasive, fastest to run, easiest to interpret. Console snippet
 ### Phase 3 — Probe
 Generate the instrumentation for the chosen probe. Decision rules below ("Step 3 — Pick the probe mode") tell you whether to use a console snippet, inject debug code into source files, or both.
 
-If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later.
+If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later. **Adhere to the Surgical Changes rule:** do not format, refactor, or touch adjacent lines when injecting debug code.
 
 **Checkpoint:** probe artifact shown to the user with clear "what this collects" + "how to use" instructions.
 
 ### Phase 4 — Collect
 
-**Agentic execution:** In Claude Code or Antigravity AI environments, run probes directly — execute bash commands, read log files, run the test suite — rather than waiting for the user to paste output back. Prefer `Bash` tool execution whenever the environment allows it. Only ask the user to run the probe manually when the environment is inaccessible (browser DevTools console, remote production server, device under test).
-
-**Otherwise:** The user runs the probe and pastes the output back. If the output is missing or noisy, refine the probe before moving on — don't try to draw conclusions from bad data.
+- **Agentic Execution (Backend/Server/Build):** If the probe requires running a bash command, running a test, or reading a server log, **DO NOT ask the user to do it**. Execute it yourself using your native tools (e.g., `run_command`, `grep_search`), analyze the output autonomously, and skip Step 5 entirely.
+- **User Execution (Browser/Client-side):** If the probe requires running a snippet in the Browser DevTools console, or interacting with the live UI, you cannot do this yourself. You **MUST** use Step 5 to present the snippet to the user and wait for them to paste the output back. If the output is missing or noisy, refine the probe before moving on.
 
 **Checkpoint:** usable data received (collected directly or pasted by user).
 
@@ -128,13 +127,9 @@ Match the data against the ranked hypotheses:
 **Checkpoint:** failing test written and confirmed failing; fix applied; test now passes; for architectural bugs, the design-level cause is named even if a follow-up issue is filed rather than fixed in this pass.
 
 ### Phase 7 — Cleanup (NEVER SKIP THIS)
-Remove every line of debug instrumentation injected during Phases 3–5. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them, then verify with:
+Remove every line of debug instrumentation injected during Phases 3–5. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them, then verify using your native **`grep_search`** tool to search for the `[DEBUG-` tag across the workspace.
 
-```bash
-grep -rn "\[DEBUG-" <project-root>
-```
-
-The grep must return **zero matches**. Console snippets and the ledger entry are both discarded.
+The `grep_search` must return **zero matches**. Console snippets and the ledger entry are both discarded.
 
 **Checkpoint:** grep returns nothing. Tell the user "all debug instrumentation removed."
 
@@ -207,7 +202,7 @@ Each domain reference file ends with a "**Signals to look for**" section. Use it
 - **No side-effect probes.** Diagnostic code observes, never mutates.
 - **Never leave a placeholder** like `SELECTOR`, `ENDPOINT`, or `FILE_PATH` unresolved in the artifact you hand the user. Resolve it from context first.
 - **Never skip Phase 7 cleanup.** Leaked debug logs in production are a real incident risk.
-- **When in doubt, ask** — `AskUserQuestion` is cheap; a wrong domain wastes the user's time.
+- **When in doubt, ask** — the `ask_question` tool is cheap; a wrong domain wastes the user's time.
 - **Fix at the root, not the symptom.** If you find yourself adding defensive code around the visible failure, you haven't found the root yet.
 - **Wrap risky access in try/catch** for browser snippets — cross-origin stylesheets, missing globals, etc., should warn, not throw.
 
