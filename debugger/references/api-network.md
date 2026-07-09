@@ -59,9 +59,9 @@ Modern distributed systems propagate a request ID across the network boundary so
    ```
 3. Search wherever your server logs land — exact match on the ID:
    ```bash
-   # Plain log files
-   grep '4bf92f3577b34da6a3ce929d0e0e4736' /var/log/app/*.log
-   grep -r '4bf92f3577b34da6a3ce929d0e0e4736' wp-content/debug.log
+    # Search log files (using shell search tools, log viewer, or your native tools)
+    grep '4bf92f3577b34da6a3ce929d0e0e4736' /var/log/app/*.log
+    grep -r '4bf92f3577b34da6a3ce929d0e0e4736' wp-content/debug.log
 
    # Aggregators (query syntax varies)
    # Datadog:    @trace_id:4bf92f3577b34da6a3ce929d0e0e4736
@@ -231,4 +231,4 @@ For auth failures, check whether `Authorization` / `Cookie` headers are actually
 - If the bug is server-side, fix the handler. Don't paper over it with client-side retries or fallback data.
 - If the bug is in the request the client builds, fix the request builder. Don't make the server tolerate the malformed input.
 - After fixing, write a regression test (HTTP-level if integration tests exist, or unit-level for the request builder / handler logic).
-- Run Phase 7 cleanup. Server-side `[DEBUG-<id>]` logs in particular have a habit of getting deployed accidentally — `grep -rn "\[DEBUG-" .` is non-negotiable.
+- Run Phase 7 cleanup. Server-side `[DEBUG-<id>]` logs in particular have a habit of getting deployed accidentally — verifying that searching the codebase for "[DEBUG-" returns zero matches using your native search tool is non-negotiable.

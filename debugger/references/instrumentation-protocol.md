@@ -100,19 +100,16 @@ Before declaring the bug fixed, run this checklist:
 
 1. **Read the ledger.** Visit every file:line listed.
 2. **Remove every tagged line.** Use Edit to delete; don't comment them out.
-3. **Grep the project:**
-   ```bash
-   grep -rn "\[DEBUG-" <project-root> --exclude-dir={node_modules,vendor,.git,dist,build}
-   ```
+3. **Search the project:**
+   Use your native codebase search/find tool to search for `[DEBUG-` across the project root, excluding common build/dependency directories (node_modules, vendor, .git, etc.). Do not run a raw bash `grep` command unless you have no native search tool available.
    This must return **zero matches**. If it returns hits, you missed some — remove them.
-   (Do not use `grep --include="*.{js,ts,...}"` — grep does not expand brace lists, so that pattern silently matches nothing and would falsely report a clean project.)
 4. **For the curl-wrapper / fetch-wrapper / property-trap probes** that live only in DevTools console: they're discarded by page refresh, but tell the user to refresh anyway so it's clear nothing is lingering.
 5. **For DB-query logging hooks** (Laravel `DB::listen`, Rails subscribers, `SAVEQUERIES`): revert the config change too.
 6. **For `WP_DEBUG = true`** changes in wp-config.php: ask the user whether they want to keep debug logging enabled or revert it. Don't decide for them — some sites leave it on in dev.
 7. **Close the ledger.** Update the ledger header to `CLOSED` with a count of removed lines.
-8. **Tell the user explicitly:** "All debug instrumentation removed. `grep` shows zero matches."
+8. **Tell the user explicitly:** "All debug instrumentation removed. Search shows zero matches."
 
-If you can't physically run grep (e.g., remote environment), ask the user to run it and paste the output back. Don't skip the verification.
+If you can't physically search the codebase (e.g., restricted environment), ask the user to search for `[DEBUG-` and confirm it is clean. Don't skip the verification.
 
 ---
 
@@ -120,9 +117,7 @@ If you can't physically run grep (e.g., remote environment), ask the user to run
 
 If a session ends before cleanup (user closes the chat, context is lost), the next debugger session in the same project should start by running:
 
-```bash
-grep -rn "\[DEBUG-" .
-```
+Search the project for the string `[DEBUG-` using your native search tool.
 
 If hits appear, they're leftovers from a prior interrupted investigation. Surface them to the user before starting new work:
 

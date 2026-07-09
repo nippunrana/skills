@@ -109,7 +109,7 @@ The diff between environments is your suspect list. Common offenders: `NODE_ENV`
 ### `build-version-check` — Node/PHP/Python version mismatch
 
 ```bash
-node -v && npm -v && cat package.json | grep -E '"engines"|"packageManager"'
+node -v && npm -v && node -p "const p = require('./package.json'); console.log({engines: p.engines, packageManager: p.packageManager})"
 php -v && composer -V
 python --version && pip --version
 ```
@@ -120,7 +120,7 @@ Mismatches with `engines` / `composer.json` / `pyproject.toml` requirements caus
 
 ```bash
 # Did node_modules drift from the lockfile?
-npm ls 2>&1 | grep -E 'invalid|missing|extraneous' | head -20
+npm ls --depth=0
 # Fresh install
 rm -rf node_modules && npm ci
 ```
@@ -159,4 +159,4 @@ Look for the first `PHP Fatal error` or `PHP Stack trace` — everything after i
 
 - For performance: measure → fix → measure again. If the second measurement doesn't show improvement, you fixed the wrong thing.
 - For build/env: fix the actual misconfig (correct version, correct env var, correct lockfile). Don't pin around it or add fallback code paths.
-- After fixing, run Phase 7 cleanup. Build/tooling probes rarely leave instrumentation in source, but perf probes do — `grep -rn "\[DEBUG-" .` to confirm clean.
+- After fixing, run Phase 7 cleanup. Build/tooling probes rarely leave instrumentation in source, but perf probes do — search the project for "[DEBUG-" using your native search tool to confirm it is clean.

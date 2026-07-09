@@ -142,7 +142,7 @@ When a regression has a known-bad commit and a known-good one, git bisect finds 
 
 **Manual flow:**
 ```bash
-git status --porcelain | grep -q . && git stash   # stash local edits only if any exist
+git stash                           # stash local edits if any exist
 git bisect start
 git bisect bad                      # current commit is broken
 git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
@@ -150,19 +150,19 @@ git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
 git bisect bad   # or: git bisect good
 # repeat until git prints: "abc123 is the first bad commit"
 git bisect reset
-git stash list | grep -q . && git stash pop        # restore only if something was stashed
+git stash pop                       # restore stashed changes if they existed
 ```
 
 **Automated flow (preferred when a test command exists):**
 ```bash
-git status --porcelain | grep -q . && git stash
+git stash                           # stash local edits if any exist
 git bisect start
 git bisect bad
 git bisect good <last-known-good>
 git bisect run npm test -- --testPathPattern=the-failing-test
 # git bisect run exits when found; prints the first bad commit
 git bisect reset
-git stash list | grep -q . && git stash pop
+git stash pop                       # restore stashed changes if they existed
 ```
 
 Use `git bisect run` with any command that exits 0 for "good" and non-zero for "bad" — a shell one-liner, a curl health check, or a Python script. Once the first bad commit is identified, `git show <sha>` to see exactly what changed. The root cause is almost always in that diff.
@@ -184,4 +184,4 @@ Use `git bisect run` with any command that exits 0 for "good" and non-zero for "
 
 - Fix the **defect that originated the bad value**, not the place where the bad value caused a visible failure.
 - If the project has a test runner, write the regression test BEFORE fixing — confirm it fails, then make it pass.
-- After fixing, run Phase 7 cleanup. Verify `grep -rn "\[DEBUG-" .` returns zero matches.
+- After fixing, run Phase 7 cleanup. Verify that searching the project for "[DEBUG-" returns zero matches using your native search tool.

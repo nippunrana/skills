@@ -141,7 +141,7 @@ If you arrived here directly from Phase 1a (existing signals already showed the 
 Remove every line of debug instrumentation injected during Phases 3–5. 
 1. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them.
 2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed to adhere to the Surgical Changes rule.
-3. Verify using your search tool (grep or equivalent) for the `[DEBUG-` tag across the workspace — see the exact command in `references/instrumentation-protocol.md`.
+3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in `references/instrumentation-protocol.md`. Do not run a raw bash `grep` command unless you have no native search tool available.
 
 The search must return **zero matches**. Console snippets and the ledger entry are both discarded.
 
