@@ -74,7 +74,7 @@ Modern distributed systems propagate a request ID across the network boundary so
 
 **If no trace ID is present** (system isn't propagating context), in order of preference:
 
-1. **Enable the framework's built-in instrumentation.** Most have it dormant: Rails `config.log_tags = [:request_id]`, Express + `express-request-id`, FastAPI middleware, ASP.NET `TraceIdentifier`. Configure once, get correlation forever.
+1. **Enable the framework's built-in instrumentation.** Most backend frameworks ship dormant request-ID tagging (a config flag or a first-party middleware package) — check current docs for the framework in use. Configure once, get correlation forever.
 2. **Inject a one-off debug trace header** for this investigation only. Tag both client and server sides per `[DEBUG-<id>]` protocol; remove both in Phase 7.
 
 > **Caution — this probe is not side-effect-free for cross-origin requests.** Adding a custom header turns a "simple" cross-origin request into one that requires a CORS preflight (OPTIONS). If the server's CORS config doesn't already allow-list `X-Debug-Trace`, the probe *creates* a CORS failure that wasn't there before, masking the bug you're chasing. It can also break requests signed with HMAC/SigV4, since the signature was computed without this header. Use this only for same-origin requests, or first confirm the server's `Access-Control-Allow-Headers` will accept the new header.
@@ -91,14 +91,7 @@ window.fetch = (input, init = {}) => {
 console.log('[DEBUG-<id>] session trace:', DEBUG_TRACE);
 ```
 
-```javascript
-// Server (Express) — log inbound trace at handler boundary
-app.use((req, _res, next) => {
-  const t = req.headers['x-debug-trace'];
-  if (t) console.log(`[DEBUG-<id>] trace=${t} ${req.method} ${req.url}`); // [DEBUG-<id>]
-  next();
-});
-```
+Server side: at the earliest point every request passes through (the framework's middleware/interceptor layer, not each individual handler), read the `X-Debug-Trace` header and log it alongside the method/path — one line, tagged `[DEBUG-<id>]`. Registering it once at the middleware layer means you don't have to touch every handler.
 
 **Worker / queue boundaries** (BullMQ, Celery, Sidekiq, SQS, RabbitMQ) are where trace context usually gets dropped — the producer enqueues a job without attaching the trace, so the consumer's logs are orphaned. If the bug spans a job, verify the producer writes the trace into the job payload and the consumer reads it back into its logging context. This handoff is a common defect site, not just an observability gap.
 
@@ -148,56 +141,32 @@ Refresh removes it — no cleanup needed for this probe.
 
 ### Server-handler instrumentation (`server-receipt`, `handler-flow`)
 
-Inject `[DEBUG-<id>]` logs at: handler entry, every branch decision, every external call (DB, third-party API, queue), handler exit.
+Inject `[DEBUG-<id>]` logs at: handler entry, every branch decision, every external call (DB, third-party API, queue), handler exit. Log the inbound payload's *keys/shape*, not the raw body (see Probe Rule §4 — don't log secrets), and the resolved user/session identity if one exists.
 
 ```javascript
-// Express / Node — [DEBUG-<id>]
-app.post('/checkout', async (req, res) => {
-  console.log('[DEBUG-<id>] /checkout in', { bodyKeys: Object.keys(req.body || {}), userId: req.user?.id }); // [DEBUG-<id>]
-  if (!req.body.items?.length) {
-    console.log('[DEBUG-<id>] short-circuit: no items'); // [DEBUG-<id>]
-    return res.status(400).json({ error: 'no items' });
+// Generic shape — [DEBUG-<id>]
+function handler(request) {
+  log('[DEBUG-<id>] handler in', { bodyKeys: Object.keys(request.body || {}), user: request.user?.id }); // [DEBUG-<id>]
+  if (!isValid(request.body)) {
+    log('[DEBUG-<id>] short-circuit: invalid body'); // [DEBUG-<id>]
+    return respond(400, { error: 'invalid body' });
   }
-  const order = await db.orders.create(/*...*/);
-  console.log('[DEBUG-<id>] order created', order.id); // [DEBUG-<id>]
-  // ...
-});
-```
-
-```php
-// WordPress / PHP — // [DEBUG-<id>]
-function my_handler($request) {
-  error_log('[DEBUG-<id>] my_handler in, params: ' . wp_json_encode(array_keys($request->get_params()))); // [DEBUG-<id>]
-  // ...
+  const result = doTheWork(request.body);
+  log('[DEBUG-<id>] handler done', { resultId: result.id }); // [DEBUG-<id>]
+  return respond(200, result);
 }
 ```
 
-```python
-# Django — # [DEBUG-<id>]
-def checkout(request):
-    import json, logging; log = logging.getLogger(__name__)
-    try:
-        body_keys = list(json.loads(request.body or b'{}').keys())  # JSON body (matches the checkout payload above)
-    except ValueError:
-        body_keys = list(request.POST.keys())  # fallback for form-encoded bodies
-    log.error(f'[DEBUG-<id>] checkout in body_keys={body_keys} user={request.user.id}')  # [DEBUG-<id>]
-    # ...
-```
-
-Use the runtime's server-side logging channel — `error_log` (PHP), `log.error`/`logging` (Python) — rather than `print`, so the message reliably lands in the log rather than being silently dropped when stdout is discarded. In Node, `console.log`/`console.error` write to stdout/stderr, which process managers (pm2, Docker, systemd) already capture as the server log, so it's fine there — just don't use `print`/bare `puts` where the runtime doesn't guarantee stdout is captured.
+Use the runtime's server-side logging channel rather than an unguaranteed stdout print, so the message reliably lands in the log instead of being silently dropped when stdout is discarded (e.g. behind a FastCGI/PHP-FPM process, or a Python WSGI worker with stdout unbuffered/redirected). Most server runtimes distinguish a "write to stdout" call (`print`, bare `puts`) from a "write to the configured log" call (a logger object, `error_log`-style function) — prefer the latter unless you've confirmed the process manager captures stdout as the server log (true for Node under pm2/Docker/systemd, often true for containerized services, not reliably true for classic PHP/CGI or WSGI setups).
 
 ### DB-query logging (`db-query`)
 
-Every framework has a built-in hook for query logging. Use it — it captures both the bound SQL and the timing, and you don't need to instrument every call site.
+Every ORM/database layer ships a built-in hook or flag for query logging — enable it rather than instrumenting each call site by hand; it captures both the bound SQL and the timing in one place. Two shapes exist, and mixing them up produces empty or stale-looking output:
 
-| Stack | How |
-|---|---|
-| **WordPress** | `define('SAVEQUERIES', true);` in wp-config.php. `$wpdb->queries` only fills in as queries run — read it *after* the suspect code has executed (e.g. at the end of the request, or on the `shutdown` hook), not at handler entry. |
-| **Laravel** | `\DB::listen(fn($q) => \Log::info('[DEBUG-<id>]', ['sql' => $q->sql, 'bindings' => $q->bindings, 'time_ms' => $q->time]));` — leading `\` is required (or add `use Illuminate\Support\Facades\DB;` and `use Illuminate\Support\Facades\Log;` at the top of the file) if this is pasted inside a namespaced class such as a service provider; without it PHP looks for the facade in the current namespace and throws "Class not found". |
-| **Rails** | `ActiveSupport::Notifications.subscribe('sql.active_record') { \|*, p\| Rails.logger.info("[DEBUG-<id>] #{p[:sql]}") }` |
-| **Django** | Live, as-it-runs logging (preferred): wrap the suspect block in a [query execution wrapper](https://docs.djangoproject.com/en/stable/topics/db/instrumentation/), e.g. `with connection.execute_wrapper(lambda execute, sql, params, many, ctx: (logging.getLogger(__name__).info(f'[DEBUG-<id>] {sql} {params}'), execute(sql, params, many, ctx))[1]): ...`. Fallback: `connection.queries` (requires `DEBUG=True`) is a list of *already-executed* queries — read it after the suspect code has run, not at the start of the view. |
-| **Node + Prisma** | `new PrismaClient({ log: ['query'] })` |
-| **Node + Knex** | `knex.on('query', q => console.log('[DEBUG-<id>]', q.sql, q.bindings))` |
+- **Live/streaming hooks** (a callback or listener fired on each query as it runs) — the common form for backend-framework ORMs. If you paste the registration code inside a namespaced/scoped class, the framework's facade or service import may need to be fully qualified — an unqualified reference can resolve to the wrong namespace and fail with a "class/name not found" style error.
+- **Read-after-execution buffers** (a list/array the runtime fills in as queries execute, gated behind a debug flag) — common in CMS and dev-mode ORM configs. Read the buffer *after* the suspect code has run (end of request, a shutdown/teardown hook) — reading it at handler entry returns nothing, because nothing has executed yet.
+
+Either way: enabling the hook is a config change, not a source edit — record the original flag value in the ledger (protocol §3) so Phase 7 can revert it or, for a persistent debug-log flag, ask the user whether to keep it enabled (protocol §5).
 
 For slow queries, prepend `EXPLAIN ANALYZE` (Postgres/MySQL) to the suspect query to get the execution plan.
 

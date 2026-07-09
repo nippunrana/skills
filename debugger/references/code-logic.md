@@ -78,25 +78,20 @@ print(f'[DEBUG-<id>] after fetch_user t={time.time():.4f} id={u.id if u else Non
 
 ### Render-loop counter (`render-loop`)
 
-For React/Vue/Svelte components that re-render unexpectedly:
+For a component (React, Vue, Svelte, or any other component-based UI framework) that re-renders unexpectedly, drop a counter at the top of the render/component body. A plain global counter keyed by the debug id works regardless of which framework's own state-hook idioms are current:
 
 ```javascript
-// React
-const renderCount = useRef(0);
-renderCount.current++;
-console.log(`[DEBUG-<id>] <ComponentName> render #${renderCount.current}`, { /* relevant props/state */ }); // [DEBUG-<id>]
-```
-
-```javascript
-// Generic (any framework, top of component body)
+// Top of component body — framework-agnostic
 // Bracket notation, not a dotted property: `<id>` is a placeholder and isn't
 // valid inside a bare JS identifier, so this stays valid syntax even if you
 // forget to substitute it before injecting.
 window['__renderCount_<id>'] = (window['__renderCount_<id>'] || 0) + 1;
-console.log(`[DEBUG-<id>] render #${window['__renderCount_<id>']}`); // [DEBUG-<id>]
+console.log(`[DEBUG-<id>] render #${window['__renderCount_<id>']}`, { /* relevant props/state */ }); // [DEBUG-<id>]
 ```
 
-If the count climbs faster than expected, log the props/state alongside it and find what's changing every render. Common culprits: inline object/array literals as props, missing memoization, parent re-renders, React 18 Strict Mode double-invoke (development only).
+If your framework has its own idiomatic per-instance counter (a ref/state primitive that survives re-renders but not remounts), prefer that where it's a more natural fit — the pattern is the same either way: increment on every render, log the count plus the props/state you suspect are changing.
+
+If the count climbs faster than expected, log the props/state alongside it and find what's changing every render. Common culprits: inline object/array literals as props, missing memoization, parent re-renders, a framework's development-mode double-invoke behavior (check whether the framework in use has one before treating a 2x count as a real bug).
 
 ### Value-mutation trap (`value-mutation`)
 
@@ -154,7 +149,7 @@ When a bug is a confirmed regression, do not check out older commits or modify t
 
 1. **Scan recent commit messages:**
    ```bash
-   git log --oneline -15
+   git log --oneline -20
    ```
 2. **Inspect the exact diffs of recent commits:**
    To see what code actually changed in the last few commits:
@@ -162,16 +157,16 @@ When a bug is a confirmed regression, do not check out older commits or modify t
    git log -p -n 5
    ```
 3. **Check diffs for specific suspect files/directories:**
-   If the symptom points to a specific component or file, view its history over the last 10 commits:
+   If the symptom points to a specific component or file, view its history over the last 5 commits:
    ```bash
-   git log -p -n 10 -- path/to/file.js
+   git log -p -n 5 -- path/to/file.js
    # Or see the cumulative changes over the last N commits:
-   git diff HEAD~10 -- path/to/file.js
+   git diff HEAD~5 -- path/to/file.js
    ```
 4. **Inspect dependency changes:**
    Check if package versions or dependencies were recently modified:
    ```bash
-   git diff HEAD~10 -- package.json package-lock.json composer.json composer.lock requirements.txt
+   git diff HEAD~5 -- package.json package-lock.json composer.json composer.lock requirements.txt
    ```
 
 By reading the diffs, you can spot the exact line that introduced the bug. This is faster and much safer than checking out older commits, which triggers dependency mismatches and state issues.

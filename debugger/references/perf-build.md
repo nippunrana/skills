@@ -86,7 +86,7 @@ npm run build 2>&1 | tee debug-build.log
 head -200 debug-build.log    # the FIRST errors, where the cause lives
 ```
 
-Write the log inside the workspace (not `/tmp`) so it's readable regardless of sandbox restrictions on paths outside the project. Delete `debug-build.log` during Phase 7 cleanup along with any injected `[DEBUG-` lines.
+Write the log inside the workspace (not `/tmp`) so it's readable regardless of sandbox restrictions on paths outside the project. Add it to the ledger as a `(file)` entry (protocol §3) and delete it during Phase 7 cleanup along with any injected `[DEBUG-` lines.
 
 Common cascade patterns:
 - "Cannot find module X" later becomes 50 type errors that all reference X — fix X first.
@@ -130,20 +130,12 @@ rm -rf node_modules && npm ci
 
 `npm ci` is stricter than `npm install` — it fails when lockfile and package.json disagree, which is what you want when chasing "works for them, not for me" bugs.
 
-### `build-php-fatal` — WordPress / PHP
+### `build-php-fatal` — file-based debug logging (PHP / CMS platforms)
 
-Enable WP debug logging in `wp-config.php`:
-
-```php
-define('WP_DEBUG', true);
-define('WP_DEBUG_LOG', true);     // writes to wp-content/debug.log
-define('WP_DEBUG_DISPLAY', false); // don't leak errors to page
-```
-
-Then tail the log while reproducing:
+Most PHP platforms and CMSes (WordPress included) ship a debug-logging mode that's off by default: a config flag that turns on file-based error logging plus a companion flag to keep errors out of the rendered page. Enable it per the platform's current docs, record the original flag values in the ledger (protocol §3) so Phase 7 can revert or ask the user to keep them (protocol §5), then tail the resulting log file while reproducing:
 
 ```bash
-tail -f wp-content/debug.log
+tail -f path/to/debug.log
 ```
 
 Look for the first `PHP Fatal error` or `PHP Stack trace` — everything after it is fallout.

@@ -155,7 +155,7 @@ In Phase 3, choose how to deliver the instrumentation:
 
 | Situation | Mode |
 |---|---|
-| Bug reproducible at will with an IDE/debugger attached, or reproducible by a failing test | **Interactive debugger (breakpoint + watch) or failing-test-first** — no source edits, no cleanup needed; see `references/code-logic.md` §3. Prefer this over snippets/injection when available |
+| Bug reproducible at will with an IDE/debugger attached, or reproducible by a failing test | **Interactive debugger (breakpoint + watch) or failing-test-first** — no source edits, no cleanup needed; see `references/code-logic.md` §3. Prefer this over snippets/injection when available. You can't drive the user's IDE debugger yourself: walk them through setting the breakpoint/watch and have them report back what they observe, using Part E's format (this is a User Execution probe, same as a console snippet) |
 | Bug observable in the live browser without changing files (visible layout, broken click handler the user can trigger, missing element) | **Console snippet** — paste-ready, read-only, runs in DevTools |
 | Bug is server-side, in async flow, or otherwise invisible from the browser (wrong DB write, race between two awaits, scheduled job misfires) | **Injected debug code** in source files, tagged per protocol |
 | Bug spans browser ↔ server (API integration, auth flow, hydration mismatch) | **Both** — snippet for the client side, injected logs on the server side |
@@ -163,7 +163,7 @@ In Phase 3, choose how to deliver the instrumentation:
 
 You decide. The user can always override.
 
-Note: the interactive-debugger/failing-test row needs no artifact at all — it skips Phase 3/4 entirely. For the remaining rows, the table picks the probe's *format* (console snippet vs. source injection), independent of *who runs it*. A console snippet still goes through Phase 4's User Execution path unless you have a browser-automation tool available, in which case you run it yourself per that phase's rule.
+Note: the failing-test row needs no artifact at all — it skips Phase 3/4 entirely. The interactive-debugger row does go through Phase 3/4 (you hand the user breakpoint/watch instructions, they run it and report back) but produces no source artifact to clean up — it skips Part D and Phase 7 for that probe. For the remaining rows, the table picks the probe's *format* (console snippet vs. source injection), independent of *who runs it*. A console snippet still goes through Phase 4's User Execution path unless you have a browser-automation tool available, in which case you run it yourself per that phase's rule.
 
 ---
 
@@ -229,7 +229,7 @@ Each domain reference file ends with a "**Signals to look for**" section. Use it
 
 - `references/visual-ui.md` — browser-console snippet templates for CSS, layout, cascade, visibility, responsive issues. Preserves the full toolkit from the original ui-debug-console skill.
 - `references/code-logic.md` — print-trace bisection, state snapshots, async/race probes, conditional-breakpoint hints, when to use logs vs. interactive debugger vs. failing test.
-- `references/api-network.md` — curl repro from network-tab data, server-log probes, DB query logging hooks per framework, JSON shape-diff helper.
+- `references/api-network.md` — curl repro from network-tab data, server-log probes, DB query logging strategy (live hooks vs. read-after-execution buffers), JSON shape-diff helper.
 - `references/perf-build.md` — `performance.mark/measure`, render-count counters, profiler hints, build-error triage (first error in cascade, not last), env-var diffing.
 - `references/instrumentation-protocol.md` — `[DEBUG-<id>]` tag spec, ledger template, cleanup checklist.
 
