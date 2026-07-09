@@ -82,10 +82,11 @@ If `heap` climbs monotonically while the app sits idle → leak. To find what ho
 Build tool errors cascade — the visible final error is often a downstream consequence of an earlier failure. Scroll **up** in the build output to find the first error. Capture the full output:
 
 ```bash
-npm run build 2>&1 | tee /tmp/build.log
-# then in another terminal:
-head -200 /tmp/build.log    # the FIRST errors, where the cause lives
+npm run build 2>&1 | tee debug-build.log
+head -200 debug-build.log    # the FIRST errors, where the cause lives
 ```
+
+Write the log inside the workspace (not `/tmp`) so it's readable regardless of sandbox restrictions on paths outside the project. Delete `debug-build.log` during Phase 7 cleanup along with any injected `[DEBUG-` lines.
 
 Common cascade patterns:
 - "Cannot find module X" later becomes 50 type errors that all reference X — fix X first.

@@ -22,7 +22,7 @@ API/network bugs almost always involve **two sides** — the client view and the
 
 ### Reproducible curl (`client-request`)
 
-Right-click the request in DevTools → Network tab → "Copy as cURL". Strip auth tokens before sharing. Ask the user to run it from their terminal. If the curl reproduces the bug, the bug is server-side. If the curl works but the in-app call fails, the bug is in how the client builds the request (headers, body serialization, credentials).
+Right-click the request in DevTools → Network tab → "Copy as cURL" (this step is inherently user-side — DevTools only runs in their browser). Once you have the command: if you have shell access, run it yourself per Phase 4's Agentic Execution path — don't ask the user to do it. Only ask the user to run it themselves if you're in a read-only environment with no shell access. Strip auth tokens before *sharing* the command in chat (not before running it — the token is needed to reproduce the request). If the curl reproduces the bug, the bug is server-side. If the curl works but the in-app call fails, the bug is in how the client builds the request (headers, body serialization, credentials).
 
 ```bash
 # Trimmed example
@@ -167,16 +167,20 @@ app.post('/checkout', async (req, res) => {
 ```php
 // WordPress / PHP — // [DEBUG-<id>]
 function my_handler($request) {
-  error_log('[DEBUG-<id>] my_handler in: ' . wp_json_encode($request->get_params())); // [DEBUG-<id>]
+  error_log('[DEBUG-<id>] my_handler in, params: ' . wp_json_encode(array_keys($request->get_params()))); // [DEBUG-<id>]
   // ...
 }
 ```
 
 ```python
-# Django / FastAPI — # [DEBUG-<id>]
+# Django — # [DEBUG-<id>]
 def checkout(request):
-    import logging; log = logging.getLogger(__name__)
-    log.error(f'[DEBUG-<id>] checkout in body={request.body!r} user={request.user.id}')  # [DEBUG-<id>]
+    import json, logging; log = logging.getLogger(__name__)
+    try:
+        body_keys = list(json.loads(request.body or b'{}').keys())  # JSON body (matches the checkout payload above)
+    except ValueError:
+        body_keys = list(request.POST.keys())  # fallback for form-encoded bodies
+    log.error(f'[DEBUG-<id>] checkout in body_keys={body_keys} user={request.user.id}')  # [DEBUG-<id>]
     # ...
 ```
 

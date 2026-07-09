@@ -140,11 +140,15 @@ If a project has Jest/Vitest/Pytest/PHPUnit configured, prefer making the bug re
 
 When a regression has a known-bad commit and a known-good one, git bisect finds the first bad commit by binary-searching the history — O(log n) test runs regardless of how many commits exist.
 
+Note: don't rely on a shell variable (e.g. `STASHED=1`) to remember whether you stashed — agent shells are frequently a fresh process per command, and the manual flow below spans multiple separate commands across turns, so any such variable is gone by the time cleanup runs. Look the stash up by its message instead, which survives across commands and turns.
+
+Before starting, check for a leftover `debug-bisect` stash from a prior session that crashed before popping it (same recovery pattern as the `[DEBUG-` ledger in `instrumentation-protocol.md` §6): `git stash list | grep debug-bisect`. If one exists, surface it to the user and ask whether to restore it before you begin, rather than starting a new bisect that could later pop *that* stash by mistake.
+
 **Manual flow:**
 ```bash
-# Only stash (and only pop) if there are actual local edits — an unconditional
+# Only stash if there are actual local edits — an unconditional
 # `git stash pop` on a clean tree would pop an unrelated, older stash instead.
-[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect && STASHED=1
+[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect
 git bisect start
 git bisect bad                      # current commit is broken
 git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
@@ -152,19 +156,23 @@ git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
 git bisect bad   # or: git bisect good
 # repeat until git prints: "abc123 is the first bad commit"
 git bisect reset
-[ "$STASHED" = "1" ] && git stash pop
+# Restore by looking up the stash by its message, not a remembered variable —
+# and pop it by ref so an unrelated newer stash (stash@{0}) is never touched.
+STASH_REF=$(git stash list | grep -m1 'debug-bisect' | cut -d: -f1)
+[ -n "$STASH_REF" ] && git stash pop "$STASH_REF"
 ```
 
 **Automated flow (preferred when a test command exists):**
 ```bash
-[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect && STASHED=1
+[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect
 git bisect start
 git bisect bad
 git bisect good <last-known-good>
 git bisect run npm test -- --testPathPattern=the-failing-test
 # git bisect run exits when found; prints the first bad commit
 git bisect reset
-[ "$STASHED" = "1" ] && git stash pop
+STASH_REF=$(git stash list | grep -m1 'debug-bisect' | cut -d: -f1)
+[ -n "$STASH_REF" ] && git stash pop "$STASH_REF"
 ```
 
 Use `git bisect run` with any command that exits 0 for "good" and non-zero for "bad" — a shell one-liner, a curl health check, or a Python script. Once the first bad commit is identified, `git show <sha>` to see exactly what changed. The root cause is almost always in that diff.

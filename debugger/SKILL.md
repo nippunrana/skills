@@ -49,7 +49,7 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 
 Every debugging session walks through these seven phases. Each phase has a logical checkpoint.
 
-> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is a narrower version of the Phase 1a shortcut below, for cases where even Phase 1a's "match against hypotheses" step is unnecessary. **Exception:** in Planning Mode, the approval gate below still applies — describe the trivial fix in the plan and get approval rather than applying it directly.
+> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is narrower than the Phase 1a shortcut below: Phase 1a still routes observed signals through Phase 5's "match against hypotheses" step (treating the signal as a confirmed finding); here there's nothing to match at all, because the defect is named outright. **Exception:** if your platform's enforced plan/approval mode (a mode that blocks edits until the user approves a plan — not merely a habit of writing plans for non-trivial tasks) is active, that approval gate still applies — describe the trivial fix in the plan and get approval rather than applying it directly.
 
 > [!IMPORTANT]
 > **Planning Mode Compliance:** 
@@ -141,7 +141,7 @@ If you arrived here directly from Phase 1a (existing signals already showed the 
 Remove every line of debug instrumentation injected during Phases 3–5. 
 1. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them.
 2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed to adhere to the Surgical Changes rule.
-3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in `references/instrumentation-protocol.md`. Do not run a raw bash `grep` command unless you have no native search tool available.
+3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in `references/instrumentation-protocol.md`. Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback.
 
 The search must return **zero matches**. Console snippets and the ledger entry are both discarded.
 
@@ -163,7 +163,7 @@ In Phase 3, choose how to deliver the instrumentation:
 
 You decide. The user can always override.
 
-Note: this table picks the probe's *format* (console snippet vs. source injection), independent of *who runs it*. A console snippet still goes through Phase 4's User Execution path unless you have a browser-automation tool available, in which case you run it yourself per that phase's rule.
+Note: the interactive-debugger/failing-test row needs no artifact at all — it skips Phase 3/4 entirely. For the remaining rows, the table picks the probe's *format* (console snippet vs. source injection), independent of *who runs it*. A console snippet still goes through Phase 4's User Execution path unless you have a browser-automation tool available, in which case you run it yourself per that phase's rule.
 
 ---
 

@@ -35,7 +35,7 @@ console.log('[DEBUG-a3f9] order payload keys at /checkout in', Object.keys(req.b
 ```
 
 ```python
-print(f'[DEBUG-k2pq] user state: {user.__dict__}')  # [DEBUG-k2pq] state snapshot
+print(f'[DEBUG-k2pq] user state keys: {list(user.__dict__.keys())}')  # [DEBUG-k2pq] state snapshot (shape only)
 ```
 
 ```php
@@ -101,7 +101,7 @@ Before declaring the bug fixed, run this checklist:
 1. **Read the ledger.** Visit every file:line listed.
 2. **Remove every tagged line.** Use Edit to delete; don't comment them out.
 3. **Search the project:**
-   Use your native codebase search/find tool to search for `[DEBUG-` across the project root, excluding common build/dependency directories (node_modules, vendor, .git, etc.). Do not run a raw bash `grep` command unless you have no native search tool available.
+   Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback. Search for `[DEBUG-` across the project root, excluding common build/dependency directories (node_modules, vendor, .git, etc.).
    This must return **zero matches**. If it returns hits, you missed some — remove them.
 4. **For the curl-wrapper / fetch-wrapper / property-trap probes** that live only in DevTools console: they're discarded by page refresh, but tell the user to refresh anyway so it's clear nothing is lingering.
 5. **For DB-query logging hooks** (Laravel `DB::listen`, Rails subscribers, `SAVEQUERIES`): revert the config change too.
