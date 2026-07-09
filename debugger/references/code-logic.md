@@ -89,8 +89,11 @@ console.log(`[DEBUG-<id>] <ComponentName> render #${renderCount.current}`, { /* 
 
 ```javascript
 // Generic (any framework, top of component body)
-window.__renderCount_<id> = (window.__renderCount_<id> || 0) + 1;
-console.log(`[DEBUG-<id>] render #${window.__renderCount_<id>}`); // [DEBUG-<id>]
+// Bracket notation, not a dotted property: `<id>` is a placeholder and isn't
+// valid inside a bare JS identifier, so this stays valid syntax even if you
+// forget to substitute it before injecting.
+window['__renderCount_<id>'] = (window['__renderCount_<id>'] || 0) + 1;
+console.log(`[DEBUG-<id>] render #${window['__renderCount_<id>']}`); // [DEBUG-<id>]
 ```
 
 If the count climbs faster than expected, log the props/state alongside it and find what's changing every render. Common culprits: inline object/array literals as props, missing memoization, parent re-renders, React 18 Strict Mode double-invoke (development only).
@@ -148,10 +151,13 @@ Before starting, check for a leftover `debug-bisect` stash from a prior session 
 ```bash
 # Only stash if there are actual local edits — an unconditional
 # `git stash pop` on a clean tree would pop an unrelated, older stash instead.
-[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect
+# -u includes untracked files: without it, an untracked file left in place can
+# collide with a tracked file at the same path in a commit bisect checks out,
+# aborting the bisect with "would be overwritten by checkout".
+[ -n "$(git status --porcelain)" ] && git stash push -u -m debug-bisect
 git bisect start
 git bisect bad                      # current commit is broken
-git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
+git bisect good "<last-known-good>"   # replace with a tag, a SHA, or HEAD~30 — quoted so an unresolved placeholder fails as a normal git error, not a shell parse error
 # git checks out the midpoint; test manually, then:
 git bisect bad   # or: git bisect good
 # repeat until git prints: "abc123 is the first bad commit"
@@ -164,10 +170,10 @@ STASH_REF=$(git stash list | grep -m1 'debug-bisect' | cut -d: -f1)
 
 **Automated flow (preferred when a test command exists):**
 ```bash
-[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect
+[ -n "$(git status --porcelain)" ] && git stash push -u -m debug-bisect
 git bisect start
 git bisect bad
-git bisect good <last-known-good>
+git bisect good "<last-known-good>"   # replace with a tag, a SHA, or HEAD~30
 git bisect run npm test -- --testPathPattern=the-failing-test
 # git bisect run exits when found; prints the first bad commit
 git bisect reset

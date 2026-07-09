@@ -195,7 +195,7 @@ Every framework has a built-in hook for query logging. Use it — it captures bo
 | **WordPress** | `define('SAVEQUERIES', true);` in wp-config.php, then read `$wpdb->queries` |
 | **Laravel** | `DB::listen(fn($q) => Log::info('[DEBUG-<id>]', ['sql' => $q->sql, 'bindings' => $q->bindings, 'time_ms' => $q->time]));` |
 | **Rails** | `ActiveSupport::Notifications.subscribe('sql.active_record') { \|*, p\| Rails.logger.info("[DEBUG-<id>] #{p[:sql]}") }` |
-| **Django** | `from django.db import connection; logging.getLogger(__name__).info(connection.queries)` (DEBUG=True required) |
+| **Django** | `import logging; from django.db import connection; logging.getLogger(__name__).info(connection.queries)` (DEBUG=True required) |
 | **Node + Prisma** | `new PrismaClient({ log: ['query'] })` |
 | **Node + Knex** | `knex.on('query', q => console.log('[DEBUG-<id>]', q.sql, q.bindings))` |
 
