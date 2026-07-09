@@ -121,7 +121,14 @@ class _TrapDescriptor:
         import traceback; traceback.print_stack()
         print(f'[DEBUG-<id>] {self.name} written: {v!r}')
         setattr(obj, self.name, v)
+
+# Attach to the CLASS, never to an instance — descriptors only intercept
+# get/set when they live in the class __dict__. Assigning one to an
+# instance attribute just overwrites the value and traps nothing:
+SomeClass.token = _TrapDescriptor('token')    # correct
+# some_obj.token = _TrapDescriptor('token')   # wrong — silently does nothing
 ```
+Doesn't work unmodified on classes using `__slots__` (no per-instance `__dict__` for `setattr` to write into) — skip this probe for those, use `state-snapshot` instead.
 
 `console.trace` (or Python's `traceback.print_stack()`) prints the call site of every write, so you find the rogue mutator.
 

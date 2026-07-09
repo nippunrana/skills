@@ -51,7 +51,7 @@ The tag appears **both** inside the printed string AND in a trailing comment, so
 
 ---
 
-## 2. One ID per investigation
+## 2. One ID per hypothesis round
 
 All probes generated during a single hypothesis-testing round share the same `<id>`. If H1 needs 5 logs across 3 files, they all carry `[DEBUG-a3f9]`. When you cleanup, a single search finds and removes all of them.
 
@@ -86,7 +86,8 @@ When cleanup is done, mark the ledger CLOSED:
 
 These keep probes safe to run in real codebases — even on the user's main branch.
 
-- **Observe, never mutate.** A probe reads and prints. It never writes to DB, never makes extra network calls, never changes state, never re-orders flow. The closest a probe should get to mutation is a `let _x = original_x; defineProperty(...)` trap whose set handler restores the original behavior after logging.
+- **Observe, never mutate persistent state.** A probe reads and prints. It never writes to DB, never makes extra network calls, never re-orders flow. In-memory, behavior-preserving interception that a page refresh fully removes (fetch wrappers, property/descriptor traps) is allowed as long as the wrapped call still does exactly what the original did — persistent state, DB writes, network payloads, and flow order are never fair game.
+- **Probes are strictly additive.** Never modify or replace an existing line of application code — probes add new lines, they don't rewrite old ones. If a config value must change (`WP_DEBUG`, `SAVEQUERIES`), record the original value in the ledger so the revert steps in §5 can restore it.
 - **No async side effects.** Don't `await` anything new inside a probe. A probe that itself takes time changes the timing of the very thing it measures.
 - **Don't log secrets.** If a payload may contain tokens, passwords, or PII, log only the keys/shape: `Object.keys(body)` not `body`. When in doubt, ask the user before logging.
 - **Bounded output.** If a value could be huge (full DB row dump, entire DOM), slice it: `body.slice(0, 500)`, `JSON.stringify(x).slice(0, 1000)`.
@@ -102,12 +103,12 @@ Before declaring the bug fixed, run this checklist:
 2. **Remove every tagged line.** Use Edit to delete; don't comment them out.
 3. **Search the project:**
    Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback. Search for `[DEBUG-` across the project root, excluding common build/dependency directories (node_modules, vendor, .git, etc.).
-   This must return **zero matches**. If it returns hits, you missed some — remove them.
+   This must return **zero matches in source files**. Matches inside documentation or skill-definition files (this protocol's own examples, READMEs, etc.) aren't leftovers — ignore those. Probes the user explicitly chose to keep (see §6) aren't leftovers either — list them as still-open in the ledger instead of removing them. Any other hit means you missed one — remove it.
 4. **For the curl-wrapper / fetch-wrapper / property-trap probes** that live only in DevTools console: they're discarded by page refresh, but tell the user to refresh anyway so it's clear nothing is lingering.
 5. **For DB-query logging hooks** (Laravel `DB::listen`, Rails subscribers, `SAVEQUERIES`): revert the config change too.
 6. **For `WP_DEBUG = true`** changes in wp-config.php: ask the user whether they want to keep debug logging enabled or revert it. Don't decide for them — some sites leave it on in dev.
 7. **Close the ledger.** Update the ledger header to `CLOSED` with a count of removed lines.
-8. **Tell the user explicitly:** "All debug instrumentation removed. Search shows zero matches."
+8. **Tell the user explicitly:** "All debug instrumentation removed. Search shows zero matches in source files." (If any probes were intentionally kept per §6, name them instead of claiming zero matches.)
 
 If you can't physically search the codebase (e.g., restricted environment), ask the user to search for `[DEBUG-` and confirm it is clean. Don't skip the verification.
 

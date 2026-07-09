@@ -107,7 +107,7 @@ app.use((req, _res, next) => {
 ```javascript
 // Paste in console — wraps fetch to log every request and response.
 // This snippet is console-only and discarded on refresh (see below), so it's
-// exempt from the "one id per investigation" rule — a fresh id per request
+// exempt from the "one id per hypothesis round" rule — a fresh id per request
 // just makes the log easier to read; it doesn't affect cleanup.
 (() => {
   const orig = window.fetch;
@@ -192,10 +192,10 @@ Every framework has a built-in hook for query logging. Use it — it captures bo
 
 | Stack | How |
 |---|---|
-| **WordPress** | `define('SAVEQUERIES', true);` in wp-config.php, then read `$wpdb->queries` |
-| **Laravel** | `DB::listen(fn($q) => Log::info('[DEBUG-<id>]', ['sql' => $q->sql, 'bindings' => $q->bindings, 'time_ms' => $q->time]));` |
+| **WordPress** | `define('SAVEQUERIES', true);` in wp-config.php. `$wpdb->queries` only fills in as queries run — read it *after* the suspect code has executed (e.g. at the end of the request, or on the `shutdown` hook), not at handler entry. |
+| **Laravel** | `\DB::listen(fn($q) => \Log::info('[DEBUG-<id>]', ['sql' => $q->sql, 'bindings' => $q->bindings, 'time_ms' => $q->time]));` — leading `\` is required (or add `use Illuminate\Support\Facades\DB;` / `Log;`) if this is pasted inside a namespaced class such as a service provider; without it PHP looks for the facade in the current namespace and throws "Class not found". |
 | **Rails** | `ActiveSupport::Notifications.subscribe('sql.active_record') { \|*, p\| Rails.logger.info("[DEBUG-<id>] #{p[:sql]}") }` |
-| **Django** | `import logging; from django.db import connection; logging.getLogger(__name__).info(connection.queries)` (DEBUG=True required) |
+| **Django** | Live, as-it-runs logging (preferred): wrap the suspect block in a [query execution wrapper](https://docs.djangoproject.com/en/stable/topics/db/instrumentation/), e.g. `with connection.execute_wrapper(lambda execute, sql, params, many, ctx: (logging.getLogger(__name__).info(f'[DEBUG-<id>] {sql} {params}'), execute(sql, params, many, ctx))[1]): ...`. Fallback: `connection.queries` (requires `DEBUG=True`) is a list of *already-executed* queries — read it after the suspect code has run, not at the start of the view. |
 | **Node + Prisma** | `new PrismaClient({ log: ['query'] })` |
 | **Node + Knex** | `knex.on('query', q => console.log('[DEBUG-<id>]', q.sql, q.bindings))` |
 

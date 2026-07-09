@@ -22,7 +22,7 @@ LLMs often "fix" bugs by pattern-matching on symptoms — adding null checks, wr
 ## Part A — Read context, align with global rules & route to a domain
 
 Before generating any output:
-1. **Rule 0 Check:** Look for `ai-context.md` or `AGENTS.md` in the project root. Read them to check if there are custom logging setups or diagnostic commands before proceeding.
+1. **Project context check:** Look for `ai-context.md` or `AGENTS.md` in the project root. Read them to check if there are custom logging setups or diagnostic commands before proceeding.
 2. **Scan:** Silently scan the conversation and the user's open files for:
    - **The symptom** — what is wrong, exactly? Wrong output? Wrong layout? No response? Slow? Crashes?
    - **The expectation** — what should happen instead?
@@ -69,7 +69,7 @@ Probes are for filling gaps in what's already observable. Before generating any 
 - Server / application logs — tail the log file or check the log aggregator (Sentry, Datadog, Papertrail, `wp-content/debug.log`, etc.)
 - Existing monitoring dashboards — error rate spike? Latency anomaly?
 
-If existing signals already identify the failure point, go directly to Phase 5 with that data. Don't add probes for things you can already see.
+If existing signals already identify the failure point, still state the one-line symptom + expectation (1c) before jumping — the delta check (1b) may be skipped. Then go directly to Phase 5 with that data. Don't add probes for things you can already see.
 
 **1b — Delta check: is this a regression?**
 
@@ -105,7 +105,7 @@ Cheapest = least invasive, fastest to run, easiest to interpret. Console snippet
 ### Phase 3 — Probe
 Generate the instrumentation for the chosen probe. Decision rules below ("Part C — Pick the probe mode") tell you whether to use a console snippet, inject debug code into source files, or both.
 
-If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later. **Adhere to the Surgical Changes rule:** do not format, refactor, or touch adjacent lines when injecting debug code.
+If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later. Do not format, refactor, or touch adjacent lines when injecting debug code.
 
 **Checkpoint:** for a User Execution probe (Phase 4), the artifact is shown to the user with clear "what this collects" + "how to use" instructions (Part E). For an Agentic Execution probe, it's injected or run directly — no user-facing presentation is required.
 
@@ -135,15 +135,15 @@ If you arrived here directly from Phase 1a (existing signals already showed the 
 
 **Address the design root for recurring bug classes.** The infection chain (Phase 5) finds *the first wrong value*. For severe, architectural, or "this keeps happening in different forms" bugs, ask one more question: *why was that value allowed to be wrong in the first place?* If the answer points at shared mutable state, a missing invariant, a leaky abstraction, or an implicit contract, the design root is where the fix belongs — not the data root. Patching only the data root means the bug will resurface under a different symptom.
 
-**Checkpoint:** failing test written and confirmed failing; fix applied; test now passes; for architectural bugs, the design-level cause is named even if a follow-up issue is filed rather than fixed in this pass.
+**Checkpoint:** failing test written and confirmed failing (when a test runner exists — otherwise the fix verified by directly exercising the code); fix applied; test now passes; for architectural bugs, the design-level cause is named even if a follow-up issue is filed rather than fixed in this pass.
 
 ### Phase 7 — Cleanup (NEVER SKIP THIS)
 Remove every line of debug instrumentation injected during Phases 3–5. 
 1. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them.
-2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed to adhere to the Surgical Changes rule.
+2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed.
 3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in `references/instrumentation-protocol.md`. Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback.
 
-The search must return **zero matches**. Console snippets and the ledger entry are both discarded.
+The search must return **zero matches** in source files (matches inside documentation/skill files, or probes the user chose to keep per the recovery flow, are excluded and should be listed, not removed). Console snippets are discarded; the ledger is marked CLOSED per the protocol.
 
 **Checkpoint:** search returns nothing. Tell the user "all debug instrumentation removed."
 
@@ -172,9 +172,9 @@ Note: the interactive-debugger/failing-test row needs no artifact at all — it 
 Read `references/instrumentation-protocol.md` for the full spec. The non-negotiables:
 
 1. **Tag every line.** Format: `// [DEBUG-<4char-id>] <one-line purpose>` (use `# [DEBUG-<id>]` for Python/Ruby/shell, `/* [DEBUG-<id>] */` for CSS/SCSS, `<!-- [DEBUG-<id>] -->` for HTML/templates).
-2. **Use the same `<id>` for one investigation.** All probes from the same hypothesis share an id, so a single search removes them all.
+2. **Use the same `<id>` for one hypothesis-testing round.** All probes generated to test the same hypothesis share an id, so a single search removes them all.
 3. **Maintain a debug ledger** in the conversation — a running list of `<file>:<line>: [DEBUG-<id>] <purpose>`.
-4. **Never inject probes that have side effects** — no DB writes, no extra network calls, no state mutations. Probes observe; they don't change.
+4. **Never inject probes with persistent side effects** — no DB writes, no extra network calls, no re-ordered flow. In-memory interception that a refresh fully undoes (fetch wrappers, property/descriptor traps) is the one exception, per `instrumentation-protocol.md` §4.
 
 ---
 
@@ -216,7 +216,7 @@ Each domain reference file ends with a "**Signals to look for**" section. Use it
 ## Rules
 
 - **No guess-fixes.** If you don't have data confirming the cause, don't change code. Generate another probe instead.
-- **No side-effect probes.** Diagnostic code observes, never mutates.
+- **No persistent-side-effect probes.** Diagnostic code observes; it doesn't write to DB, call the network, or change flow order. (In-memory, refresh-reversible interception like fetch wrappers or property traps is the sanctioned exception — see `instrumentation-protocol.md` §4.)
 - **Never leave a placeholder** like `SELECTOR`, `ENDPOINT`, or `FILE_PATH` unresolved in the artifact you hand the user. Resolve it from context first.
 - **Never skip Phase 7 cleanup.** Leaked debug logs in production are a real incident risk.
 - **When in doubt, ask** — a clarifying question is cheap; a wrong domain wastes the user's time.
