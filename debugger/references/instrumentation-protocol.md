@@ -39,7 +39,7 @@ print(f'[DEBUG-k2pq] user state: {user.__dict__}')  # [DEBUG-k2pq] state snapsho
 ```
 
 ```php
-error_log('[DEBUG-x7m1] handler entry: ' . wp_json_encode($args)); # [DEBUG-x7m1] handler entry
+error_log('[DEBUG-x7m1] handler entry: ' . wp_json_encode($args)); // [DEBUG-x7m1] handler entry
 ```
 
 ```css
@@ -102,9 +102,10 @@ Before declaring the bug fixed, run this checklist:
 2. **Remove every tagged line.** Use Edit to delete; don't comment them out.
 3. **Grep the project:**
    ```bash
-   grep -rn "\[DEBUG-" <project-root> --include="*.{js,ts,jsx,tsx,py,php,rb,go,rs,java,css,scss,html,vue,svelte,sql}"
+   grep -rn "\[DEBUG-" <project-root> --exclude-dir={node_modules,vendor,.git,dist,build}
    ```
    This must return **zero matches**. If it returns hits, you missed some — remove them.
+   (Do not use `grep --include="*.{js,ts,...}"` — grep does not expand brace lists, so that pattern silently matches nothing and would falsely report a clean project.)
 4. **For the curl-wrapper / fetch-wrapper / property-trap probes** that live only in DevTools console: they're discarded by page refresh, but tell the user to refresh anyway so it's clear nothing is lingering.
 5. **For DB-query logging hooks** (Laravel `DB::listen`, Rails subscribers, `SAVEQUERIES`): revert the config change too.
 6. **For `WP_DEBUG = true`** changes in wp-config.php: ask the user whether they want to keep debug logging enabled or revert it. Don't decide for them — some sites leave it on in dev.

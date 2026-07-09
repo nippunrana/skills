@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Hypothesis-driven multi-domain debugger that finds the ROOT CAUSE of any bug — visual/CSS layout, code logic, async/race conditions, API/network failures, backend errors, performance issues, build/tooling problems. Use this skill whenever the user is stuck on a bug or unexpected behavior, regardless of stack or language. The skill auto-routes based on chat context, picks the lightest-weight probe (paste-ready browser-console snippet, injected debug instrumentation in source, or both), follows a strict phase-gated scientific workflow (observe → hypothesize → probe → measure → confirm → fix → cleanup), and auto-removes every line of debug code it injects so nothing leaks into production. Trigger this skill aggressively — for phrases like "why isn't this working", "this is broken", "weird bug", "it doesn't behave right", "the page looks wrong", "this useEffect runs twice", "my API returns 500", "something's slow", "I can't figure out why X" — not only when the user literally says "debug".
+description: Hypothesis-driven multi-domain debugger that finds the ROOT CAUSE of any bug — visual/CSS layout, code logic, async/race conditions, API/network failures, backend errors, performance issues, build/tooling problems. Use this skill whenever the user is stuck on a bug or unexpected behavior, regardless of stack or language. The skill auto-routes based on chat context, picks the lightest-weight probe (paste-ready browser-console snippet, injected debug instrumentation in source, or both), follows a strict phase-gated scientific workflow (observe → hypothesize → probe → measure → confirm → fix → cleanup), and auto-removes every line of debug code it injects so nothing leaks into production. Trigger this skill aggressively — for phrases like "why isn't this working", "this is broken", "weird bug", "the page looks wrong", "my API returns 500" — not only when the user literally says "debug".
 ---
 
 # Debugger
@@ -24,11 +24,10 @@ LLMs often "fix" bugs by pattern-matching on symptoms — adding null checks, wr
 Before generating any output:
 1. **Rule 0 Check:** Look for `ai-context.md` or `AGENTS.md` in the project root. Read them to check if there are custom logging setups or diagnostic commands before proceeding.
 2. **Scan:** Silently scan the conversation and the user's open files for:
-
-1. **The symptom** — what is wrong, exactly? Wrong output? Wrong layout? No response? Slow? Crashes?
-2. **The expectation** — what should happen instead?
-3. **Locality hints** — file paths, class names, function names, endpoints, route patterns, error messages, framework names
-4. **Stack inference** — frontend/backend/full-stack/WordPress/Node/Python/PHP/etc. (from file extensions, imports, open IDE files, mentions)
+   - **The symptom** — what is wrong, exactly? Wrong output? Wrong layout? No response? Slow? Crashes?
+   - **The expectation** — what should happen instead?
+   - **Locality hints** — file paths, class names, function names, endpoints, route patterns, error messages, framework names
+   - **Stack inference** — frontend/backend/full-stack/WordPress/Node/Python/PHP/etc. (from file extensions, imports, open IDE files, mentions)
 
 Then classify the bug into **one primary domain**. Each domain has a dedicated reference file with diagnostic patterns, snippet templates, and signals to look for:
 
@@ -42,7 +41,7 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 **Routing rules:**
 - If the context is **clear** → pick the domain silently and proceed to Step 2.
 - If **two domains apply** (e.g., "API returns wrong data AND the UI doesn't render it") → start with the *upstream* domain. Fix the cause before the consequence.
-- If the context is **unclear** → use the `ask_question` tool with the four domains above as options. Don't guess.
+- If the context is **unclear** → ask the user which domain applies, offering the four domains above as options. Don't guess.
 
 ---
 
@@ -52,10 +51,10 @@ Every debugging session walks through these seven phases. Each phase has a logic
 
 > [!IMPORTANT]
 > **Planning Mode Compliance:** 
-> - If you are in Planning Mode, you must draft your `implementation_plan.md` first. 
-> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** directly inside the implementation plan. 
-> - Request approval to inject the probe. Once approved, execute the probe, collect data, and update the plan/walkthrough with the final fix. Do not make unapproved source edits.
-> - Only if you are *not* in Planning Mode may you proceed through multiple phases autonomously in a single execution loop.
+> - If you are in Planning Mode, you must draft your platform's plan document first. 
+> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** directly inside that plan. 
+> - Request approval to inject the probe. Once approved, execute the probe, collect data, and update the plan with the final fix. Do not make unapproved source edits.
+> - Only if you are *not* in Planning Mode may you proceed through multiple phases autonomously in a single execution loop — this includes Phase 4's "execute it yourself" instruction below, which is subject to this approval gate whenever Planning Mode is active.
 
 ### Phase 1 — Observe
 
@@ -106,17 +105,18 @@ Generate the instrumentation for the chosen probe. Decision rules below ("Step 3
 
 If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later. **Adhere to the Surgical Changes rule:** do not format, refactor, or touch adjacent lines when injecting debug code.
 
-**Checkpoint:** probe artifact shown to the user with clear "what this collects" + "how to use" instructions.
+**Checkpoint:** for a User Execution probe (Phase 4), the artifact is shown to the user with clear "what this collects" + "how to use" instructions (Step 5). For an Agentic Execution probe, it's injected or run directly — no user-facing presentation is required.
 
 ### Phase 4 — Collect
 
-- **Agentic Execution (Backend/Server/Build):** If the probe requires running a bash command, running a test, or reading a server log, **DO NOT ask the user to do it**. Execute it yourself using your native tools (e.g., `run_command`, `grep_search`), analyze the output autonomously, and skip Step 5 entirely.
+- **Agentic Execution (Backend/Server/Build):** If the probe requires running a shell command, running a test, or reading a server log, **DO NOT ask the user to do it** *(unless Planning Mode requires approval first — see the callout above)*. Execute it yourself using your native tools (e.g., your shell tool, your code-search tool), analyze the output autonomously, and skip Step 5 — it only applies to the User Execution path below.
 - **User Execution (Browser/Client-side):** If the probe requires running a snippet in the Browser DevTools console, or interacting with the live UI, you cannot do this yourself. You **MUST** use Step 5 to present the snippet to the user and wait for them to paste the output back. If the output is missing or noisy, refine the probe before moving on.
 
 **Checkpoint:** usable data received (collected directly or pasted by user).
 
 ### Phase 5 — Confirm or refute
-Match the data against the ranked hypotheses:
+
+If you arrived here directly from Phase 1a (existing signals already showed the failure point, no hypotheses were ranked), treat that observed signal as your confirmed finding and go straight to tracing the infection chain upstream, below. Otherwise, match the data against the ranked hypotheses:
 
 - **Confirmed?** Trace the infection chain *upstream*. The first wrong value is closer to the root than the visible failure. Keep going until you find the defect that caused it.
 - **Refuted?** Discard the hypothesis immediately — don't add a second probe trying to rescue it. State in one line what you now know to be true (e.g., "the validation function is *not* using stale refs — values match on every keystroke"), then pivot to H2 or form a fresh hypothesis from the new evidence. Loop back to Phase 3.
@@ -139,9 +139,9 @@ Match the data against the ranked hypotheses:
 Remove every line of debug instrumentation injected during Phases 3–5. 
 1. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them.
 2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed to adhere to the Surgical Changes rule.
-3. Verify using your native **`grep_search`** tool to search for the `[DEBUG-` tag across the workspace.
+3. Verify using your search tool (grep or equivalent) for the `[DEBUG-` tag across the workspace — see the exact command in `references/instrumentation-protocol.md`.
 
-The `grep_search` must return **zero matches**. Console snippets and the ledger entry are both discarded.
+The search must return **zero matches**. Console snippets and the ledger entry are both discarded.
 
 **Checkpoint:** grep returns nothing. Tell the user "all debug instrumentation removed."
 
@@ -175,7 +175,7 @@ Read `references/instrumentation-protocol.md` for the full spec. The non-negotia
 
 ## Step 5 — Present output to the user
 
-Whatever the mode, follow the same friendly format:
+This step applies only to the **User Execution** path from Phase 4 (a probe the user must run themselves — browser console snippet, manual UI interaction). Agentic probes you ran yourself skip this step per Phase 4. Whatever the mode, follow the same friendly format:
 
 ````
 ```<language>
@@ -214,7 +214,7 @@ Each domain reference file ends with a "**Signals to look for**" section. Use it
 - **No side-effect probes.** Diagnostic code observes, never mutates.
 - **Never leave a placeholder** like `SELECTOR`, `ENDPOINT`, or `FILE_PATH` unresolved in the artifact you hand the user. Resolve it from context first.
 - **Never skip Phase 7 cleanup.** Leaked debug logs in production are a real incident risk.
-- **When in doubt, ask** — the `ask_question` tool is cheap; a wrong domain wastes the user's time.
+- **When in doubt, ask** — a clarifying question is cheap; a wrong domain wastes the user's time.
 - **Fix at the root, not the symptom.** If you find yourself adding defensive code around the visible failure, you haven't found the root yet.
 - **Wrap risky access in try/catch** for browser snippets — cross-origin stylesheets, missing globals, etc., should warn, not throw.
 

@@ -82,8 +82,12 @@ Modern distributed systems propagate a request ID across the network boundary so
 const DEBUG_TRACE = 'dbg-' + Math.random().toString(36).slice(2, 10);
 const orig = window.fetch;
 window.fetch = (url, opts = {}) => {
-  opts.headers = { ...(opts.headers || {}), 'X-Debug-Trace': DEBUG_TRACE };
-  return orig(url, opts);
+  // new Headers(...) normalizes a Headers instance, an array of pairs, or a
+  // plain object without dropping existing entries — a plain object spread
+  // silently discards them when opts.headers is already a Headers instance.
+  const headers = new Headers(opts.headers || {});
+  headers.set('X-Debug-Trace', DEBUG_TRACE);
+  return orig(url, { ...opts, headers });
 };
 console.log('[DEBUG-<id>] session trace:', DEBUG_TRACE);
 ```
@@ -102,7 +106,10 @@ app.use((req, _res, next) => {
 ### Client-side request snippet (no source edits)
 
 ```javascript
-// Paste in console — wraps fetch to log every request and response
+// Paste in console — wraps fetch to log every request and response.
+// This snippet is console-only and discarded on refresh (see below), so it's
+// exempt from the "one id per investigation" rule — a fresh id per request
+// just makes the log easier to read; it doesn't affect cleanup.
 (() => {
   const orig = window.fetch;
   window.fetch = async (...args) => {
@@ -146,9 +153,9 @@ app.post('/checkout', async (req, res) => {
 ```
 
 ```php
-// WordPress / PHP — # [DEBUG-<id>]
+// WordPress / PHP — // [DEBUG-<id>]
 function my_handler($request) {
-  error_log('[DEBUG-<id>] my_handler in: ' . wp_json_encode($request->get_params())); # [DEBUG-<id>]
+  error_log('[DEBUG-<id>] my_handler in: ' . wp_json_encode($request->get_params())); // [DEBUG-<id>]
   // ...
 }
 ```
