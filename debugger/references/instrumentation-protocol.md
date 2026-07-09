@@ -17,39 +17,20 @@ Every injected line carries a tag in this exact form:
 - `<4char-id>` — a 4-character random alphanumeric (e.g. `a3f9`, `k2pq`). Lowercase preferred. Generate with `Math.random().toString(36).slice(2, 6)` or pick one yourself.
 - `<one-line purpose>` — a brief human-readable description: `log inbound payload`, `flow marker B`, `render counter`, etc.
 
-### Per-language comment syntax
+### The Dual-Tagging Principle
 
-| Language / context | Format |
-|---|---|
-| JS / TS / Java / C / C++ / Go / Rust / PHP (modern) | `// [DEBUG-<id>] <purpose>` |
-| Python / Ruby / shell / Perl / YAML | `# [DEBUG-<id>] <purpose>` |
-| CSS / SCSS / LESS | `/* [DEBUG-<id>] <purpose> */` |
-| HTML / Vue / Svelte / JSX template / Blade | `<!-- [DEBUG-<id>] <purpose> -->` |
-| SQL | `-- [DEBUG-<id>] <purpose>` |
-| Lua / Haskell | `-- [DEBUG-<id>] <purpose>` |
+Every injected instrumentation line must place the string `[DEBUG-<id>] <purpose>` in two places:
+1. **Inside the printed output:** Print the tag as part of the log string so it is searchable in the running console or server log outputs.
+2. **In a trailing comment:** Append the tag as a comment on the same line, using the target language's native comment syntax (e.g. `//`, `#`, `--`, `/* */`), so it is searchable in the codebase files.
 
-The string `[DEBUG-` is the canonical search anchor for cleanup. Don't customize it.
+By embedding the tag in both the printed log and the trailing comment, you guarantee that a single global search for the string `[DEBUG-` will find both the source file location and the runtime log entries.
 
-### Examples
-
-```javascript
-console.log('[DEBUG-a3f9] order payload keys at /checkout in', Object.keys(req.body)); // [DEBUG-a3f9] log inbound payload shape
+**Abstract Format Blueprint:**
+```text
+<print_statement>('[DEBUG-<id>] <purpose>', ...) <comment_prefix> [DEBUG-<id>] <purpose>
 ```
 
-```python
-print(f'[DEBUG-k2pq] user state keys: {list(user.__dict__.keys())}')  # [DEBUG-k2pq] state snapshot (shape only)
-```
-
-```php
-error_log('[DEBUG-x7m1] handler entry: ' . json_encode($args)); // [DEBUG-x7m1] handler entry
-```
-
-```css
-/* [DEBUG-r4tt] temporary outline to visualize stacking */
-.suspect-element { outline: 2px solid magenta; }
-```
-
-The tag appears **both** inside the printed string AND in a trailing comment, so logs are searchable in two places: in console output and in source files.
+Generate the equivalent statement dynamically using the standard idioms, log functions, and comment syntax of the target language you are writing in. Do not customize or deviate from the `[DEBUG-` search anchor.
 
 ---
 
@@ -97,7 +78,7 @@ When cleanup is done, mark the ledger CLOSED:
 
 These keep probes safe to run in real codebases — even on the user's main branch.
 
-- **Observe, never mutate persistent state.** A probe reads and prints. It never writes to DB, never makes extra network calls, never re-orders flow. In-memory, behavior-preserving interception that a page refresh fully removes (fetch wrappers, property/descriptor traps) is allowed as long as the wrapped call still does exactly what the original did to persistent state, DB writes, or flow order — those are never fair game.
+- **Observe, never mutate persistent state.** A probe reads and prints. It never writes to DB, never makes extra network calls, never re-orders flow. In-memory, behavior-preserving interception is allowed as long as the wrapped call still does exactly what the original did to persistent state, DB writes, or flow order — those are never fair game. This covers both a browser-side fetch wrapper (undone by a page refresh) and a server-side property/descriptor trap (undone by Phase 7 removal, since there's no refresh to rely on server-side).
   - **Sanctioned narrow exception — a debug trace header.** Attaching a same-origin, per-session tracing header to outbound requests (see `api-network.md` → trace-correlation) is allowed even though it edits the request: it changes headers only, never the body/payload, and the server ignores it unless explicitly read. Confirm the server's CORS config already allow-lists the header (or the request is same-origin) before adding it — otherwise the probe can *create* a CORS failure or break a request signed with HMAC/SigV4, which defeats the "observe, don't change behavior" goal. Remove both client and server sides in Phase 7.
 - **Probes are strictly additive.** Never modify or replace an existing line of application code — probes add new lines, they don't rewrite old ones. If a config value must change (a debug-logging flag, a query-logging flag), record the original value in the ledger so the revert steps in §5 can restore it. If the only way to observe something is to wrap an *existing* block of code (forcing it to be re-indented), that's not additive — prefer a hook that reads a post-execution buffer/log, or a middleware/handler-boundary probe that only adds new lines around the existing block, not inside it.
 - **No async side effects.** Don't `await` anything new inside a probe. A probe that itself takes time changes the timing of the very thing it measures.

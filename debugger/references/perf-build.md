@@ -13,23 +13,7 @@ They share a reference because both need *measurement* before fixing — assumpt
 
 ### `perf-timing` — measure a suspect block
 
-Wrap the suspect code with `performance.mark` / `performance.measure`. Results show up in the Performance panel and as numbers in the console.
-
-```javascript
-// Browser or Node 16+
-performance.mark('[DEBUG-<id>]-start');
-// ... suspect code ...
-performance.mark('[DEBUG-<id>]-end');
-performance.measure('[DEBUG-<id>] suspect-block', '[DEBUG-<id>]-start', '[DEBUG-<id>]-end');
-console.log(performance.getEntriesByName('[DEBUG-<id>] suspect-block').pop().duration.toFixed(2) + 'ms');
-```
-
-```python
-# [DEBUG-<id>]
-import time; t0 = time.perf_counter()
-# ... suspect code ...
-print(f'[DEBUG-<id>] suspect-block: {(time.perf_counter()-t0)*1000:.2f}ms')
-```
+Record a timestamp immediately before the suspect code and immediately after it, then log the difference. Use the runtime's monotonic high-resolution clock (e.g. the Performance API in the browser/Node, a monotonic perf-counter in other runtimes) rather than wall-clock time, which can jump backward or forward. If the platform has a named mark/measure API (like `performance.mark`/`performance.measure`), prefer it — the result then also shows up in the browser's Performance panel, not just the console.
 
 ### `perf-flamegraph` — find the slow function
 
@@ -39,39 +23,27 @@ Prefer the browser's built-in profiler over manual instrumentation when the slow
 2. Trigger the slow action
 3. Stop. Look at the flame graph for the widest yellow/red blocks. That's where time is being spent.
 
-For Node: `node --prof app.js` then `node --prof-process isolate-*.log`. For Python: `python -m cProfile -o out.prof script.py` then view with snakeviz.
+For backend profiling, run the runtime engine's native CPU profiler tool or import its profiling library, writing the results to a file to find the slow execution path.
 
 ### `perf-render-count` — find unnecessary re-renders
 
 See `references/code-logic.md` → "Render-loop counter". The same probe applies — log the render count and the props that changed each time.
 
-For React DevTools users: open the **Profiler** tab and record. It shows which components rendered and how long each took. Highlight "components that rendered" to spot needless re-renders.
+For component-based frameworks with custom DevTools, open the **Profiler** tab and record. It shows which components rendered and how long each took. Highlight "components that rendered" to spot needless re-renders.
 
 ### `perf-memory` — find a leak
 
-```javascript
-// Snapshot heap size at intervals
-const samples = [];
-if (!performance.memory) {
-  console.warn('[DEBUG-<id>] performance.memory is not supported in this browser (Chrome/Chromium required).');
-} else {
-  const id = setInterval(() => {
-    samples.push({ t: Date.now(), heap: (performance.memory.usedJSHeapSize/1048576).toFixed(1) + 'MB' });
-    console.log('[DEBUG-<id>]', samples.at(-1));
-  }, 2000);
-  console.log('[DEBUG-<id>] Heap sampling started. Stop with: clearInterval(' + id + ');');
-}
-```
+Sample the process's heap size on an interval (every couple seconds) and log each sample with a timestamp, so you can watch the trend rather than a single snapshot. Check first whether the runtime actually exposes heap-size introspection (browser support varies by engine; server runtimes typically expose one via a process/runtime API) — warn and skip the probe if it doesn't, rather than producing a confusing crash. Print how to stop the sampling interval so it doesn't run forever.
 
-If `heap` climbs monotonically while the app sits idle → leak. To find what holds the references: DevTools → Memory → take a heap snapshot, do the action that should free things, take another snapshot, diff them, look for objects that should have been collected.
+If the heap climbs monotonically while the app sits idle → leak. To find what holds the references: use the platform's heap-snapshot tooling (e.g. DevTools → Memory) — take a snapshot, do the action that should free things, take another snapshot, diff them, look for objects that should have been collected.
 
 ### Signals — performance
 
 - **One function dominates the flame graph** → optimize that function. Don't speculatively memo everything.
 - **Many small functions, no single offender** → either an N+1 problem (loop calling something expensive), or render thrash (look at render counts).
-- **Layout/Style work shows up huge in Performance panel** → CSS-induced reflows. Look for synchronous `offsetWidth`/`getBoundingClientRect` reads in a loop after a write.
+- **Layout/Style work shows up huge in Performance panel** → CSS-induced reflows. Look for synchronous layout property reads in a loop after a write.
 - **Memory grows without bound** → look for event listeners not removed, timers not cleared, closures capturing large objects, caches with no eviction.
-- **CPU is fine but the UI feels slow** → main thread is starved by long tasks. Break work into chunks (`requestIdleCallback`, `setTimeout(_, 0)`, web workers).
+- **CPU is fine but the UI feels slow** → main thread is starved by long tasks. Break work into chunks using asynchronous microtasks, timers, or background worker threads.
 
 ---
 
@@ -79,66 +51,33 @@ If `heap` climbs monotonically while the app sits idle → leak. To find what ho
 
 ### `build-first-error` — read the FIRST error, not the last
 
-Build tool errors cascade — the visible final error is often a downstream consequence of an earlier failure. Scroll **up** in the build output to find the first error. Capture the full output:
-
-```bash
-npm run build 2>&1 | tee debug-build.log
-head -200 debug-build.log    # the FIRST errors, where the cause lives
-```
-
-Write the log inside the workspace (not `/tmp`) so it's readable regardless of sandbox restrictions on paths outside the project. Add it to the ledger as a `(file)` entry (protocol §3) and delete it during Phase 7 cleanup along with any injected `[DEBUG-` lines.
+Build tool errors cascade — the visible final error is often a downstream consequence of an earlier failure. Scroll **up** in the build output to find the first error. Capture the full output into a log file inside the workspace (not `/tmp`) so it's readable regardless of sandbox restrictions on paths outside the project. Add it to the ledger as a `(file)` entry (protocol §3) and delete it during Phase 7 cleanup along with any injected `[DEBUG-` lines.
 
 Common cascade patterns:
 - "Cannot find module X" later becomes 50 type errors that all reference X — fix X first.
-- A Webpack loader error early in the run causes "unexpected token" later — the early loader failure is the cause.
+- A bundler loader error early in the run causes "unexpected token" later — the early loader failure is the cause.
 
 ### `build-env-diff` — env-var misconfig
 
-When something works locally but breaks in CI/staging/prod, diff the env. Run this in each environment:
+When something works locally but breaks in CI/staging/prod, diff the env. In each environment, list only the variables relevant to the stack in use (filter by a prefix convention like `NODE_`, `VITE_`, `NEXT_`, `DATABASE_`, `API_`, etc.) and truncate each value to a few characters so secrets aren't dumped in full — `<empty>` for anything unset. Use whatever's native to the runtime (an env-inspection one-liner, or the shell's own environment lookup piped through a filter).
 
-```bash
-# Show only relevant vars (don't dump secrets)
-node -e "console.log(Object.fromEntries(Object.entries(process.env).filter(([k]) => /^(NODE|VITE|NEXT|REACT|DATABASE|API)/.test(k)).map(([k,v]) => [k, v ? v.slice(0,8)+'…' : '<empty>'])))"
-```
+The diff between environments is your suspect list. Common offenders: environment mode set to wrong value, API base URL pointing to localhost in prod, missing token, trailing whitespace in a copy-pasted secret.
 
-Or for shell tools:
+### `build-version-check` — Engine/Manager version mismatch
 
-```bash
-env | grep -E '^(NODE|VITE|NEXT|REACT|DATABASE|API)_' | sed 's/=.\{8\}.*/=…/'
-```
+Query the active version of the language runtime and package manager CLI, then compare it against the project's dependency manifest definitions (e.g. engines, requirements, or environment specifications).
 
-The diff between environments is your suspect list. Common offenders: `NODE_ENV` set to wrong value, API base URL pointing to localhost in prod, missing token, trailing whitespace in a copy-pasted secret.
-
-### `build-version-check` — Node/PHP/Python version mismatch
-
-```bash
-node -v && npm -v && node -p "const p = require('./package.json'); console.log({engines: p.engines, packageManager: p.packageManager})"
-php -v && composer -V
-python --version && pip --version
-```
-
-Mismatches with `engines` / `composer.json` / `pyproject.toml` requirements cause cryptic errors. A `node:18` vs `node:20` mismatch often produces "X is not a function" or "Cannot read properties of undefined" from a transitive dep that ships ESM-only or relies on a newer Node API.
+Mismatches with project requirements cause cryptic errors. A runtime engine version mismatch often produces "X is not a function" or "Cannot read properties of undefined" from a transitive dependency that relies on a newer API.
 
 ### `build-lockfile-drift` — stale lockfile
 
-```bash
-# Did node_modules drift from the lockfile?
-npm ls --depth=0
-# Fresh install
-rm -rf node_modules && npm ci
-```
+Verify dependency tree drift: check if installed package trees drift from the lockfile, and run a clean-install command (which strictly fails on manifest/lockfile mismatches) from a clean state to isolate local state.
 
-`npm ci` is stricter than `npm install` — it fails when lockfile and package.json disagree, which is what you want when chasing "works for them, not for me" bugs.
+### `build-file-debug` — file-based debug logging (CMS / Server platforms)
 
-### `build-php-fatal` — file-based debug logging (PHP / CMS platforms)
+Most platforms ship a debug-logging mode that's off by default: a config flag that turns on file-based error logging plus a companion flag to keep errors out of the rendered page. Enable it per the platform's current docs, record the original flag values in the ledger (protocol §3) so Phase 7 can revert or ask the user to keep them (protocol §5), then monitor the generated log stream while reproducing.
 
-Most PHP platforms and CMSes (WordPress included) ship a debug-logging mode that's off by default: a config flag that turns on file-based error logging plus a companion flag to keep errors out of the rendered page. Enable it per the platform's current docs, record the original flag values in the ledger (protocol §3) so Phase 7 can revert or ask the user to keep them (protocol §5), then tail the resulting log file while reproducing:
-
-```bash
-tail -f path/to/debug.log
-```
-
-Look for the first `PHP Fatal error` or `PHP Stack trace` — everything after it is fallout.
+Look for the first Fatal error or stack trace — everything after it is fallout.
 
 ### Signals — build / tooling
 

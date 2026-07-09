@@ -21,187 +21,38 @@ If you can't identify a specific element, use the **click-to-inspect** pattern (
 
 ---
 
-## 2. Snippet template
+## 2. Report spec
 
-Assemble a self-contained IIFE. Always include the **Core sections**. Add the **Targeted section** matching the sub-category. Keep the final snippet under ~100 lines.
+Generate a self-contained, paste-ready browser console snippet (an IIFE, so it doesn't leak variables into the global scope) that builds and prints one JSON diagnostic report. Always include the **Core sections**. Add the **Targeted fields** matching the sub-category. Keep the final snippet under ~100 lines.
 
 ### Core sections (always include)
 
-**Environment detection** — auto-flags WordPress and captures viewport state:
-```javascript
-const env = {
-  isWordPress: !!(window.wp || document.querySelector('link[href*="wp-content"]') ||
-    Array.from(document.body.classList).some(c => c.startsWith('wp-'))),
-  viewport: { w: window.innerWidth, h: window.innerHeight },
-  dpr: window.devicePixelRatio,
-  url: location.href,
-};
-if (env.isWordPress) {
-  env.wpBodyClasses = Array.from(document.body.classList);
-  env.wpStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-    .map(l => ({ id: l.id, file: l.href.split('?')[0].split('/').slice(-2).join('/') }));
-}
-```
+**Environment detection** — flag WordPress (check for a `window.wp` global, a `wp-content` link, or a `wp-*` body class) and capture viewport width/height, device pixel ratio, and the page URL. When WordPress is detected, also collect the body's class list and the list of loaded stylesheets (id + filename) — WordPress global styles are a common cascade offender and you'll want this list to cross-reference later.
 
-**Element targeting** — replace `SELECTOR` with the actual selector from context. Never leave the placeholder:
-```javascript
-const sel = 'SELECTOR';
-const el = document.querySelector(sel);
-if (!el) { console.warn('[UI Debug] Not found:', sel); return; }
-```
+**Element targeting** — resolve the actual CSS selector from context (chat, open file, or the click-to-inspect fallback below) and query for it. **Never leave a placeholder like `SELECTOR` unresolved in the snippet you hand the user** — if you can't identify a selector, use the click-to-inspect pattern instead. If the query finds nothing, warn and stop rather than continuing with a null element.
 
-**Box model:**
-```javascript
-const rect = el.getBoundingClientRect();
-const box = {
-  offsetW: el.offsetWidth, offsetH: el.offsetHeight,
-  scrollW: el.scrollWidth, scrollH: el.scrollHeight,
-  rect: { top: +rect.top.toFixed(1), right: +rect.right.toFixed(1), bottom: +rect.bottom.toFixed(1), left: +rect.left.toFixed(1), w: +rect.width.toFixed(1), h: +rect.height.toFixed(1) },
-  inViewport: rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight && rect.bottom > 0,
-};
-```
+**Box model** — collect the element's offset width/height, scroll width/height, and its bounding-client-rect (top/right/bottom/left/width/height, rounded to 1 decimal). Derive an `inViewport` boolean from the rect (non-zero size, and it overlaps the current viewport vertically) — this instantly answers "is it even on screen."
 
-**DOM ancestry** (up to 5 levels — layout context almost always lives in a parent):
-```javascript
-const ancestry = [];
-let node = el.parentElement;
-while (node && node !== document.body && ancestry.length < 5) {
-  const s = getComputedStyle(node);
-  ancestry.push({
-    tag: node.tagName.toLowerCase(), id: node.id || null,
-    classes: Array.from(node.classList).slice(0, 6).join(' ') || null,
-    display: s.display, position: s.position,
-    overflow: [s.overflow, s.overflowX, s.overflowY].join('/'),
-    flex: s.display.includes('flex') ? { dir: s.flexDirection, align: s.alignItems, justify: s.justifyContent, wrap: s.flexWrap, gap: s.gap } : null,
-    grid: s.display.includes('grid') ? { cols: s.gridTemplateColumns, rows: s.gridTemplateRows, gap: s.gap } : null,
-  });
-  node = node.parentElement;
-}
-```
+**DOM ancestry** — walk up to 5 parent levels (stop at `<body>`), and for each ancestor record: tag name, id, up to 6 classes, computed `display`, `position`, and overflow (shorthand + x + y). When an ancestor's display includes `flex`, also record its flex properties (direction, align-items, justify-content, wrap, gap); when it includes `grid`, record grid template columns/rows and gap. Layout context almost always lives in a parent, not the element itself, so this is not optional.
 
-**CSS cascade** — which rules are actually matching this element and from where:
-```javascript
-const cascade = [];
-function checkRule(rule, src) {
-  if (rule.selectorText) {
-    try {
-      if (el.matches(rule.selectorText)) {
-        cascade.push({ selector: rule.selectorText, source: src, css: rule.style.cssText });
-      }
-    } catch(e) {}
-  } else if (rule.cssRules) {
-    const header = rule.cssText ? rule.cssText.split('{')[0].trim() : 'nested';
-    for (const subRule of rule.cssRules) {
-      checkRule(subRule, `${src} (${header})`);
-    }
-  }
-}
+**CSS cascade** — determine which stylesheet rules actually match the target element and where each one comes from. Walk every loaded stylesheet (skip any that throw on access — cross-origin stylesheets block script reads), recursively descend into nested rule groups (media queries, layers), and for every rule whose selector matches the element, record the selector text, its source (stylesheet filename or "inline"), and its declared CSS text. Wrap each per-rule check in error handling — a single malformed selector or an inaccessible sheet shouldn't abort the whole scan.
 
-for (const sheet of document.styleSheets) {
-  let rules; try { rules = sheet.cssRules; } catch(e) { continue; }
-  const src = (sheet.href || 'inline').split('/').slice(-2).join('/');
-  for (const rule of rules) {
-    try { checkRule(rule, src); } catch(e) {}
-  }
-}
-```
+**Report assembly + delivery** — combine env, selector, box, the sub-category's targeted fields (see below), ancestry, and cascade into one object; pretty-print it as JSON to the console. Then attempt to copy it to the clipboard, trying methods in this order and falling back silently: (1) the DevTools-console-only `copy()` helper if present, (2) the standard async Clipboard API, (3) if neither is available or both fail, tell the user to copy the printed JSON manually. Wrap each clipboard attempt in a try/catch — clipboard access can be denied by the browser and that must not throw past the probe.
 
-**Report + auto-copy:**
-```javascript
-const cs = getComputedStyle(el);
-// `computed` is filled by the targeted section below
-const report = { env, selector: sel, box, computed, ancestry, cascade };
-console.log('%c[UI Debug Report]', 'font-size:13px;font-weight:bold;color:#4ade80;background:#111;padding:4px 8px;border-radius:4px');
-const jsonReport = JSON.stringify(report, null, 2);
-console.log(jsonReport);
-if (typeof copy === 'function') {
-  try { copy(jsonReport); console.log('%c✓ Copied to clipboard (DevTools)', 'color:#60a5fa'); } catch(e) {}
-} else if (navigator.clipboard && navigator.clipboard.writeText) {
-  navigator.clipboard.writeText(jsonReport)
-    .then(() => console.log('%c✓ Copied to clipboard (Clipboard API)', 'color:#60a5fa'))
-    .catch(() => console.log('%cℹ Please copy the report manually from the console output above.', 'color:#fbbf24'));
-} else {
-  console.log('%cℹ Please copy the report manually from the console output above.', 'color:#fbbf24');
-}
-```
+### Targeted fields by sub-category
 
-### Targeted sections by sub-category
+Add these computed-style fields to the report on top of the Core sections, matching the sub-category from §1:
 
-**`positioning`:**
-```javascript
-const computed = {
-  position: cs.position, top: cs.top, right: cs.right, bottom: cs.bottom, left: cs.left,
-  inset: cs.inset, transform: cs.transform, zIndex: cs.zIndex,
-  margin: [cs.marginTop, cs.marginRight, cs.marginBottom, cs.marginLeft],
-  float: cs.float, clear: cs.clear,
-};
-```
-
-**`layout`:**
-```javascript
-const computed = {
-  display: cs.display, flexDirection: cs.flexDirection, alignItems: cs.alignItems,
-  justifyContent: cs.justifyContent, flexWrap: cs.flexWrap, gap: cs.gap,
-  alignSelf: cs.alignSelf, justifySelf: cs.justifySelf,
-  flexGrow: cs.flexGrow, flexShrink: cs.flexShrink, flexBasis: cs.flexBasis,
-  gridColumn: cs.gridColumn, gridRow: cs.gridRow, order: cs.order,
-};
-```
-
-**`spacing`:**
-```javascript
-const computed = {
-  boxSizing: cs.boxSizing,
-  width: cs.width, minWidth: cs.minWidth, maxWidth: cs.maxWidth,
-  height: cs.height, minHeight: cs.minHeight, maxHeight: cs.maxHeight,
-  padding: [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft],
-  margin: [cs.marginTop, cs.marginRight, cs.marginBottom, cs.marginLeft],
-  gap: cs.gap,
-};
-```
-
-**`responsive`** — include spacing + layout props, then add:
-```javascript
-const mq = {
-  currentWidth: window.innerWidth,
-  active: [375,480,640,768,1024,1280,1440].filter(bp => window.matchMedia(`(min-width:${bp}px)`).matches),
-  isMobile: window.innerWidth < 768,
-};
-// add mq to report
-```
-
-**`cascade`** (specificity conflicts, especially WordPress) — after building `cascade`, add specificity scores. *(Note: This basic specificity estimator may inflate scores for comma-separated grouping selectors and treat pseudo-elements as pseudo-classes)*:
-```javascript
-function specificity(s) {
-  return (s.match(/#[\w-]+/g)||[]).length * 100 +
-         (s.match(/\.[\w-]+|:[\w-]+|\[[\w-]+/g)||[]).length * 10 +
-         (s.match(/^[a-z][\w-]*|\s[a-z][\w-]*/g)||[]).length;
-}
-cascade.forEach(r => r.score = specificity(r.selector));
-cascade.sort((a,b) => b.score - a.score);
-```
-
-**`visibility`:**
-```javascript
-const computed = {
-  display: cs.display, visibility: cs.visibility, opacity: cs.opacity,
-  overflow: cs.overflow, clip: cs.clip, clipPath: cs.clipPath,
-  pointerEvents: cs.pointerEvents, zIndex: cs.zIndex, position: cs.position,
-  width: cs.width, height: cs.height,
-};
-```
+- **`positioning`** — position, top/right/bottom/left, inset, transform, z-index, all four margins, float, clear.
+- **`layout`** — display, flex-direction, align-items, justify-content, flex-wrap, gap, align-self, justify-self, flex-grow/shrink/basis, grid-column, grid-row, order.
+- **`spacing`** — box-sizing, width/min-width/max-width, height/min-height/max-height, all four paddings, all four margins, gap.
+- **`responsive`** — include the `spacing` and `layout` fields above, plus a media-query block: current viewport width, which breakpoints from the common set (375/480/640/768/1024/1280/1440) currently match, and whether the viewport counts as mobile (< 768px).
+- **`cascade`** — no extra computed-style fields; instead, after building the cascade list, score each matched rule's specificity (ID selectors weigh most, class/attribute/pseudo-class selectors next, bare element selectors least) and sort the list highest-first, so the winning rule is obvious at a glance. *Note: a simple regex-based specificity estimator can overweight comma-separated grouping selectors and may mistake pseudo-elements for pseudo-classes — treat the score as a strong hint, not ground truth.*
+- **`visibility`** — display, visibility, opacity, overflow, clip, clip-path, pointer-events, z-index, position, width, height.
 
 ### Click-to-inspect pattern (when no selector is identifiable)
 
-```javascript
-console.log('%cClick the element you want to inspect...', 'color:#fbbf24;font-weight:bold');
-document.addEventListener('click', function handler(e) {
-  e.preventDefault(); e.stopPropagation();
-  document.removeEventListener('click', handler, true);
-  const el = e.target;
-  // ... rest of inspection using el
-}, { capture: true, once: true });
-```
+When you can't determine a specific selector from context, generate a snippet that prompts the user to click the element, then runs the full report against whatever they clicked: attach a one-time, capture-phase click listener to the document that prevents the click's default action and stops it from propagating (so the click doesn't trigger the site's own handlers), removes itself after firing once, and feeds the clicked element into the rest of the inspection logic above.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Hypothesis-driven multi-domain debugger that finds the ROOT CAUSE of any bug — visual/CSS layout, code logic, async/race conditions, API/network failures, backend errors, performance issues, build/tooling problems. Use this skill whenever the user is stuck on a bug or unexpected behavior, regardless of stack or language. The skill auto-routes based on chat context, picks the lightest-weight probe (paste-ready browser-console snippet, injected debug instrumentation in source, or both), follows a strict phase-gated scientific workflow (observe → hypothesize → probe → measure → confirm → fix → cleanup), and auto-removes every line of debug code it injects so nothing leaks into production. Trigger this skill aggressively — for phrases like "why isn't this working", "this is broken", "weird bug", "the page looks wrong", "my API returns 500" — not only when the user literally says "debug".
+description: Hypothesis-driven multi-domain debugger that finds the ROOT CAUSE of any bug — visual/CSS layout, code logic, async/race conditions, API/network failures, backend errors, performance issues, build/tooling problems. Use this skill whenever the user is stuck on a bug or unexpected behavior, regardless of stack or language. The skill auto-routes based on chat context, picks the lightest-weight probe (paste-ready browser-console snippet, injected debug instrumentation in source, or both), follows a strict phase-gated scientific workflow (observe → hypothesize → probe → measure → confirm → fix → cleanup), and removes every line of debug code it injects (unless the user opts to keep one) so nothing leaks into production. Trigger this skill aggressively — for phrases like "why isn't this working", "this is broken", "weird bug", "the page looks wrong", "my API returns 500" — not only when the user literally says "debug".
 ---
 
 # Debugger
@@ -29,7 +29,7 @@ Before generating any output:
    - **Locality hints** — file paths, class names, function names, endpoints, route patterns, error messages, framework names
    - **Stack inference** — frontend/backend/full-stack/WordPress/Node/Python/PHP/etc. (from file extensions, imports, open IDE files, mentions)
 
-Then classify the bug into **one primary domain**. Each domain has a dedicated reference file with diagnostic patterns, snippet templates, and signals to look for:
+Then classify the bug into **one primary domain**. Each domain has a dedicated reference file with diagnostic patterns, probe specs, and signals to look for:
 
 | Domain | When to choose | Reference |
 |---|---|---|
@@ -54,7 +54,7 @@ Every debugging session walks through these seven phases. Each phase has a logic
 > [!IMPORTANT]
 > **Planning Mode Compliance:** 
 > - If you are in Planning Mode, you must draft your platform's plan document first. 
-> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** inside that plan, as a dedicated "Debugging Hypothesis & Probes" section — placed wherever your platform's required plan structure allows. If your platform mandates specific headings for the plan document, follow that layout; don't break it. 
+> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** inside that plan, as a dedicated "Debugging Hypothesis & Probes" section — placed wherever your platform's required plan structure allows. If your platform mandates specific headings for the plan document, follow that layout; don't break it. If you arrived via the Phase 1a fast path (existing signals already named the failure point, no hypotheses were ranked), that section instead states the observed signal and the proposed fix — there's nothing to rank.
 > - Request approval to inject the probe. Once approved, execute the probe, collect data, and update the plan with the final fix. Do not make unapproved source edits.
 > - Only if you are *not* in Planning Mode may you proceed through multiple phases autonomously in a single execution loop — this includes Phase 4's "execute it yourself" instruction below, which is subject to this approval gate whenever Planning Mode is active.
 
@@ -77,7 +77,7 @@ Ask or infer: did this ever work? If yes, narrow the window immediately by readi
 
 ```bash
 git log --oneline -20          # what shipped recently?
-git diff HEAD~5 -- package.json composer.json requirements.txt  # dependency bumps?
+git diff HEAD~5 -- <dependency-manifest-files>  # dependency bumps?
 ```
 
 If it's a confirmed regression with a reliable reproduction step, inspecting the recent commit diffs (`git log -p`) or path-specific diffs (`git diff HEAD~5 -- path/to/file`) helps spot the defect by direct reading — see `references/code-logic.md` for the workflow.
@@ -169,12 +169,14 @@ Note: the failing-test row needs no artifact at all — it skips Phase 3/4 entir
 
 ## Part D — Instrumentation protocol (when injecting debug code)
 
+The domain reference files describe probes as specs, not code: what a probe must collect and the constraints it must obey. Generate the actual probe in whatever language the target file is already written in — don't look for a matching snippet to copy.
+
 Read `references/instrumentation-protocol.md` for the full spec. The non-negotiables:
 
 1. **Tag every line.** Format: `// [DEBUG-<4char-id>] <one-line purpose>` (use `# [DEBUG-<id>]` for Python/Ruby/shell, `/* [DEBUG-<id>] */` for CSS/SCSS, `<!-- [DEBUG-<id>] -->` for HTML/templates).
 2. **Use the same `<id>` for one hypothesis-testing round.** All probes generated to test the same hypothesis share an id, so a single search removes them all.
 3. **Maintain a debug ledger** in the conversation — a running list of `<file>:<line>: [DEBUG-<id>] <purpose>`.
-4. **Never inject probes with persistent side effects** — no DB writes, no extra network calls, no re-ordered flow. In-memory interception that a refresh fully undoes (fetch wrappers, property/descriptor traps) is the one exception, per `instrumentation-protocol.md` §4.
+4. **Never inject probes with persistent side effects** — no DB writes, no extra network calls, no re-ordered flow. Two narrow exceptions are sanctioned in `instrumentation-protocol.md` §4: in-memory, behavior-preserving interception (fetch wrappers, property/descriptor traps — removed by a page refresh in the browser, or by Phase 7 removal on the server) and a same-origin debug trace header. Nothing else qualifies.
 
 ---
 
@@ -216,7 +218,7 @@ Each domain reference file ends with a "**Signals to look for**" section. Use it
 ## Rules
 
 - **No guess-fixes.** If you don't have data confirming the cause, don't change code. Generate another probe instead.
-- **No persistent-side-effect probes.** Diagnostic code observes; it doesn't write to DB, call the network, or change flow order. (In-memory, refresh-reversible interception like fetch wrappers or property traps is the sanctioned exception — see `instrumentation-protocol.md` §4.)
+- **No persistent-side-effect probes.** Diagnostic code observes; it doesn't write to DB, call the network, or change flow order. (Two narrow exceptions — in-memory interception like fetch wrappers/property traps, and a same-origin debug trace header — are sanctioned in `instrumentation-protocol.md` §4.)
 - **Never leave a placeholder** like `SELECTOR`, `ENDPOINT`, or `FILE_PATH` unresolved in the artifact you hand the user. Resolve it from context first.
 - **Never skip Phase 7 cleanup.** Leaked debug logs in production are a real incident risk.
 - **When in doubt, ask** — a clarifying question is cheap; a wrong domain wastes the user's time.
@@ -227,10 +229,10 @@ Each domain reference file ends with a "**Signals to look for**" section. Use it
 
 ## Reference files
 
-- `references/visual-ui.md` — browser-console snippet templates for CSS, layout, cascade, visibility, responsive issues. Preserves the full toolkit from the original ui-debug-console skill.
+- `references/visual-ui.md` — browser-console report spec for CSS, layout, cascade, visibility, responsive issues (what the diagnostic must collect, not language-specific code).
 - `references/code-logic.md` — print-trace bisection, state snapshots, async/race probes, conditional-breakpoint hints, when to use logs vs. interactive debugger vs. failing test.
-- `references/api-network.md` — curl repro from network-tab data, server-log probes, DB query logging strategy (live hooks vs. read-after-execution buffers), JSON shape-diff helper.
-- `references/perf-build.md` — `performance.mark/measure`, render-count counters, profiler hints, build-error triage (first error in cascade, not last), env-var diffing.
+- `references/api-network.md` — curl repro from network-tab data, server-log probes, DB query logging strategy (live hooks vs. read-after-execution buffers), JSON shape-diff spec.
+- `references/perf-build.md` — timing/render-count/memory probe specs, profiler hints, build-error triage (first error in cascade, not last), env-var diffing.
 - `references/instrumentation-protocol.md` — `[DEBUG-<id>]` tag spec, ledger template, cleanup checklist.
 
-Read the relevant domain file *before* generating the probe in Phase 3 — it has the snippet patterns and analysis signals you'll need.
+Read the relevant domain file *before* generating the probe in Phase 3 — it has the probe specs and analysis signals you'll need.

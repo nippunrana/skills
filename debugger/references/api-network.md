@@ -22,18 +22,15 @@ API/network bugs almost always involve **two sides** — the client view and the
 
 ### Reproducible curl (`client-request`)
 
-Right-click the request in DevTools → Network tab → "Copy as cURL" (this step is inherently user-side — DevTools only runs in their browser). Once you have the command: if you have shell access, run it yourself per Phase 4's Agentic Execution path — don't ask the user to do it. Only ask the user to run it themselves if you're in a read-only environment with no shell access. Strip auth tokens before *sharing* the command in chat (not before running it — the token is needed to reproduce the request). If the curl reproduces the bug, the bug is server-side. If the curl works but the in-app call fails, the bug is in how the client builds the request (headers, body serialization, credentials).
+Right-click the request in DevTools → Network tab → "Copy as cURL" (this step is inherently user-side — DevTools only runs in their browser). This gives you the exact method, URL, headers, and body the client sent — use it to diff against what you expected, and replay it to isolate client vs. server.
 
-```bash
-# Trimmed example
-curl -X POST 'https://api.example.com/v1/checkout' \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer <TOKEN>' \
-  -d '{"items":[{"id":42,"qty":2}],"coupon":"SUMMER"}' \
-  -i  # include response headers
-```
+**Before replaying, classify the method:**
+- **Safe/idempotent (GET, HEAD, or a known-idempotent endpoint)** — run it yourself per Phase 4's Agentic Execution path if you have shell access. Don't ask the user to do it.
+- **Mutating (POST, PUT, PATCH, DELETE)** — replaying it re-triggers the side effect (a real order, a real charge, a real email). Only replay against a dev/staging environment, or confirm with the user first that a replay against this environment is safe. This is a probe-safety rule (see Probe Rule §4 in `instrumentation-protocol.md`), not optional caution.
 
-If the in-app call ≠ this curl, diff the headers and body. The in-app call is what DevTools "Copy as cURL" actually captures from the real request.
+Only ask the user to run the curl themselves if you're in a read-only environment with no shell access. Strip auth tokens before *sharing* the command in chat (not before running it — the token is needed to reproduce the request).
+
+If the curl reproduces the bug, the bug is server-side. If the curl works but the in-app call fails, diff the headers and body — the bug is in how the client builds the request (headers, body serialization, credentials).
 
 ### Trace correlation (`trace-correlation`)
 
@@ -58,18 +55,9 @@ Modern distributed systems propagate a request ID across the network boundary so
                    └──────── trace-id (search this) ────────┘
    ```
 3. Search wherever your server logs land — exact match on the ID:
-   ```bash
-    # Search log files (using shell search tools, log viewer, or your native tools)
-    grep '4bf92f3577b34da6a3ce929d0e0e4736' /var/log/app/*.log
-    grep -r '4bf92f3577b34da6a3ce929d0e0e4736' wp-content/debug.log
-
-   # Aggregators (query syntax varies)
-   # Datadog:    @trace_id:4bf92f3577b34da6a3ce929d0e0e4736
-   # Sentry:     trace:4bf92f3577b34da6a3ce929d0e0e4736
-   # Honeycomb:  trace.trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
-   # Loki:       {app="api"} |= "4bf92f3577b34da6a3ce929d0e0e4736"
-   # CloudWatch: fields @timestamp, @message | filter @message like /4bf92f35.../
-   ```
+   Use your native search tools, log viewers, or aggregators:
+   - **Log files:** Run a recursive search for the exact trace ID string within your server log files/directories.
+   - **Log aggregators / dashboards:** Filter logs by querying the trace/correlation ID field (e.g., matching the trace ID variable, trace attribute, or a plain-text filter).
 4. The matching lines pin the exact handler invocation, with surrounding context (timing, errors, downstream DB queries, queued jobs, third-party calls) — without injecting a single probe.
 
 **If no trace ID is present** (system isn't propagating context), in order of preference:
@@ -79,85 +67,26 @@ Modern distributed systems propagate a request ID across the network boundary so
 
 > **Caution — this probe is not side-effect-free for cross-origin requests.** Adding a custom header turns a "simple" cross-origin request into one that requires a CORS preflight (OPTIONS). If the server's CORS config doesn't already allow-list `X-Debug-Trace`, the probe *creates* a CORS failure that wasn't there before, masking the bug you're chasing. It can also break requests signed with HMAC/SigV4, since the signature was computed without this header. Use this only for same-origin requests, or first confirm the server's `Access-Control-Allow-Headers` will accept the new header.
 
-```javascript
-// Client — paste in console to attach a per-session debug header to every fetch
-const DEBUG_TRACE = 'dbg-' + Math.random().toString(36).slice(2, 10);
-const orig = window.fetch;
-window.fetch = (input, init = {}) => {
-  const request = new Request(input, init); // merges init even when input is already a Request
-  request.headers.set('X-Debug-Trace', DEBUG_TRACE);
-  return orig(request);
-};
-console.log('[DEBUG-<id>] session trace:', DEBUG_TRACE);
-```
+**Client side:** intercept the client's outbound-request mechanism (a fetch/HTTP-client wrapper, an interceptor hook) so every request gets one extra header — a per-session random value generated once, reused for every request in that session. Merge it into any existing headers rather than replacing them, so an already-in-flight header set from the request isn't dropped. Log the generated value once, tagged, so you can search for it in server logs.
 
-Server side: at the earliest point every request passes through (the framework's middleware/interceptor layer, not each individual handler), read the `X-Debug-Trace` header and log it alongside the method/path — one line, tagged `[DEBUG-<id>]`. Registering it once at the middleware layer means you don't have to touch every handler.
+**Server side:** at the earliest point every request passes through (the framework's middleware/interceptor layer, not each individual handler), read the debug-trace header and log it alongside the method/path — one line, tagged. Registering it once at the middleware layer means you don't have to touch every handler.
 
-**Worker / queue boundaries** (BullMQ, Celery, Sidekiq, SQS, RabbitMQ) are where trace context usually gets dropped — the producer enqueues a job without attaching the trace, so the consumer's logs are orphaned. If the bug spans a job, verify the producer writes the trace into the job payload and the consumer reads it back into its logging context. This handoff is a common defect site, not just an observability gap.
+**Worker / queue boundaries** (background job queues, message brokers, pub-sub systems) are where trace context usually gets dropped — the producer enqueues a job without attaching the trace, so the consumer's logs are orphaned. If the bug spans a job, verify the producer writes the trace into the job payload and the consumer reads it back into its logging context. This handoff is a common defect site, not just an observability gap.
 
-### Client-side request snippet (no source edits)
+### Client-side request logger (no source edits)
 
-```javascript
-// Paste in console — wraps fetch to log every request and response.
-// This snippet is console-only and discarded on refresh (see below), so it's
-// exempt from the "one id per hypothesis round" rule — a fresh id per request
-// just makes the log easier to read; it doesn't affect cleanup.
-(() => {
-  const orig = window.fetch;
-  window.fetch = async (input, init) => {
-    const id = Math.random().toString(36).slice(2, 6);
-    const method = (input instanceof Request ? input.method : (init?.method || 'GET'));
-    const url = (input instanceof Request ? input.url : input);
-    
-    let reqBody = '';
-    if (init?.body) {
-      reqBody = typeof init.body === 'string' ? init.body : '[Payload Body]';
-    } else if (input instanceof Request && input.body) {
-      reqBody = '[Request Body]';
-    }
-    
-    console.log(`[DEBUG-${id}] → ${method} ${url}`, reqBody);
-    const t0 = performance.now();
-    try {
-      const r = await orig(input, init);
-      const clone = r.clone();
-      // Read response body asynchronously so we don't block the caller from consuming the stream
-      clone.text().then(body => {
-        console.log(`[DEBUG-${id}] ← ${r.status} ${(performance.now()-t0).toFixed(0)}ms`, body.slice(0, 500));
-      }).catch(() => {
-        console.log(`[DEBUG-${id}] ← ${r.status} ${(performance.now()-t0).toFixed(0)}ms [unreadable body]`);
-      });
-      return r;
-    } catch (e) {
-      console.log(`[DEBUG-${id}] ✗ ${(performance.now()-t0).toFixed(0)}ms`, e);
-      throw e;
-    }
-  };
-  console.log('[Debug] fetch wrapper installed. Refresh to remove.');
-})();
-```
+A console-only probe: wrap the browser's request mechanism (fetch or equivalent) so every outbound request and its response get logged — method, URL, request body, response status, timing, and response body (truncated). Two constraints matter more than the exact code:
 
-Refresh removes it — no cleanup needed for this probe.
+- **Duplicate the response before reading its body.** Response bodies are typically single-read streams; if you consume the original to log it, the caller that's supposed to receive the response gets nothing. Clone/duplicate it first, read the clone.
+- **Don't block the original call on your logging.** Read the cloned body asynchronously so the real response returns to its caller without added latency.
+
+This snippet is console-only and discarded on page refresh, so no cleanup is needed and it's exempt from the "one id per hypothesis round" rule (protocol §2) — a fresh id per request is fine, it just makes the log easier to read.
 
 ### Server-handler instrumentation (`server-receipt`, `handler-flow`)
 
-Inject `[DEBUG-<id>]` logs at: handler entry, every branch decision, every external call (DB, third-party API, queue), handler exit. Log the inbound payload's *keys/shape*, not the raw body (see Probe Rule §4 — don't log secrets), and the resolved user/session identity if one exists.
+Inject tagged logs at: handler entry, every branch decision (especially early returns/short-circuits), every external call (DB, third-party API, queue), and handler exit. At entry, log the inbound payload's *keys/shape*, not the raw body (see Probe Rule §4 — don't log secrets), plus the resolved user/session identity if one exists. At exit, log the shape of what's about to be returned.
 
-```javascript
-// Generic shape — [DEBUG-<id>]
-function handler(request) {
-  log('[DEBUG-<id>] handler in', { bodyKeys: Object.keys(request.body || {}), user: request.user?.id }); // [DEBUG-<id>]
-  if (!isValid(request.body)) {
-    log('[DEBUG-<id>] short-circuit: invalid body'); // [DEBUG-<id>]
-    return respond(400, { error: 'invalid body' });
-  }
-  const result = doTheWork(request.body);
-  log('[DEBUG-<id>] handler done', { resultId: result.id }); // [DEBUG-<id>]
-  return respond(200, result);
-}
-```
-
-Use the runtime's server-side logging channel rather than an unguaranteed stdout print, so the message reliably lands in the log instead of being silently dropped when stdout is discarded (e.g. behind a FastCGI/PHP-FPM process, or a Python WSGI worker with stdout unbuffered/redirected). Most server runtimes distinguish a "write to stdout" call (`print`, bare `puts`) from a "write to the configured log" call (a logger object, `error_log`-style function) — prefer the latter unless you've confirmed the process manager captures stdout as the server log (true for Node under pm2/Docker/systemd, often true for containerized services, not reliably true for classic PHP/CGI or WSGI setups).
+Use the runtime's server-side logging channel rather than an unguaranteed stdout print, so the log reliably records the message instead of being silently dropped when stdout is discarded (e.g. by web server gateways, container runners, or process managers). Most server runtimes distinguish a "write to stdout" call from a "write to the configured log" call (a logger object, error log stream, etc.) — prefer the latter unless you've confirmed stdout is captured as the primary server log.
 
 ### DB-query logging (`db-query`)
 
@@ -172,18 +101,7 @@ For slow queries, prepend `EXPLAIN ANALYZE` (Postgres/MySQL) to the suspect quer
 
 ### Response shape diff (`response-shape`)
 
-When the API "works" but the client crashes parsing the response:
-
-```javascript
-// In console — diff expected keys against actual
-const expected = ['id', 'total', 'items', 'customer'];
-fetch('/api/order/123').then(r => r.json()).then(o => {
-  const actual = Object.keys(o);
-  console.log('missing:', expected.filter(k => !actual.includes(k)));
-  console.log('extra:',   actual.filter(k => !expected.includes(k)));
-  console.log('actual payload:', o);
-});
-```
+When the API "works" but the client crashes parsing the response: fetch the endpoint, parse the body, and diff its actual top-level keys against the keys the client code expects — log what's missing, what's extra, and the full actual payload.
 
 Common causes: serializer changed, field renamed, nested key flattened, null where an array was expected.
 

@@ -18,116 +18,35 @@ The probe mode here is usually **injected debug code** tagged per `instrumentati
 
 ## 2. Probe patterns
 
+Each pattern below is a spec, not a snippet — generate the actual probe in the project's own language, following the `[DEBUG-<id>]` tagging protocol (`instrumentation-protocol.md`) for the comment syntax and dual tag placement.
+
 ### State snapshot (`state-snapshot`)
 
-Log a snapshot of all relevant local state at the moment you suspect things go wrong. Use object shorthand so variable names are preserved.
-
-```javascript
-// [DEBUG-<id>] state snapshot at <function>:<reason>
-console.log('[DEBUG-<id>]', { foo, bar, isValid, this_state: this.state });
-```
-
-```python
-# [DEBUG-<id>] state snapshot at <function>:<reason>
-import json; print('[DEBUG-<id>]', json.dumps({'foo': foo, 'bar': bar, 'is_valid': is_valid}, default=str))
-```
-
-```php
-// [DEBUG-<id>] state snapshot at <function>:<reason>
-error_log('[DEBUG-<id>] ' . json_encode(['foo' => $foo, 'bar' => $bar]));
-```
+Log every variable you suspect is wrong, in one line, at the exact point you suspect things go wrong. Use a structure that preserves variable names (an object/dict/hash literal, not positional values) so the output is self-explanatory without re-reading the source. If the runtime has no built-in structured serializer, format key-value pairs manually.
 
 ### Print-trace bisection (`bisect-flow`)
 
-When you don't know *where* the flow goes wrong, place markers at function boundaries and major branches. After one round, halve the suspect range. This is binary search applied to runtime control flow.
-
-```javascript
-console.log('[DEBUG-<id>] A: entered handleSubmit');        // [DEBUG-<id>] flow marker A
-// ...
-if (cond) {
-  console.log('[DEBUG-<id>] B: cond=true branch');          // [DEBUG-<id>] flow marker B
-} else {
-  console.log('[DEBUG-<id>] C: cond=false branch');         // [DEBUG-<id>] flow marker C
-}
-// ...
-console.log('[DEBUG-<id>] D: about to call API');           // [DEBUG-<id>] flow marker D
-```
-
-The marker that **fails to appear** in the output narrows the search. The marker right *before* the missing one is your new suspect zone.
+When you don't know *where* the flow goes wrong, place a marker at each function boundary and major branch (if/else, switch cases, early returns), each with a distinct label (A, B, C...) so you can tell which one fired. After one round, the marker that **fails to appear** narrows the search — the marker right *before* the missing one is your new suspect zone. This is binary search applied to runtime control flow.
 
 ### Async ordering (`async-order`)
 
-Wrap awaits with timestamped before/after markers. If the order across runs is non-deterministic, you've found a race.
-
-```javascript
-console.log('[DEBUG-<id>] before fetchUser', performance.now());        // [DEBUG-<id>]
-const u = await fetchUser();
-console.log('[DEBUG-<id>] after fetchUser', performance.now(), u?.id);  // [DEBUG-<id>]
-
-console.log('[DEBUG-<id>] before saveDraft', performance.now());        // [DEBUG-<id>]
-await saveDraft();
-console.log('[DEBUG-<id>] after saveDraft', performance.now());         // [DEBUG-<id>]
-```
-
-```python
-# [DEBUG-<id>]
-import time; print(f'[DEBUG-<id>] before fetch_user t={time.time():.4f}')
-u = await fetch_user()
-print(f'[DEBUG-<id>] after fetch_user t={time.time():.4f} id={u.id if u else None}')
-```
+Wrap each async operation you suspect with a timestamped marker immediately before and immediately after it — use the runtime's monotonic clock (not wall-clock time, which can jump) so durations are trustworthy. If the before/after order across two or more operations is non-deterministic between runs, you've found a race; the fix is sequencing (await, lock, queue), not a retry.
 
 ### Render-loop counter (`render-loop`)
 
-For a component (React, Vue, Svelte, or any other component-based UI framework) that re-renders unexpectedly, drop a counter at the top of the render/component body. A plain global counter keyed by the debug id works regardless of which framework's own state-hook idioms are current:
+For a component (React, Vue, Svelte, or any component-based UI framework) that re-renders unexpectedly, increment a counter at the top of the render/component body and log it alongside the props/state you suspect are changing. Prefer the framework's own idiomatic per-instance counter (a ref/state primitive that survives re-renders but not remounts) if one exists; a scoped module-level or global counter keyed by the debug id is an acceptable fallback when no such primitive fits.
 
-```javascript
-// Top of component body — framework-agnostic
-// Bracket notation, not a dotted property: `<id>` is a placeholder and isn't
-// valid inside a bare JS identifier, so this stays valid syntax even if you
-// forget to substitute it before injecting.
-window['__renderCount_<id>'] = (window['__renderCount_<id>'] || 0) + 1;
-console.log(`[DEBUG-<id>] render #${window['__renderCount_<id>']}`, { /* relevant props/state */ }); // [DEBUG-<id>]
-```
-
-If your framework has its own idiomatic per-instance counter (a ref/state primitive that survives re-renders but not remounts), prefer that where it's a more natural fit — the pattern is the same either way: increment on every render, log the count plus the props/state you suspect are changing.
-
-If the count climbs faster than expected, log the props/state alongside it and find what's changing every render. Common culprits: inline object/array literals as props, missing memoization, parent re-renders, a framework's development-mode double-invoke behavior (check whether the framework in use has one before treating a 2x count as a real bug).
+If the count climbs faster than expected, find what's different on each render. Common culprits: inline object/array/function literals passed as props (a new reference every render), missing memoization, a parent re-rendering unnecessarily, or a framework's development-mode double-invoke behavior — check whether the framework in use has one before treating a 2x count as a real bug.
 
 ### Value-mutation trap (`value-mutation`)
 
-When a value is being changed somewhere you can't find, replace the variable with a property that traps writes:
+When a value changes somewhere you can't find the writer, replace direct access to it with an intercepted accessor (a property getter/setter, a descriptor, or the language's equivalent trap mechanism) that logs the new value and the call stack of the write, then delegates to the real storage.
 
-```javascript
-// [DEBUG-<id>] trap writes to window.myConfig.token
-let _token = window.myConfig.token;
-Object.defineProperty(window.myConfig, 'token', {
-  get: () => _token,
-  set: (v) => { console.trace('[DEBUG-<id>] token written:', v); _token = v; },
-  configurable: true,
-});
-```
-
-```python
-# [DEBUG-<id>] property trap on a class attribute
-class _TrapDescriptor:
-    def __init__(self, name): self.name = '_' + name
-    def __get__(self, obj, _): return getattr(obj, self.name, None)
-    def __set__(self, obj, v):
-        import traceback; traceback.print_stack()
-        print(f'[DEBUG-<id>] {self.name} written: {v!r}')
-        setattr(obj, self.name, v)
-
-# Attach to the CLASS, never to an instance — descriptors only intercept
-# get/set when they live in the class __dict__. Assigning one to an
-# instance attribute just overwrites the value and traps nothing:
-SomeClass.token = _TrapDescriptor('token')    # correct
-# some_obj.token = _TrapDescriptor('token')   # wrong — silently does nothing
-```
-Doesn't work unmodified on classes using `__slots__` (no per-instance `__dict__` for `setattr` to write into) — skip this probe for those, use `state-snapshot` instead.
-
-Also: the descriptor only traps writes/reads *from the moment it's attached*. If `token` already holds a per-instance value on existing objects, the first read after attaching returns `None` (the shadow `_token` doesn't exist yet) until the next write — silently losing the current value. Before attaching, seed the shadow from any live instances: `for obj in live_instances: obj.__dict__['_token'] = obj.__dict__.pop('token', None)`.
-
-`console.trace` (or Python's `traceback.print_stack()`) prints the call site of every write, so you find the rogue mutator.
+Constraints that apply regardless of language:
+- **Attach the trap at the class/prototype level, not on a single instance** — instance-level assignment just overwrites the value and traps nothing.
+- **Seed the trap from existing values before attaching it.** The trap only observes writes from the moment it's installed; if the target already holds a value on live objects, the first read post-attachment can return empty/`None` until the next write, silently losing the current value. Copy the existing value into the trap's backing storage as part of installation.
+- **Skip this probe where the language or runtime object-model doesn't support descriptors or dynamic wrappers** (e.g. sealed/frozen objects or structures with locked attribute spaces) — fall back to `state-snapshot` instead.
+- Print or trace the full call stack on every trapped write, not just the new value — the stack tells you *which* code path is the rogue mutator.
 
 ---
 
@@ -141,7 +60,7 @@ Also: the descriptor only traps writes/reads *from the moment it's attached*. If
 | The bug is reproducible by a specific test that fails | **Write a failing test first**, then debug inside the test runner |
 | The bug is a regression (it worked before) and there's a command that reliably reproduces it | **`git log` / `git diff`** — read-only history and diff inspection; see git history inspection below |
 
-If a project has Jest/Vitest/Pytest/PHPUnit configured, prefer making the bug reproduce in a test. That gives you a tight feedback loop and the test becomes the permanent regression case.
+If a project has an automated testing framework configured, prefer making the bug reproduce in a test. That gives you a tight feedback loop and the test becomes the permanent regression case.
 
 ### Git history inspection (`git-history`)
 
