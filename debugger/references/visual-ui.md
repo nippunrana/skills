@@ -82,14 +82,26 @@ while (node && node !== document.body && ancestry.length < 5) {
 **CSS cascade** — which rules are actually matching this element and from where:
 ```javascript
 const cascade = [];
+function checkRule(rule, src) {
+  if (rule.selectorText) {
+    try {
+      if (el.matches(rule.selectorText)) {
+        cascade.push({ selector: rule.selectorText, source: src, css: rule.style.cssText });
+      }
+    } catch(e) {}
+  } else if (rule.cssRules) {
+    const condition = rule.conditionText || rule.name || 'group';
+    for (const subRule of rule.cssRules) {
+      checkRule(subRule, `${src} (@media ${condition})`);
+    }
+  }
+}
+
 for (const sheet of document.styleSheets) {
   let rules; try { rules = sheet.cssRules; } catch(e) { continue; }
   const src = (sheet.href || 'inline').split('/').slice(-2).join('/');
   for (const rule of rules) {
-    try {
-      if (rule.selectorText && el.matches(rule.selectorText))
-        cascade.push({ selector: rule.selectorText, source: src, css: rule.style.cssText });
-    } catch(e) {}
+    try { checkRule(rule, src); } catch(e) {}
   }
 }
 ```
@@ -149,7 +161,7 @@ const mq = {
 // add mq to report
 ```
 
-**`cascade`** (specificity conflicts, especially WordPress) — after building `cascade`, add specificity scores:
+**`cascade`** (specificity conflicts, especially WordPress) — after building `cascade`, add specificity scores. *(Note: This basic specificity estimator may inflate scores for comma-separated grouping selectors and treat pseudo-elements as pseudo-classes)*:
 ```javascript
 function specificity(s) {
   return (s.match(/#[\w-]+/g)||[]).length * 100 +

@@ -19,9 +19,11 @@ LLMs often "fix" bugs by pattern-matching on symptoms — adding null checks, wr
 
 ---
 
-## Step 1 — Read context & route to a domain
+## Step 1 — Read context, align with global rules & route to a domain
 
-Before generating any output, silently scan the conversation and the user's open files for:
+Before generating any output:
+1. **Rule 0 Check:** Look for `ai-context.md` or `AGENTS.md` in the project root. Read them to check if there are custom logging setups or diagnostic commands before proceeding.
+2. **Scan:** Silently scan the conversation and the user's open files for:
 
 1. **The symptom** — what is wrong, exactly? Wrong output? Wrong layout? No response? Slow? Crashes?
 2. **The expectation** — what should happen instead?
@@ -46,7 +48,14 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 
 ## Step 2 — Run the phase-gated workflow
 
-Every debugging session walks through these seven phases. Each phase has a logical checkpoint. **Checkpoints are logical gates, not conversational pauses.** You may proceed through multiple phases autonomously in a single execution loop. You do not need to pause for user confirmation unless you explicitly require manual user action. Each phase has a purpose; understanding the purpose lets you handle edge cases without breaking the workflow.
+Every debugging session walks through these seven phases. Each phase has a logical checkpoint.
+
+> [!IMPORTANT]
+> **Planning Mode Compliance:** 
+> - If you are in Planning Mode, you must draft your `implementation_plan.md` first. 
+> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** directly inside the implementation plan. 
+> - Request approval to inject the probe. Once approved, execute the probe, collect data, and update the plan/walkthrough with the final fix. Do not make unapproved source edits.
+> - Only if you are *not* in Planning Mode may you proceed through multiple phases autonomously in a single execution loop.
 
 ### Phase 1 — Observe
 
@@ -127,7 +136,10 @@ Match the data against the ranked hypotheses:
 **Checkpoint:** failing test written and confirmed failing; fix applied; test now passes; for architectural bugs, the design-level cause is named even if a follow-up issue is filed rather than fixed in this pass.
 
 ### Phase 7 — Cleanup (NEVER SKIP THIS)
-Remove every line of debug instrumentation injected during Phases 3–5. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them, then verify using your native **`grep_search`** tool to search for the `[DEBUG-` tag across the workspace.
+Remove every line of debug instrumentation injected during Phases 3–5. 
+1. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them.
+2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed to adhere to the Surgical Changes rule.
+3. Verify using your native **`grep_search`** tool to search for the `[DEBUG-` tag across the workspace.
 
 The `grep_search` must return **zero matches**. Console snippets and the ledger entry are both discarded.
 
