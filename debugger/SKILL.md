@@ -73,14 +73,14 @@ If existing signals already identify the failure point, go directly to Phase 5 w
 
 **1b — Delta check: is this a regression?**
 
-Ask or infer: did this ever work? If yes, narrow the window immediately:
+Ask or infer: did this ever work? If yes, narrow the window immediately by reading recent changes (do not check out or modify the git tree):
 
 ```bash
 git log --oneline -20          # what shipped recently?
 git diff HEAD~5 -- package.json composer.json requirements.txt  # dependency bumps?
 ```
 
-If it's a confirmed regression with a reliable reproduction step, `git bisect` eliminates entire suspect ranges without any probes — see `references/code-logic.md` for the workflow. It's almost always faster than instrumenting.
+If it's a confirmed regression with a reliable reproduction step, inspecting the recent commit diffs (`git log -p`) or path-specific diffs (`git diff HEAD~5 -- path/to/file`) helps spot the defect by direct reading — see `references/code-logic.md` for the workflow.
 
 **1c — State the symptom and expectation**
 
