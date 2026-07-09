@@ -81,13 +81,15 @@ Modern distributed systems propagate a request ID across the network boundary so
 // Client — paste in console to attach a per-session debug header to every fetch
 const DEBUG_TRACE = 'dbg-' + Math.random().toString(36).slice(2, 10);
 const orig = window.fetch;
-window.fetch = (url, opts = {}) => {
-  // new Headers(...) normalizes a Headers instance, an array of pairs, or a
-  // plain object without dropping existing entries — a plain object spread
-  // silently discards them when opts.headers is already a Headers instance.
-  const headers = new Headers(opts.headers || {});
-  headers.set('X-Debug-Trace', DEBUG_TRACE);
-  return orig(url, { ...opts, headers });
+window.fetch = (input, init = {}) => {
+  let request;
+  if (input instanceof Request) {
+    request = input.clone();
+  } else {
+    request = new Request(input, init);
+  }
+  request.headers.set('X-Debug-Trace', DEBUG_TRACE);
+  return orig(request);
 };
 console.log('[DEBUG-<id>] session trace:', DEBUG_TRACE);
 ```
@@ -112,16 +114,29 @@ app.use((req, _res, next) => {
 // just makes the log easier to read; it doesn't affect cleanup.
 (() => {
   const orig = window.fetch;
-  window.fetch = async (...args) => {
-    const [url, opts = {}] = args;
+  window.fetch = async (input, init) => {
     const id = Math.random().toString(36).slice(2, 6);
-    console.log(`[DEBUG-${id}] →`, opts.method || 'GET', url, opts.body || '');
+    const method = (input instanceof Request ? input.method : (init?.method || 'GET'));
+    const url = (input instanceof Request ? input.url : input);
+    
+    let reqBody = '';
+    if (init?.body) {
+      reqBody = typeof init.body === 'string' ? init.body : '[Payload Body]';
+    } else if (input instanceof Request && input.body) {
+      reqBody = '[Request Body]';
+    }
+    
+    console.log(`[DEBUG-${id}] → ${method} ${url}`, reqBody);
     const t0 = performance.now();
     try {
-      const r = await orig(...args);
+      const r = await orig(input, init);
       const clone = r.clone();
-      const body = await clone.text();
-      console.log(`[DEBUG-${id}] ← ${r.status} ${(performance.now()-t0).toFixed(0)}ms`, body.slice(0, 500));
+      // Read response body asynchronously so we don't block the caller from consuming the stream
+      clone.text().then(body => {
+        console.log(`[DEBUG-${id}] ← ${r.status} ${(performance.now()-t0).toFixed(0)}ms`, body.slice(0, 500));
+      }).catch(() => {
+        console.log(`[DEBUG-${id}] ← ${r.status} ${(performance.now()-t0).toFixed(0)}ms [unreadable body]`);
+      });
       return r;
     } catch (e) {
       console.log(`[DEBUG-${id}] ✗ ${(performance.now()-t0).toFixed(0)}ms`, e);

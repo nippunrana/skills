@@ -52,13 +52,15 @@ For React DevTools users: open the **Profiler** tab and record. It shows which c
 ```javascript
 // Snapshot heap size at intervals
 const samples = [];
-const id = setInterval(() => {
-  if (performance.memory) {
+if (!performance.memory) {
+  console.warn('[DEBUG-<id>] performance.memory is not supported in this browser (Chrome/Chromium required).');
+} else {
+  const id = setInterval(() => {
     samples.push({ t: Date.now(), heap: (performance.memory.usedJSHeapSize/1048576).toFixed(1) + 'MB' });
     console.log('[DEBUG-<id>]', samples.at(-1));
-  }
-}, 2000);
-// Stop with: clearInterval(id);
+  }, 2000);
+  console.log('[DEBUG-<id>] Heap sampling started. Stop with: clearInterval(' + id + ');');
+}
 ```
 
 If `heap` climbs monotonically while the app sits idle → leak. To find what holds the references: DevTools → Memory → take a heap snapshot, do the action that should free things, take another snapshot, diff them, look for objects that should have been collected.

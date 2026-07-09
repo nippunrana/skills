@@ -112,8 +112,17 @@ const cs = getComputedStyle(el);
 // `computed` is filled by the targeted section below
 const report = { env, selector: sel, box, computed, ancestry, cascade };
 console.log('%c[UI Debug Report]', 'font-size:13px;font-weight:bold;color:#4ade80;background:#111;padding:4px 8px;border-radius:4px');
-console.log(JSON.stringify(report, null, 2));
-try { copy(JSON.stringify(report, null, 2)); console.log('%c✓ Copied to clipboard', 'color:#60a5fa'); } catch(e) {}
+const jsonReport = JSON.stringify(report, null, 2);
+console.log(jsonReport);
+if (typeof copy === 'function') {
+  try { copy(jsonReport); console.log('%c✓ Copied to clipboard (DevTools)', 'color:#60a5fa'); } catch(e) {}
+} else if (navigator.clipboard && navigator.clipboard.writeText) {
+  navigator.clipboard.writeText(jsonReport)
+    .then(() => console.log('%c✓ Copied to clipboard (Clipboard API)', 'color:#60a5fa'))
+    .catch(() => console.log('%cℹ Please copy the report manually from the console output above.', 'color:#fbbf24'));
+} else {
+  console.log('%cℹ Please copy the report manually from the console output above.', 'color:#fbbf24');
+}
 ```
 
 ### Targeted sections by sub-category
