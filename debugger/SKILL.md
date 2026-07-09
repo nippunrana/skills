@@ -49,7 +49,7 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 
 Every debugging session walks through these seven phases. Each phase has a logical checkpoint.
 
-> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is narrower than the Phase 1a shortcut below: Phase 1a still routes observed signals through Phase 5's "match against hypotheses" step (treating the signal as a confirmed finding); here there's nothing to match at all, because the defect is named outright. **Exception:** if your platform's enforced plan/approval mode (a mode that blocks edits until the user approves a plan — not merely a habit of writing plans for non-trivial tasks) is active, that approval gate still applies — describe the trivial fix in the plan and get approval rather than applying it directly.
+> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is narrower than the Phase 1a shortcut below: Phase 1a still routes observed signals through Phase 5's confirm-or-refute step (which treats the signal as a confirmed finding rather than matching it against ranked hypotheses); here there's nothing to match at all, because the defect is named outright. **Exception:** if your platform's enforced plan/approval mode (a mode that blocks edits until the user approves a plan — not merely a habit of writing plans for non-trivial tasks) is active, that approval gate still applies — describe the trivial fix in the plan and get approval rather than applying it directly.
 
 > [!IMPORTANT]
 > **Planning Mode Compliance:** 
@@ -89,7 +89,7 @@ Now state both in one sentence each, in your own words. Vague problems lead to v
 > Symptom: The Save button stays disabled even after all required fields are filled.
 > Expectation: It should enable as soon as the form is valid.
 
-**Checkpoint:** existing signals checked, delta check done, symptom + expectation written. User confirms (implicitly via continuing, or explicitly).
+**Checkpoint:** existing signals checked, delta check done (or explicitly skipped per 1a's fast path), symptom + expectation written. User confirms (implicitly via continuing, or explicitly).
 
 ### Phase 2 — Hypothesize
 List **2–3 ranked hypotheses** for the root cause. For each, name the **cheapest probe** that could disprove it.
@@ -143,7 +143,7 @@ Remove every line of debug instrumentation injected during Phases 3–5.
 2. **Clean up orphaned imports:** Ensure any helper libraries (e.g. `import json` or framework utils) imported at the top of the file solely for the probe are also removed.
 3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in `references/instrumentation-protocol.md`. Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback.
 
-The search must return **zero matches** in source files (matches inside documentation/skill files, or probes the user chose to keep per the recovery flow, are excluded and should be listed, not removed). Console snippets are discarded; the ledger is marked CLOSED per the protocol.
+The search must return **zero matches** in source files (matches inside documentation/skill files, or probes the user chose to keep per the recovery flow, are excluded and should be listed, not removed). Console snippets are discarded; the ledger is marked CLOSED (or PARTIAL, if any probes were intentionally kept) per the protocol.
 
 **Checkpoint:** search returns nothing. Tell the user "all debug instrumentation removed."
 

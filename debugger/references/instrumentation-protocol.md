@@ -107,7 +107,7 @@ Before declaring the bug fixed, run this checklist:
 4. **For the curl-wrapper / fetch-wrapper / property-trap probes** that live only in DevTools console: they're discarded by page refresh, but tell the user to refresh anyway so it's clear nothing is lingering.
 5. **For DB-query logging hooks** (Laravel `DB::listen`, Rails subscribers, `SAVEQUERIES`): revert the config change too.
 6. **For `WP_DEBUG = true`** changes in wp-config.php: ask the user whether they want to keep debug logging enabled or revert it. Don't decide for them — some sites leave it on in dev.
-7. **Close the ledger.** Update the ledger header to `CLOSED` with a count of removed lines.
+7. **Close the ledger.** Update the ledger header to `CLOSED` with a count of removed lines. If any entries were intentionally left in place per §6, mark the ledger `PARTIAL` instead and list which entries remain open and why.
 8. **Tell the user explicitly:** "All debug instrumentation removed. Search shows zero matches in source files." (If any probes were intentionally kept per §6, name them instead of claiming zero matches.)
 
 If you can't physically search the codebase (e.g., restricted environment), ask the user to search for `[DEBUG-` and confirm it is clean. Don't skip the verification.

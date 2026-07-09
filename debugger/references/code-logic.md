@@ -130,6 +130,8 @@ SomeClass.token = _TrapDescriptor('token')    # correct
 ```
 Doesn't work unmodified on classes using `__slots__` (no per-instance `__dict__` for `setattr` to write into) — skip this probe for those, use `state-snapshot` instead.
 
+Also: the descriptor only traps writes/reads *from the moment it's attached*. If `token` already holds a per-instance value on existing objects, the first read after attaching returns `None` (the shadow `_token` doesn't exist yet) until the next write — silently losing the current value. Before attaching, seed the shadow from any live instances: `for obj in live_instances: obj.__dict__['_token'] = obj.__dict__.pop('token', None)`.
+
 `console.trace` (or Python's `traceback.print_stack()`) prints the call site of every write, so you find the rogue mutator.
 
 ---
