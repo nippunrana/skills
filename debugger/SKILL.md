@@ -49,10 +49,12 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 
 Every debugging session walks through these seven phases. Each phase has a logical checkpoint.
 
+> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is a narrower version of the Phase 1a shortcut below, for cases where even Phase 1a's "match against hypotheses" step is unnecessary.
+
 > [!IMPORTANT]
 > **Planning Mode Compliance:** 
 > - If you are in Planning Mode, you must draft your platform's plan document first. 
-> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** directly inside that plan. 
+> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** inside that plan, as a dedicated "Debugging Hypothesis & Probes" section — placed wherever your platform's required plan structure allows. If your platform mandates specific headings for the plan document, follow that layout; don't break it. 
 > - Request approval to inject the probe. Once approved, execute the probe, collect data, and update the plan with the final fix. Do not make unapproved source edits.
 > - Only if you are *not* in Planning Mode may you proceed through multiple phases autonomously in a single execution loop — this includes Phase 4's "execute it yourself" instruction below, which is subject to this approval gate whenever Planning Mode is active.
 
@@ -110,7 +112,7 @@ If you inject code, every line MUST follow the tagging protocol in `references/i
 ### Phase 4 — Collect
 
 - **Agentic Execution (Backend/Server/Build):** If the probe requires running a shell command, running a test, or reading a server log, **DO NOT ask the user to do it** *(unless Planning Mode requires approval first — see the callout above)*. Execute it yourself using your native tools (e.g., your shell tool, your code-search tool), analyze the output autonomously, and skip Step 5 — it only applies to the User Execution path below.
-- **User Execution (Browser/Client-side):** If the probe requires running a snippet in the Browser DevTools console, or interacting with the live UI, you cannot do this yourself. You **MUST** use Step 5 to present the snippet to the user and wait for them to paste the output back. If the output is missing or noisy, refine the probe before moving on.
+- **User Execution (Browser/Client-side):** If the probe requires running a snippet in the Browser DevTools console, or interacting with the live UI, first check whether you have a browser-automation tool available (e.g., a Chrome DevTools or Playwright MCP/plugin). If yes, execute the snippet yourself through that tool, analyze the output autonomously, and treat this as Agentic Execution (skip Step 5). If no such tool is available, you cannot do this yourself — you **MUST** use Step 5 to present the snippet to the user and wait for them to paste the output back. If the output is missing or noisy, refine the probe before moving on.
 
 **Checkpoint:** usable data received (collected directly or pasted by user).
 
@@ -159,6 +161,8 @@ In Phase 3, choose how to deliver the instrumentation:
 | User explicitly says "don't touch my files" or you're in a read-only environment | **Console snippet only**. If physically impossible to diagnose without source edits, stop and explain why |
 
 You decide. The user can always override.
+
+Note: this table picks the probe's *format* (console snippet vs. source injection), independent of *who runs it*. A console snippet still goes through Phase 4's User Execution path unless you have a browser-automation tool available, in which case you run it yourself per that phase's rule.
 
 ---
 
