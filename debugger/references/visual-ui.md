@@ -90,9 +90,9 @@ function checkRule(rule, src) {
       }
     } catch(e) {}
   } else if (rule.cssRules) {
-    const condition = rule.conditionText || rule.name || 'group';
+    const header = rule.cssText ? rule.cssText.split('{')[0].trim() : 'nested';
     for (const subRule of rule.cssRules) {
-      checkRule(subRule, `${src} (@media ${condition})`);
+      checkRule(subRule, `${src} (${header})`);
     }
   }
 }
