@@ -32,6 +32,8 @@ By embedding the tag in both the printed log and the trailing comment, you guara
 
 Generate the equivalent statement dynamically using the standard idioms, log functions, and comment syntax of the target language you are writing in. Do not customize or deviate from the `[DEBUG-` search anchor.
 
+**Exception for non-commentable files:** If you are injecting configuration values or logs into formats that do not support comments (e.g., JSON files, certain strict YAML structures, or raw key-value `.env` files where comments cause parse failures), omit the trailing comment. Instead, rely on the printed log tag alone, or register the probe/hook in the platform's initialization code where standard comments are valid.
+
 ---
 
 ## 2. One ID per hypothesis round
@@ -78,7 +80,8 @@ When cleanup is done, mark the ledger CLOSED:
 
 These keep probes safe to run in real codebases — even on the user's main branch.
 
-- **Observe, never mutate persistent state.** A probe reads and prints. It never writes to DB, never makes extra network calls, never re-orders flow. In-memory, behavior-preserving interception is allowed as long as the wrapped call still does exactly what the original did to persistent state, DB writes, or flow order — those are never fair game. This covers both a browser-side fetch wrapper (undone by a page refresh) and a server-side property/descriptor trap (undone by Phase 7 removal, since there's no refresh to rely on server-side).
+- **Observe, never mutate persistent production state.** A probe reads and prints. It never writes to a production database, never makes external mutating network calls, and never changes production control flow. In-memory, behavior-preserving interception is allowed as long as the wrapped call still does exactly what the original did to persistent state, DB writes, or flow order — those are never fair game. This covers both a browser-side fetch wrapper (undone by a page refresh) and a server-side property/descriptor trap (undone by Phase 7 removal, since there's no refresh to rely on server-side).
+  - *Testing mutation path in development:* As an exception, if the bug is on an API write path, you may replay mutating requests (POST/PUT/PATCH/DELETE) only against local development or staging environments, and only after explicit confirmation from the user that it is safe to do so.
   - **Sanctioned narrow exception — a debug trace header.** Attaching a same-origin, per-session tracing header to outbound requests (see `api-network.md` → trace-correlation) is allowed even though it edits the request: it changes headers only, never the body/payload, and the server ignores it unless explicitly read. Confirm the server's CORS config already allow-lists the header (or the request is same-origin) before adding it — otherwise the probe can *create* a CORS failure or break a request signed with HMAC/SigV4, which defeats the "observe, don't change behavior" goal. Remove both client and server sides in Phase 7.
 - **Probes are strictly additive.** Never modify or replace an existing line of application code — probes add new lines, they don't rewrite old ones. If a config value must change (a debug-logging flag, a query-logging flag), record the original value in the ledger so the revert steps in §5 can restore it. If the only way to observe something is to wrap an *existing* block of code (forcing it to be re-indented), that's not additive — prefer a hook that reads a post-execution buffer/log, or a middleware/handler-boundary probe that only adds new lines around the existing block, not inside it.
 - **No async side effects.** Don't `await` anything new inside a probe. A probe that itself takes time changes the timing of the very thing it measures.

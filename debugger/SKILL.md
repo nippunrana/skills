@@ -49,13 +49,14 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 
 Every debugging session walks through these seven phases. Each phase has a logical checkpoint.
 
-> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is narrower than the Phase 1a shortcut below: Phase 1a still routes observed signals through Phase 5's confirm-or-refute step (which treats the signal as a confirmed finding rather than matching it against ranked hypotheses); here there's nothing to match at all, because the defect is named outright. **Exception:** if your platform's enforced plan/approval mode (a mode that blocks edits until the user approves a plan — not merely a habit of writing plans for non-trivial tasks) is active, that approval gate still applies — describe the trivial fix in the plan and get approval rather than applying it directly.
+> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — specifically, a syntax error, a typo pointed at by a compiler/linter error, a missing import, or an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. If forming the fix requires *any* inference, tracing of execution state, or logic debugging, this is NOT a trivial fix — the bypass is forbidden and you must run the phases. **Exception:** if your platform's enforced plan/approval mode is active, that approval gate still applies — describe the trivial fix in the plan and get approval first rather than applying it directly.
 
 > [!IMPORTANT]
 > **Planning Mode Compliance:** 
-> - If you are in Planning Mode, you must draft your platform's plan document first. 
-> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** inside that plan, as a dedicated "Debugging Hypothesis & Probes" section — placed wherever your platform's required plan structure allows. If your platform mandates specific headings for the plan document, follow that layout; don't break it. If you arrived via the Phase 1a fast path (existing signals already named the failure point, no hypotheses were ranked), that section instead states the observed signal and the proposed fix — there's nothing to rank.
-> - Request approval to inject the probe. Once approved, execute the probe, collect data, and update the plan with the final fix. Do not make unapproved source edits.
+> - If you are in Planning Mode, you must draft your platform's implementation plan document first. 
+> - Define the **Hypothesis (Phase 2)** and the proposed **Probe (Phase 3)** inside that plan, under a dedicated "Debugging Hypothesis & Probes" section.
+> - **Handling Single-Gate Platforms:** In platforms that enforce a single planning/approval loop before execution, list the temporary debug code to be injected in the 'Proposed Changes' section, stating: *"Injecting temporary read-only debug instrumentation in [file]. The final bug fix will be determined after analyzing the probe output."* This satisfies single-gate validation without committing to a premature fix.
+> - Request approval to run/inject the probe. Once approved, execute the probe, collect the diagnostic data, and then edit the plan to specify the final fix before making any changes to production code. Do not make unapproved source edits.
 > - Only if you are *not* in Planning Mode may you proceed through multiple phases autonomously in a single execution loop — this includes Phase 4's "execute it yourself" instruction below, which is subject to this approval gate whenever Planning Mode is active.
 
 ### Phase 1 — Observe
@@ -80,7 +81,7 @@ git log --oneline -20          # what shipped recently?
 git diff HEAD~5 -- <dependency-manifest-files>  # dependency bumps?
 ```
 
-If it's a confirmed regression with a reliable reproduction step, inspecting the recent commit diffs (`git log -p`) or path-specific diffs (`git diff HEAD~5 -- path/to/file`) helps spot the defect by direct reading — see `references/code-logic.md` for the workflow.
+If it's a confirmed regression with a reliable reproduction step, inspecting the recent commit diffs (`git log -p`) or path-specific diffs (`git diff HEAD~5 -- path/to/file`) helps spot the defect by direct reading — see [references/code-logic.md](references/code-logic.md) for the workflow.
 
 **1c — State the symptom and expectation**
 
@@ -92,33 +93,58 @@ Now state both in one sentence each, in your own words. Vague problems lead to v
 **Checkpoint:** existing signals checked, delta check done (or explicitly skipped per 1a's fast path), symptom + expectation written. User confirms (implicitly via continuing, or explicitly).
 
 ### Phase 2 — Hypothesize
-List **2–3 ranked hypotheses** for the root cause. For each, name the **cheapest probe** that could disprove it.
+
+Before listing hypotheses, **open and read the relevant domain reference file** (e.g., [references/visual-ui.md](references/visual-ui.md), [references/code-logic.md](references/code-logic.md), [references/api-network.md](references/api-network.md), or [references/perf-build.md](references/perf-build.md)). These files contain specialized diagnostic patterns, probe specifications, and signals that you MUST follow.
+
+Then list **2–3 ranked hypotheses** for the root cause. For each, name the **cheapest probe** (least invasive, fastest to run, easiest to interpret) that could disprove it:
 
 > H1 (most likely): the validation function returns false because one field uses a stale ref. Probe: log the field values + validation result on each keystroke.
 > H2: the disabled prop is bound to an unrelated piece of state. Probe: log the disabled prop's source on render.
 > H3: a parent component is re-rendering and resetting the form state. Probe: render-count counter on the parent.
 
-Cheapest = least invasive, fastest to run, easiest to interpret. Console snippets are cheaper than source edits. Source edits are cheaper than database changes.
-
-**Checkpoint:** ≥ 2 hypotheses listed with probes, top one chosen.
+**Checkpoint:** Relevant domain reference file read; ≥ 2 hypotheses listed with probes; top one chosen.
 
 ### Phase 3 — Probe
-Generate the instrumentation for the chosen probe. Decision rules below ("Part C — Pick the probe mode") tell you whether to use a console snippet, inject debug code into source files, or both.
 
-If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later. Do not format, refactor, or touch adjacent lines when injecting debug code.
+Generate the instrumentation for the chosen hypothesis. First, select the appropriate probe mode:
 
-**Checkpoint:** for a User Execution probe (Phase 4), the artifact is shown to the user with clear "what this collects" + "how to use" instructions (Part E). For an Agentic Execution probe, it's injected or run directly — no user-facing presentation is required.
+| Situation | Probe Mode |
+|---|---|
+| Bug reproducible at will with an IDE/debugger attached, or reproducible by a failing test | **Interactive debugger (breakpoint + watch) or failing-test-first** — no source edits, no cleanup needed. Walk the user through setting the breakpoint/watch. |
+| Bug observable in the live browser without changing files (visible layout, broken click handler) | **Console snippet** — paste-ready, read-only, runs in DevTools |
+| Bug is server-side, in async flow, or otherwise invisible from the browser | **Injected debug code** in source files, tagged per protocol |
+| Bug spans browser ↔ server (API integration, auth flow, hydration mismatch) | **Both** — snippet for the client side, injected logs on the server side |
+| User explicitly says "don't touch my files" or you're in a read-only environment | **Console snippet only**. If physically impossible to diagnose without source edits, explain why. |
+
+If you inject code, every line MUST follow the tagging protocol in [references/instrumentation-protocol.md](references/instrumentation-protocol.md). Do not format, refactor, or touch adjacent lines when injecting debug code.
+
+**Checkpoint:** Probe mode selected; instrumentation generated; for source injections, tagged properly.
 
 ### Phase 4 — Collect
 
-- **Agentic Execution (Backend/Server/Build):** If the probe requires running a shell command, running a test, or reading a server log, **DO NOT ask the user to do it** *(unless Planning Mode requires approval first — see the callout above)*. Execute it yourself using your native tools (e.g., your shell tool, your code-search tool), analyze the output autonomously, and skip Part E — it only applies to the User Execution path below.
-- **User Execution (Browser/Client-side):** If the probe requires running a snippet in the Browser DevTools console, or interacting with the live UI, first check whether you have a browser-automation tool available (e.g., a Chrome DevTools or Playwright MCP/plugin). If yes, execute the snippet yourself through that tool, analyze the output autonomously, and treat this as Agentic Execution (skip Part E). If no such tool is available, you cannot do this yourself — you **MUST** use Part E to present the snippet to the user and wait for them to paste the output back. If the output is missing or noisy, refine the probe before moving on.
+- **Agentic Execution (Backend/Server/Build):** If the probe requires running a shell command, running a test, or reading a server log, **DO NOT ask the user to do it** (unless Planning Mode requires approval first). Execute it yourself using your native tools, analyze the output autonomously, and proceed to Phase 5.
+- **User Execution (Browser/Client-side / Interactive Debugger):** If you do not have a browser-automation/devtools tool available, you must present the probe to the user in this exact format:
 
-**Checkpoint:** usable data received (collected directly or pasted by user).
+  ```<language>
+  <the snippet, command, or debugging instructions>
+  ```
+
+  **What this collects:**
+  - <bullet 1 — one brief sentence>
+  - <bullet 2 — one brief sentence>
+
+  **How to use:**
+  1. <step 1>
+  2. <step 2>
+  3. Paste the output back here.
+
+  Wait for the user to paste the output. If the returned output is missing or noisy, refine the probe and repeat Phase 3 and 4.
+
+**Checkpoint:** Usable data received (collected directly or pasted by user).
 
 ### Phase 5 — Confirm or refute
 
-If you arrived here directly from Phase 1a (existing signals already showed the failure point, no hypotheses were ranked), treat that observed signal as your confirmed finding and go straight to tracing the infection chain upstream, below. Otherwise, match the data against the ranked hypotheses:
+Match data against the ranked hypotheses:
 
 - **Confirmed?** Trace the infection chain *upstream*. The first wrong value is closer to the root than the visible failure. Keep going until you find the defect that caused it.
 - **Refuted?** Discard the hypothesis immediately — don't add a second probe trying to rescue it. State in one line what you now know to be true (e.g., "the validation function is *not* using stale refs — values match on every keystroke"), then pivot to H2 or form a fresh hypothesis from the new evidence. Loop back to Phase 3.
@@ -138,10 +164,11 @@ If you arrived here directly from Phase 1a (existing signals already showed the 
 **Checkpoint:** failing test written and confirmed failing (when a test runner exists — otherwise the fix verified by directly exercising the code); fix applied; test now passes; for architectural bugs, the design-level cause is named even if a follow-up issue is filed rather than fixed in this pass.
 
 ### Phase 7 — Cleanup (NEVER SKIP THIS)
+
 Remove every line of debug instrumentation injected during Phases 3–5. 
-1. Use the debug ledger (see `references/instrumentation-protocol.md`) to find them.
+1. Use the debug ledger (see [references/instrumentation-protocol.md](references/instrumentation-protocol.md)) to find them.
 2. **Clean up orphaned imports:** Ensure any helper libraries (e.g., logging imports, utility packages) imported solely for the probe are also removed.
-3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in `references/instrumentation-protocol.md`. Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback.
+3. Verify using your native codebase search/find tool for the `[DEBUG-` tag across the workspace — see the patterns in [references/instrumentation-protocol.md](references/instrumentation-protocol.md). Use your platform's built-in search tool if available; otherwise standard utilities like `grep`/`ripgrep` are a fine fallback.
 
 The search must return **zero matches** in source files (matches inside documentation/skill files, or probes the user chose to keep per the recovery flow, are excluded and should be listed, not removed). Console snippets are discarded; the ledger is marked CLOSED (or PARTIAL, if any probes were intentionally kept) per the protocol.
 
@@ -149,90 +176,45 @@ The search must return **zero matches** in source files (matches inside document
 
 ---
 
-## Part C — Pick the probe mode
+## Instrumentation Protocol Summary
 
-In Phase 3, choose how to deliver the instrumentation:
+The domain reference files describe probes as specs, not code. Generate probes in the target file's language.
 
-| Situation | Mode |
-|---|---|
-| Bug reproducible at will with an IDE/debugger attached, or reproducible by a failing test | **Interactive debugger (breakpoint + watch) or failing-test-first** — no source edits, no cleanup needed; see `references/code-logic.md` §3. Prefer this over snippets/injection when available. You can't drive the user's IDE debugger yourself: walk them through setting the breakpoint/watch and have them report back what they observe, using Part E's format (this is a User Execution probe, same as a console snippet) |
-| Bug observable in the live browser without changing files (visible layout, broken click handler the user can trigger, missing element) | **Console snippet** — paste-ready, read-only, runs in DevTools |
-| Bug is server-side, in async flow, or otherwise invisible from the browser (wrong DB write, race between two awaits, scheduled job misfires) | **Injected debug code** in source files, tagged per protocol |
-| Bug spans browser ↔ server (API integration, auth flow, hydration mismatch) | **Both** — snippet for the client side, injected logs on the server side |
-| User explicitly says "don't touch my files" or you're in a read-only environment | **Console snippet only**. If physically impossible to diagnose without source edits, stop and explain why |
-
-You decide. The user can always override.
-
-Note: the failing-test row needs no artifact at all — it skips Phase 3/4 entirely. The interactive-debugger row does go through Phase 3/4 (you hand the user breakpoint/watch instructions, they run it and report back) but produces no source artifact to clean up — it skips Part D and Phase 7 for that probe. For the remaining rows, the table picks the probe's *format* (console snippet vs. source injection), independent of *who runs it*. A console snippet still goes through Phase 4's User Execution path unless you have a browser-automation tool available, in which case you run it yourself per that phase's rule.
-
----
-
-## Part D — Instrumentation protocol (when injecting debug code)
-
-The domain reference files describe probes as specs, not code: what a probe must collect and the constraints it must obey. Generate the actual probe in whatever language the target file is already written in — don't look for a matching snippet to copy.
-
-Read `references/instrumentation-protocol.md` for the full spec. The non-negotiables:
-
-1. **Tag every line.** Format: Embed the tag inside the printed output and as a trailing comment using the target language's native comment syntax (e.g. `//`, `#`, `--`, `/* */`), following the `[DEBUG-<4char-id>] <one-line purpose>` format.
+1. **Tag every line.** Format: Embed the tag inside the printed output and as a trailing comment using the target language's native comment syntax (e.g. `//`, `#`, `--`, `/* */`), following the `[DEBUG-<4char-id>] <one-line purpose>` format (except in non-commentable formats like JSON).
 2. **Use the same `<id>` for one hypothesis-testing round.** All probes generated to test the same hypothesis share an id, so a single search removes them all.
 3. **Maintain a debug ledger** in the conversation — a running list of `<file>:<line>: [DEBUG-<id>] <purpose>`.
-4. **Never inject probes with persistent side effects** — no DB writes, no extra network calls, no re-ordered flow. Two narrow exceptions are sanctioned in `instrumentation-protocol.md` §4: in-memory, behavior-preserving interception (fetch wrappers, property/descriptor traps — removed by a page refresh in the browser, or by Phase 7 removal on the server) and a same-origin debug trace header. Nothing else qualifies.
+4. **Never inject probes with persistent side effects** — no DB writes, no extra network calls, no re-ordered flow. Two narrow exceptions are sanctioned in [references/instrumentation-protocol.md](references/instrumentation-protocol.md) §4: in-memory, behavior-preserving interception (fetch wrappers, property/descriptor traps) and same-origin trace headers.
 
 ---
 
-## Part E — Present output to the user
-
-This step applies only to the **User Execution** path from Phase 4 (a probe the user must run themselves — browser console snippet, manual UI interaction). Agentic probes you ran yourself skip this step per Phase 4. Whatever the mode, follow the same friendly format:
-
-````
-```<language>
-<the snippet or code>
-```
-
-**What this collects:**
-- <bullet 1>
-- <bullet 2>
-
-**How to use:**
-1. <step 1>
-2. <step 2>
-3. Paste the output back here.
-````
-
-Keep it tight. One sentence per bullet. No filler.
-
----
-
-## Part F — Analyze the returned data
+## Analyzing Returned Data
 
 Each domain reference file ends with a "**Signals to look for**" section. Use it. Common cross-domain signals:
 
-- An expected log line never fires → execution doesn't reach that code path → look upstream for the gate.
-- A value is `undefined`/`null` where it shouldn't be → trace where it should have been set.
-- Timestamps show wrong order → race condition; you need ordering, not retry logic.
-- A higher-specificity CSS rule wins → cascade conflict (see visual-ui.md).
-- An API returns 200 but the DB row is missing → handler short-circuited silently; instrument the handler.
+- Log never fires → upstream gate.
+- Unexpected `undefined`/`null` → trace original assignment.
+- Wrong order → race condition.
+- Higher-specificity CSS rule wins → cascade conflict (see [references/visual-ui.md](references/visual-ui.md)).
+- 200 API response but empty DB → server handler short-circuit.
 
 ---
 
 ## Rules
 
-- **No guess-fixes.** If you don't have data confirming the cause, don't change code. Generate another probe instead.
-- **No persistent-side-effect probes.** Diagnostic code observes; it doesn't write to DB, call the network, or change flow order. (Two narrow exceptions — in-memory interception like fetch wrappers/property traps, and a same-origin debug trace header — are sanctioned in `instrumentation-protocol.md` §4.)
-- **Never leave a placeholder** like `SELECTOR`, `ENDPOINT`, or `FILE_PATH` unresolved in the artifact you hand the user. Resolve it from context first.
-- **Never skip Phase 7 cleanup.** Leaked debug logs in production are a real incident risk.
-- **When in doubt, ask** — a clarifying question is cheap; a wrong domain wastes the user's time.
-- **Fix at the root, not the symptom.** If you find yourself adding defensive code around the visible failure, you haven't found the root yet.
-- **Wrap risky access in try/catch** for browser snippets — cross-origin stylesheets, missing globals, etc., should warn, not throw.
+- **No guess-fixes.** Data must confirm the cause.
+- **Never leave placeholders** (e.g., `SELECTOR`, `ENDPOINT`). Resolve them from context.
+- **Ask when in doubt** — a question is cheaper than a wrong path.
+- **Wrap risky access in try/catch** for browser snippets — don't crash the host.
+- **Planning Mode:** Implementation plans must include a "Debugging Hypothesis & Probes" section. Get approval before injecting code.
 
 ---
 
 ## Reference files
 
-- `references/visual-ui.md` — browser-console report spec for CSS, layout, cascade, visibility, responsive issues (what the diagnostic must collect, not language-specific code).
-- `references/code-logic.md` — print-trace bisection, state snapshots, async/race probes, conditional-breakpoint hints, when to use logs vs. interactive debugger vs. failing test.
-- `references/api-network.md` — curl repro from network-tab data, server-log probes, DB query logging strategy (live hooks vs. read-after-execution buffers), JSON shape-diff spec.
-- `references/perf-build.md` — timing/render-count/memory probe specs, profiler hints, build-error triage (first error in cascade, not last), env-var diffing.
-- `references/instrumentation-protocol.md` — `[DEBUG-<id>]` tag spec, ledger template, cleanup checklist.
+- [references/visual-ui.md](references/visual-ui.md) — browser-console report spec for CSS, layout, cascade, visibility, responsive issues.
+- [references/code-logic.md](references/code-logic.md) — print-trace bisection, state snapshots, async/race probes, conditional-breakpoint hints.
+- [references/api-network.md](references/api-network.md) — curl repro from network-tab data, server-log probes, DB query logging strategy, JSON shape-diff spec.
+- [references/perf-build.md](references/perf-build.md) — timing/render-count/memory probe specs, profiler hints, build-error triage, env-var diffing.
+- [references/instrumentation-protocol.md](references/instrumentation-protocol.md) — `[DEBUG-<id>]` tag spec, ledger template, cleanup checklist.
 
 Read the relevant domain file *before* generating the probe in Phase 3 — it has the probe specs and analysis signals you'll need.
