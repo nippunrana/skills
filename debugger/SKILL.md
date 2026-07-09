@@ -19,7 +19,7 @@ LLMs often "fix" bugs by pattern-matching on symptoms — adding null checks, wr
 
 ---
 
-## Step 1 — Read context, align with global rules & route to a domain
+## Part A — Read context, align with global rules & route to a domain
 
 Before generating any output:
 1. **Rule 0 Check:** Look for `ai-context.md` or `AGENTS.md` in the project root. Read them to check if there are custom logging setups or diagnostic commands before proceeding.
@@ -39,17 +39,17 @@ Then classify the bug into **one primary domain**. Each domain has a dedicated r
 | **perf-build** | Slow renders, jank, memory leaks, hot loops, plus Webpack/Vite errors, missing modules, env-var misconfig, build fatals | `references/perf-build.md` |
 
 **Routing rules:**
-- If the context is **clear** → pick the domain silently and proceed to Step 2.
+- If the context is **clear** → pick the domain silently and proceed to Part B.
 - If **two domains apply** (e.g., "API returns wrong data AND the UI doesn't render it") → start with the *upstream* domain. Fix the cause before the consequence.
 - If the context is **unclear** → ask the user which domain applies, offering the four domains above as options. Don't guess.
 
 ---
 
-## Step 2 — Run the phase-gated workflow
+## Part B — Run the phase-gated workflow
 
 Every debugging session walks through these seven phases. Each phase has a logical checkpoint.
 
-> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is a narrower version of the Phase 1a shortcut below, for cases where even Phase 1a's "match against hypotheses" step is unnecessary.
+> **Fast-track bypass:** Skip the 7 phases only when the observation *deterministically* names the defect — a syntax error, a typo the compiler/linter points at, a missing import, an unresolved merge-conflict marker — i.e., there is no hypothesis to form because nothing needs disproving. In that case: fix it directly, verify (rerun the build/lint/test that surfaced it), and state the one-line cause. If forming the fix requires any inference about *why* the value is wrong, it is not trivial — run the phases. This is a narrower version of the Phase 1a shortcut below, for cases where even Phase 1a's "match against hypotheses" step is unnecessary. **Exception:** in Planning Mode, the approval gate below still applies — describe the trivial fix in the plan and get approval rather than applying it directly.
 
 > [!IMPORTANT]
 > **Planning Mode Compliance:** 
@@ -103,16 +103,16 @@ Cheapest = least invasive, fastest to run, easiest to interpret. Console snippet
 **Checkpoint:** ≥ 2 hypotheses listed with probes, top one chosen.
 
 ### Phase 3 — Probe
-Generate the instrumentation for the chosen probe. Decision rules below ("Step 3 — Pick the probe mode") tell you whether to use a console snippet, inject debug code into source files, or both.
+Generate the instrumentation for the chosen probe. Decision rules below ("Part C — Pick the probe mode") tell you whether to use a console snippet, inject debug code into source files, or both.
 
 If you inject code, every line MUST follow the tagging protocol in `references/instrumentation-protocol.md` so it can be cleanly removed later. **Adhere to the Surgical Changes rule:** do not format, refactor, or touch adjacent lines when injecting debug code.
 
-**Checkpoint:** for a User Execution probe (Phase 4), the artifact is shown to the user with clear "what this collects" + "how to use" instructions (Step 5). For an Agentic Execution probe, it's injected or run directly — no user-facing presentation is required.
+**Checkpoint:** for a User Execution probe (Phase 4), the artifact is shown to the user with clear "what this collects" + "how to use" instructions (Part E). For an Agentic Execution probe, it's injected or run directly — no user-facing presentation is required.
 
 ### Phase 4 — Collect
 
-- **Agentic Execution (Backend/Server/Build):** If the probe requires running a shell command, running a test, or reading a server log, **DO NOT ask the user to do it** *(unless Planning Mode requires approval first — see the callout above)*. Execute it yourself using your native tools (e.g., your shell tool, your code-search tool), analyze the output autonomously, and skip Step 5 — it only applies to the User Execution path below.
-- **User Execution (Browser/Client-side):** If the probe requires running a snippet in the Browser DevTools console, or interacting with the live UI, first check whether you have a browser-automation tool available (e.g., a Chrome DevTools or Playwright MCP/plugin). If yes, execute the snippet yourself through that tool, analyze the output autonomously, and treat this as Agentic Execution (skip Step 5). If no such tool is available, you cannot do this yourself — you **MUST** use Step 5 to present the snippet to the user and wait for them to paste the output back. If the output is missing or noisy, refine the probe before moving on.
+- **Agentic Execution (Backend/Server/Build):** If the probe requires running a shell command, running a test, or reading a server log, **DO NOT ask the user to do it** *(unless Planning Mode requires approval first — see the callout above)*. Execute it yourself using your native tools (e.g., your shell tool, your code-search tool), analyze the output autonomously, and skip Part E — it only applies to the User Execution path below.
+- **User Execution (Browser/Client-side):** If the probe requires running a snippet in the Browser DevTools console, or interacting with the live UI, first check whether you have a browser-automation tool available (e.g., a Chrome DevTools or Playwright MCP/plugin). If yes, execute the snippet yourself through that tool, analyze the output autonomously, and treat this as Agentic Execution (skip Part E). If no such tool is available, you cannot do this yourself — you **MUST** use Part E to present the snippet to the user and wait for them to paste the output back. If the output is missing or noisy, refine the probe before moving on.
 
 **Checkpoint:** usable data received (collected directly or pasted by user).
 
@@ -145,16 +145,17 @@ Remove every line of debug instrumentation injected during Phases 3–5.
 
 The search must return **zero matches**. Console snippets and the ledger entry are both discarded.
 
-**Checkpoint:** grep returns nothing. Tell the user "all debug instrumentation removed."
+**Checkpoint:** search returns nothing. Tell the user "all debug instrumentation removed."
 
 ---
 
-## Step 3 — Pick the probe mode
+## Part C — Pick the probe mode
 
 In Phase 3, choose how to deliver the instrumentation:
 
 | Situation | Mode |
 |---|---|
+| Bug reproducible at will with an IDE/debugger attached, or reproducible by a failing test | **Interactive debugger (breakpoint + watch) or failing-test-first** — no source edits, no cleanup needed; see `references/code-logic.md` §3. Prefer this over snippets/injection when available |
 | Bug observable in the live browser without changing files (visible layout, broken click handler the user can trigger, missing element) | **Console snippet** — paste-ready, read-only, runs in DevTools |
 | Bug is server-side, in async flow, or otherwise invisible from the browser (wrong DB write, race between two awaits, scheduled job misfires) | **Injected debug code** in source files, tagged per protocol |
 | Bug spans browser ↔ server (API integration, auth flow, hydration mismatch) | **Both** — snippet for the client side, injected logs on the server side |
@@ -166,18 +167,18 @@ Note: this table picks the probe's *format* (console snippet vs. source injectio
 
 ---
 
-## Step 4 — Instrumentation protocol (when injecting debug code)
+## Part D — Instrumentation protocol (when injecting debug code)
 
 Read `references/instrumentation-protocol.md` for the full spec. The non-negotiables:
 
 1. **Tag every line.** Format: `// [DEBUG-<4char-id>] <one-line purpose>` (use `# [DEBUG-<id>]` for Python/Ruby/shell, `/* [DEBUG-<id>] */` for CSS/SCSS, `<!-- [DEBUG-<id>] -->` for HTML/templates).
-2. **Use the same `<id>` for one investigation.** All probes from the same hypothesis share an id, so a single grep removes them all.
+2. **Use the same `<id>` for one investigation.** All probes from the same hypothesis share an id, so a single search removes them all.
 3. **Maintain a debug ledger** in the conversation — a running list of `<file>:<line>: [DEBUG-<id>] <purpose>`.
 4. **Never inject probes that have side effects** — no DB writes, no extra network calls, no state mutations. Probes observe; they don't change.
 
 ---
 
-## Step 5 — Present output to the user
+## Part E — Present output to the user
 
 This step applies only to the **User Execution** path from Phase 4 (a probe the user must run themselves — browser console snippet, manual UI interaction). Agentic probes you ran yourself skip this step per Phase 4. Whatever the mode, follow the same friendly format:
 
@@ -200,7 +201,7 @@ Keep it tight. One sentence per bullet. No filler.
 
 ---
 
-## Step 6 — Analyze the returned data
+## Part F — Analyze the returned data
 
 Each domain reference file ends with a "**Signals to look for**" section. Use it. Common cross-domain signals:
 

@@ -142,7 +142,9 @@ When a regression has a known-bad commit and a known-good one, git bisect finds 
 
 **Manual flow:**
 ```bash
-git stash                           # stash local edits if any exist
+# Only stash (and only pop) if there are actual local edits — an unconditional
+# `git stash pop` on a clean tree would pop an unrelated, older stash instead.
+[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect && STASHED=1
 git bisect start
 git bisect bad                      # current commit is broken
 git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
@@ -150,19 +152,19 @@ git bisect good <last-known-good>   # e.g. a tag, a SHA, or HEAD~30
 git bisect bad   # or: git bisect good
 # repeat until git prints: "abc123 is the first bad commit"
 git bisect reset
-git stash pop                       # restore stashed changes if they existed
+[ "$STASHED" = "1" ] && git stash pop
 ```
 
 **Automated flow (preferred when a test command exists):**
 ```bash
-git stash                           # stash local edits if any exist
+[ -n "$(git status --porcelain)" ] && git stash push -m debug-bisect && STASHED=1
 git bisect start
 git bisect bad
 git bisect good <last-known-good>
 git bisect run npm test -- --testPathPattern=the-failing-test
 # git bisect run exits when found; prints the first bad commit
 git bisect reset
-git stash pop                       # restore stashed changes if they existed
+[ "$STASHED" = "1" ] && git stash pop
 ```
 
 Use `git bisect run` with any command that exits 0 for "good" and non-zero for "bad" — a shell one-liner, a curl health check, or a Python script. Once the first bad commit is identified, `git show <sha>` to see exactly what changed. The root cause is almost always in that diff.

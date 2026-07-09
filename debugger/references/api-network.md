@@ -77,17 +77,14 @@ Modern distributed systems propagate a request ID across the network boundary so
 1. **Enable the framework's built-in instrumentation.** Most have it dormant: Rails `config.log_tags = [:request_id]`, Express + `express-request-id`, FastAPI middleware, ASP.NET `TraceIdentifier`. Configure once, get correlation forever.
 2. **Inject a one-off debug trace header** for this investigation only. Tag both client and server sides per `[DEBUG-<id>]` protocol; remove both in Phase 7.
 
+> **Caution — this probe is not side-effect-free for cross-origin requests.** Adding a custom header turns a "simple" cross-origin request into one that requires a CORS preflight (OPTIONS). If the server's CORS config doesn't already allow-list `X-Debug-Trace`, the probe *creates* a CORS failure that wasn't there before, masking the bug you're chasing. It can also break requests signed with HMAC/SigV4, since the signature was computed without this header. Use this only for same-origin requests, or first confirm the server's `Access-Control-Allow-Headers` will accept the new header.
+
 ```javascript
 // Client — paste in console to attach a per-session debug header to every fetch
 const DEBUG_TRACE = 'dbg-' + Math.random().toString(36).slice(2, 10);
 const orig = window.fetch;
 window.fetch = (input, init = {}) => {
-  let request;
-  if (input instanceof Request) {
-    request = input.clone();
-  } else {
-    request = new Request(input, init);
-  }
+  const request = new Request(input, init); // merges init even when input is already a Request
   request.headers.set('X-Debug-Trace', DEBUG_TRACE);
   return orig(request);
 };
@@ -156,7 +153,7 @@ Inject `[DEBUG-<id>]` logs at: handler entry, every branch decision, every exter
 ```javascript
 // Express / Node — [DEBUG-<id>]
 app.post('/checkout', async (req, res) => {
-  console.log('[DEBUG-<id>] /checkout in', { body: req.body, userId: req.user?.id }); // [DEBUG-<id>]
+  console.log('[DEBUG-<id>] /checkout in', { bodyKeys: Object.keys(req.body || {}), userId: req.user?.id }); // [DEBUG-<id>]
   if (!req.body.items?.length) {
     console.log('[DEBUG-<id>] short-circuit: no items'); // [DEBUG-<id>]
     return res.status(400).json({ error: 'no items' });
@@ -183,7 +180,7 @@ def checkout(request):
     # ...
 ```
 
-Use `error_log` / `log.error` (not `console.log` / `print`) on servers so the message lands in the actual server log file, not buried in stdout.
+Use the runtime's server-side logging channel — `error_log` (PHP), `log.error`/`logging` (Python) — rather than `print`, so the message reliably lands in the log rather than being silently dropped when stdout is discarded. In Node, `console.log`/`console.error` write to stdout/stderr, which process managers (pm2, Docker, systemd) already capture as the server log, so it's fine there — just don't use `print`/bare `puts` where the runtime doesn't guarantee stdout is captured.
 
 ### DB-query logging (`db-query`)
 
@@ -193,8 +190,8 @@ Every framework has a built-in hook for query logging. Use it — it captures bo
 |---|---|
 | **WordPress** | `define('SAVEQUERIES', true);` in wp-config.php, then read `$wpdb->queries` |
 | **Laravel** | `DB::listen(fn($q) => Log::info('[DEBUG-<id>]', ['sql' => $q->sql, 'bindings' => $q->bindings, 'time_ms' => $q->time]));` |
-| **Rails** | `ActiveSupport::Notifications.subscribe('sql.active_record') { \|*, p\| puts "[DEBUG-<id>] #{p[:sql]}" }` |
-| **Django** | `from django.db import connection; print(connection.queries)` (DEBUG=True required) |
+| **Rails** | `ActiveSupport::Notifications.subscribe('sql.active_record') { \|*, p\| Rails.logger.info("[DEBUG-<id>] #{p[:sql]}") }` |
+| **Django** | `from django.db import connection; logging.getLogger(__name__).info(connection.queries)` (DEBUG=True required) |
 | **Node + Prisma** | `new PrismaClient({ log: ['query'] })` |
 | **Node + Knex** | `knex.on('query', q => console.log('[DEBUG-<id>]', q.sql, q.bindings))` |
 

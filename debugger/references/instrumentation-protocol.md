@@ -26,12 +26,12 @@ Every injected line carries a tag in this exact form:
 | SQL | `-- [DEBUG-<id>] <purpose>` |
 | Lua / Haskell | `-- [DEBUG-<id>] <purpose>` |
 
-The string `[DEBUG-` is the canonical grep anchor for cleanup. Don't customize it.
+The string `[DEBUG-` is the canonical search anchor for cleanup. Don't customize it.
 
 ### Examples
 
 ```javascript
-console.log('[DEBUG-a3f9] order payload at /checkout in', req.body); // [DEBUG-a3f9] log inbound payload
+console.log('[DEBUG-a3f9] order payload keys at /checkout in', Object.keys(req.body)); // [DEBUG-a3f9] log inbound payload shape
 ```
 
 ```python
@@ -53,7 +53,7 @@ The tag appears **both** inside the printed string AND in a trailing comment, so
 
 ## 2. One ID per investigation
 
-All probes generated during a single hypothesis-testing round share the same `<id>`. If H1 needs 5 logs across 3 files, they all carry `[DEBUG-a3f9]`. When you cleanup, a single grep finds and removes all of them.
+All probes generated during a single hypothesis-testing round share the same `<id>`. If H1 needs 5 logs across 3 files, they all carry `[DEBUG-a3f9]`. When you cleanup, a single search finds and removes all of them.
 
 If you start a new hypothesis (Phase 5 → loop back to Phase 3 with H2), use a **new** id. That way you can clean up the failed H1 probes independently if you want to keep H2's around longer.
 
@@ -77,7 +77,7 @@ Maintain a running ledger in the conversation as you inject probes. It lists eve
 When cleanup is done, mark the ledger CLOSED:
 
 ```markdown
-## Debug ledger — investigation [DEBUG-a3f9] — CLOSED (4 lines removed, grep verified clean)
+## Debug ledger — investigation [DEBUG-a3f9] — CLOSED (4 lines removed, search verified clean)
 ```
 
 ---
