@@ -139,17 +139,20 @@ hiding in dead and live code alike.
 - **XSS vectors**: Unescaped output (`echo $var` without `esc_html`, `innerHTML` with user data)
 - **SQL injection**: Raw queries without prepared statements in any function (dead or alive)
 - **Deserialization**: `unserialize()` on user-controlled input
+- **Unbounded Input Lengths**: Accept strings without enforcement of max character lengths (`mb_substr` or validation checks)
 
 ### Medium Severity
 - **Missing authentication**: Dead routes/endpoints without auth checks
 - **CSRF gaps**: Form handlers without nonce/token verification
 - **Overly permissive permissions**: Dead files with `777` or world-writable permissions
 - **Stale dependencies**: `require`/`import` of packages with known CVEs
+- **Missing HTTP Security Headers**: API responses without security protection headers (`X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Referrer-Policy`, or exposing server runtime info via `X-Powered-By`)
 
 ### Low Severity
 - **Console.log with data**: `console.log()` exposing internal state in production JS
 - **Verbose error messages**: Stack traces or internal paths leaked to users
 - **Leftover TODO/FIXME**: Security-related TODOs that were never addressed
+- **Weak Type Safety**: PHP files missing `declare(strict_types=1);`, allowing type-juggling bypasses
 
 For the complete detection patterns and grep commands, read `references/owasp-checklist.md`.
 
@@ -197,6 +200,14 @@ Percentage of logic duplicated across files. Each duplicate is a consolidation
 opportunity — extract to a shared utility or module.
 
 For formulas and manual calculation methods, read `references/metrics-definitions.md`.
+
+### 4.6 Performance & Data I/O Audit
+Identify and log performance bottlenecks, specifically looking for:
+- **High-Frequency Polling Consolidation**: Multi-request polling loops on the frontend that should be batched to minimize connection overhead.
+- **Wildcard Queries**: Database queries using `SELECT *` instead of selecting specific required fields.
+- **Autoloader Classmaps**: PHP environments missing Composer autoloader optimization (`composer dump-autoload -o`).
+
+For detailed optimization guidelines, read `references/performance-io-guide.md`.
 
 ---
 

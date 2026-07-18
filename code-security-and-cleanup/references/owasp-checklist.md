@@ -121,6 +121,20 @@ unserialize\(.*\$        (unserialize any variable — check source)
 ```
 **Action**: Remove if dead. If live, use `json_decode()` instead or add allowed_classes.
 
+### Unbounded Input Lengths
+**Severity**: High
+**Detection patterns**:
+Check for untrusted user inputs (from `$_GET`, `$_POST`, `$_REQUEST`, HTTP headers, or request payloads in PHP or JS) that are processed, compared, or stored without character length limits or truncation.
+```
+# PHP: assignment or direct use of superglobals without length validation/truncation
+\$_GET\[| \$_POST\[| \$_REQUEST\[
+
+# JS/Node: request parameters or body used without length validation
+req\.body|req\.query
+```
+Look for absence of character clamping/truncation functions like `mb_substr()`, `substr()`, or validator checks (`strlen()`, `mb_strlen()`, schema validation).
+**Action**: If the handler is dead, remove it. If live, clamp/truncate the incoming string parameters using `mb_substr($input, 0, $max_len)` or enforce length validations at the API/schema level.
+
 ---
 
 ## A05: Security Misconfiguration
@@ -162,6 +176,26 @@ password.*=.*['\"](admin|test|123|password|root)
 user.*=.*['\"](admin|test|root)
 ```
 **Action**: Remove immediately. Never commit test credentials.
+
+### Missing HTTP Security Headers
+**Severity**: Medium
+**Detection patterns**:
+Identify where HTTP response headers are set (in PHP, JS backends, or server configs). Check if essential security headers are absent:
+```
+# PHP: header settings
+header\(
+
+# JS: Express/Node header settings
+res\.setHeader\(|res\.header\(|res\.set\(
+```
+Verify the implementation or lack of:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN` or `DENY`
+- `Content-Security-Policy` (CSP)
+- `Referrer-Policy`
+Check if the server exposes runtime signatures:
+- `X-Powered-By` (should be explicitly disabled or unset)
+**Action**: If dead code, remove. If live, implement the missing HTTP headers (via middleware, code, or server config) and disable runtime headers.
 
 ---
 
@@ -212,6 +246,18 @@ window\.location.*=.*(?:params|query|search|hash)
 unserialize\(|yaml_parse\(|json_decode\(.*true  (with assoc but from untrusted source)
 ```
 **Action**: Validate source before deserialization. Remove dead deserialization code.
+
+### Weak Type Safety (PHP)
+**Severity**: Low to Medium
+**Detection patterns**:
+Check if audited PHP files lack strict type enforcement.
+```
+# PHP files missing declare(strict_types=1);
+# Look at the first lines of the file right after <?php.
+# Flag if the following pattern is missing:
+declare\(strict_types=1\);
+```
+**Action**: Add `declare(strict_types=1);` at the top of audited PHP files to prevent type-juggling vulnerabilities.
 
 ---
 
