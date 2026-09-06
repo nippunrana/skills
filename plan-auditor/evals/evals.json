@@ -1,0 +1,41 @@
+{
+  "skill_name": "plan-auditor",
+  "notes": "Each eval needs a fresh fixture repo. Before running, execute the eval's `setup` command with a destination directory inside the eval's run directory, then replace {{REPO_PATH}} in the prompt with that directory. Take `evals/fixtures/snapshot.sh <repo>` before and after the run: an audit is read-only, so the two hashes must match.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "build-audit-uncommitted-changes",
+      "mode": "build",
+      "setup": "bash evals/fixtures/setup.sh build {{REPO_PATH}}",
+      "files": [
+        "evals/fixtures/taskflow-base",
+        "evals/fixtures/taskflow-overlay"
+      ],
+      "prompt": "I had my coding agent implement the CSV export feature in the taskflow repo at {{REPO_PATH}} following the plan below. The changes are still uncommitted in git, nothing has been committed yet. Please audit the implementation against the plan: tell me what is missing, what was changed that the plan never asked for, and anything that conflicts with the rest of the code. Don't fix anything. I just want the report so I can hand it back to the agent that did the work.\n\nPlan the agent was given:\n```\nFeature: export tasks to CSV from the CLI\n\n1. Add `export_tasks(store, path, status=None)` in a new module `taskflow/export.py`. It writes the columns id, title, status, created_at and must use the existing helper `taskflow/utils/csvio.write_rows` (see ai-context.md). Verify: a unit test writes a file and checks the header row plus one data row.\n2. Add an `export` subcommand to `taskflow/cli.py`: `taskflow export <path> [--status STATUS]`, which loads the store and calls `export_tasks`. Verify: `python -m taskflow.cli export out.csv` creates the file.\n3. The `--status` option filters the export so only tasks with that status are written. Verify: a test with mixed statuses shows only matching rows in the file.\n4. After writing, log the number of exported tasks at INFO level through the `logging` module (library code must not print, per ai-context.md). Verify: a test asserts the log record.\n5. Add `tests/test_export.py` covering the header row, data rows, and the status filter.\n6. Update the Usage section of README.md with the new export command.\n```",
+      "expected_output": "A read-only audit report with a per-item traceability table citing files as evidence. It must mark the status filter (item 3), the INFO log line (item 4), and the README update (item 6) as not implemented; mark item 1 as deviated because export.py hand-rolls CSV instead of calling utils/csvio.write_rows; flag the wiring conflict where cli.py calls export.export_tasks_csv but export.py defines export_tasks; flag the unplanned slugify->make_slug rename and that tests/test_text.py still imports slugify (test suite errors); flag the cosmetic-only models.py change as unplanned; list leftovers (DEBUG print, TODO, unused json import, unused logger); note tests/test_export.py only covers the header (item 5 partial); end with a remediation list written for the implementing agent. No files in the repo may be modified."
+    },
+    {
+      "id": 1,
+      "name": "plan-audit-against-request-and-codebase",
+      "mode": "plan",
+      "setup": "bash evals/fixtures/setup.sh base {{REPO_PATH}}",
+      "files": [
+        "evals/fixtures/taskflow-base"
+      ],
+      "prompt": "Before I let the agent start coding, can you check this plan against what I actually asked for and against the codebase? The repo is at {{REPO_PATH}} (clean, nothing in progress). Here is my request and the plan the agent came back with.\n\nMy request to the agent:\n\"Add a `stats` command to taskflow that prints how many tasks are in each status, and let the user optionally export those stats to a CSV file. The CSV writing should reuse our existing CSV helper. Do not change how the existing `list` command behaves. Add tests for the new code.\"\n\nThe agent's plan:\n```\nImplementation Plan: task statistics\n\nStep 1. Create `taskflow/csv_writer.py` with a `write_csv(path, rows)` function that opens the file and writes the rows with the csv module.\nStep 2. Create `taskflow/stats.py` with `compute_stats(store)` returning a dict like {\"todo\": n, \"done\": n}.\nStep 3. Create `taskflow/commands.py` and add a `stats` subcommand there that prints one line per status.\nStep 4. Update the `list` command to print the status counts at the bottom of its output so users see the stats there too.\nStep 5. Manually run the CLI to confirm it works.\n```\n\nIs this good to go? What would you change?",
+      "expected_output": "A plan audit that: flags Step 1 as rebuilding the existing taskflow/utils/csvio.write_rows helper (listed as Built in ai-context.md) and contradicting the request to reuse it; flags that no step actually delivers the optional CSV export of stats (the writer is never wired to the stats command); flags Step 4 as violating the explicit constraint not to change the list command; flags Step 3 because subcommands live in taskflow/cli.py and ai-context.md forbids a second command module (taskflow/commands.py does not exist); flags the missing tests requirement (Step 5 is a manual check only); surfaces the assumption that statuses are only todo/done when models.py defines todo/doing/done; notes the absence of per-step verification criteria; and produces a revised, numbered, checkable plan without adding features the request did not ask for. No files in the repo may be modified."
+    },
+    {
+      "id": 2,
+      "name": "build-audit-with-chat-amendment-and-false-claim",
+      "mode": "build",
+      "setup": "bash evals/fixtures/setup.sh build {{REPO_PATH}}",
+      "files": [
+        "evals/fixtures/taskflow-base",
+        "evals/fixtures/taskflow-overlay"
+      ],
+      "prompt": "Same taskflow repo, at {{REPO_PATH}}, changes uncommitted. I'm pasting the plan and the relevant part of the chat where my agent implemented it. Audit whether the implementation matches the plan as amended in the chat. Report only, no fixes.\n\nPlan:\n```\nFeature: export tasks to CSV from the CLI\n\n1. Add `export_tasks(store, path, status=None)` in a new module `taskflow/export.py`. It writes the columns id, title, status, created_at and must use the existing helper `taskflow/utils/csvio.write_rows` (see ai-context.md). Verify: a unit test writes a file and checks the header row plus one data row.\n2. Add an `export` subcommand to `taskflow/cli.py`: `taskflow export <path> [--status STATUS]`, which loads the store and calls `export_tasks`. Verify: `python -m taskflow.cli export out.csv` creates the file.\n3. The `--status` option filters the export so only tasks with that status are written. Verify: a test with mixed statuses shows only matching rows in the file.\n4. After writing, log the number of exported tasks at INFO level through the `logging` module (library code must not print, per ai-context.md). Verify: a test asserts the log record.\n5. Add `tests/test_export.py` covering the header row, data rows, and the status filter.\n6. Update the Usage section of README.md with the new export command.\n```\n\nChat excerpt after the plan was approved:\n```\nUser: go ahead. actually skip step 6, I'll do the README myself later.\nAgent: Understood, skipping the README update. Implementing steps 1-5 now.\nAgent: Done. I created taskflow/export.py with export_tasks(), which uses the existing csvio helper and respects the --status filter, wired the export subcommand into cli.py, added tests/test_export.py, and ran the full test suite: all 6 tests pass. While I was in there I also tidied up the slug helper naming.\n```",
+      "expected_output": "The audit honours the amendment: item 6 (README) is reported as waived by the user, not as a gap. It does not trust the agent's claims: the status filter is still reported as not implemented (export.py ignores the status argument), the csvio-helper claim is reported as false (export.py hand-rolls CSV), and the 'all 6 tests pass' claim is reported as contradicted (tests/test_text.py fails to import slugify after the unplanned rename). The 'tidied up the slug helper naming' change is classified as unplanned with a broken caller. Evidence cites files. No files in the repo may be modified."
+    }
+  ]
+}
