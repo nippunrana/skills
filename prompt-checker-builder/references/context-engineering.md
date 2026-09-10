@@ -7,9 +7,10 @@ Background for the principles in `SKILL.md`. You don't need this to operate; rea
 2. [The LLM as an operating system](#the-llm-as-an-operating-system)
 3. [Context engineering = memory management](#context-engineering--memory-management)
 4. [Jagged intelligence and "circuits"](#jagged-intelligence-and-circuits)
-5. [Summoning ghosts (LLM psychology)](#summoning-ghosts-llm-psychology)
-6. [Director and Executor](#director-and-executor)
-7. [How each idea maps to a review lens](#how-each-idea-maps-to-a-review-lens)
+5. [Anterograde amnesia (no memory between runs)](#anterograde-amnesia-no-memory-between-runs)
+6. [Summoning ghosts (LLM psychology)](#summoning-ghosts-llm-psychology)
+7. [Director and Executor](#director-and-executor)
+8. [How each idea maps to a review lens](#how-each-idea-maps-to-a-review-lens)
 
 ---
 
@@ -44,6 +45,16 @@ Models are **jagged**: they can find a subtle bug in a 100k-line codebase and th
 
 The engineering response is not "prompt harder." It's: **detect the valley and route around it.** Hand exact counting, math, large-scale find/rename, and fresh-fact lookups to a deterministic tool, and then *verify*. That's the "Circuit fitness" and "Verification" lenses — and it's why tools exist in the OS analogy: they're the deterministic peripherals you call precisely because the stochastic CPU is a liability for that operation.
 
+## Anterograde amnesia (no memory between runs)
+Karpathy's other "LLM psychology" observation: the model is like a coworker with anterograde amnesia. The weights are frozen after training, and the context window is the *only* memory — and it's wiped at the end of every run. Nothing consolidates. It does not remember yesterday's session, the previous node in the workflow, or the summary it "just" produced.
+
+For prompts that means:
+- Any reference to a past that isn't in the window ("as discussed," "continue from before") points at nothing — and the model fills the hole with a plausible invention rather than saying so.
+- In a multi-step agent, state does not carry over by itself. Each step must be handed what it needs (IDs, earlier outputs, the original request) as explicit input.
+- Anything the model should "know" every time — rules, examples, the schema — has to be re-supplied every time. That's what a system prompt or template is for.
+
+This is the "No memory between runs" lens.
+
 ## Summoning ghosts (LLM psychology)
 A model is a statistical simulation of human text, not an agent with drives. Karpathy's phrasing: you're *summoning a ghost*, not raising an animal. It has no intrinsic motivation, so the levers that work on people don't work here:
 - Pleading, threats, urgency, flattery, "I'll tip you $200" — **noise.** It changes nothing except how full the window is.
@@ -59,15 +70,22 @@ For this skill, that has two consequences:
 1. The prompt should encode **oversight** (verification, "stop and ask, don't guess"), because that's the Director's responsibility made durable.
 2. Your own Plan-First step is the same pattern: you propose a spec (the outline), the human approves, then you execute (write the prompt). Don't quietly make decisions that are the human's to make.
 
+Two of Karpathy's sharper points on oversight:
+- **The autonomy slider.** Good tools let the human dial how much the model does before a check (a one-line completion → a file-level edit → a whole-repo change). A prompt has the same dial: small, verifiable steps for anything that matters; wide latitude only when the result is cheap to check. A giant diff nobody reads is the leash coming off. (The "Autonomy level" lens.)
+- **Demo vs. product.** *"Demo is `works.any()`, product is `works.all()`."* A prompt that succeeded once, on one clean input, has proven almost nothing about the messy inputs real users will send. Production templates get tested against a set of real, varied inputs before they go live. (The "Works once vs. works every time" lens.)
+
 ## How each idea maps to a review lens
 | Idea here | Lens in SKILL.md |
 |---|---|
 | Context window = RAM; missing context → fabrication | Completeness |
+| Anterograde amnesia; state must be re-supplied every run | No memory between runs |
 | Just enough, not maximal; attention dilution | Budget / "just enough" |
 | Window is undifferentiated unless structured | Structure |
 | Summoning ghosts; theater is noise | LLM psychology |
 | Spec over coaxing; decompose big tasks | Clarity, Decomposition |
 | Jagged valleys → route to tools | Circuit fitness |
 | Director owns oversight | Verification & oversight |
+| Demo is works.any(), product is works.all() | Works once vs. works every time |
+| Autonomy slider; keep the leash short | Autonomy level |
 | Underspecified output is useless output | Output contract |
 | Traces prime behavior efficiently | Few-shot traces |

@@ -41,6 +41,7 @@ Run the draft through these four lenses. For each issue, name the lens and **exp
 
 ### A. Context (the RAM)
 - **Completeness** — Is the load-bearing context present: the source material (or where it lives), the *exact* output wanted, the domain rules, and an example or two for anything non-obvious? For coding that's file paths/versions/design system; for extraction it's the schema and a sample document; for a vision task it's what to look for and what a good answer looks like. If the model has to invent any of it, it will.
+- **No memory between runs** — The model remembers nothing from previous runs; every run starts cold. Flag any draft that leans on a past that isn't in the window ("as discussed," "like last time," "continue from where you left off") — the model will invent that history rather than admit it's missing. In a multi-step workflow, every step must be handed the state it needs (IDs, earlier results, the user's original ask) as explicit input, every time.
 - **Budget / "just enough"** — Flag bloat: whole files or documents pasted when a section, path, or summary would do; irrelevant history; the same instruction restated three ways. For large-text work especially, give the model the relevant span, not the entire corpus — buried signal gets a shallower read.
 - **Structure** — Are context, task, *source material*, constraints, and output format visually separated (with `---`, `# headers`, or `<tags>`)? Structure tells the model what's instruction vs. what's reference material it should act on.
 
@@ -53,6 +54,8 @@ Run the draft through these four lenses. For each issue, name the lens and **exp
 - **Circuit fitness** — Does any sub-task sit in a *valley*: exact counting, arithmetic, large-scale find/rename, multi-step logic, fresh facts? Route it to a deterministic step — a code/function tool, a calculator, a DB query, a search — instead of trusting generation. In a workflow that usually means a Code node or a tool call, not the LLM doing it "in its head." This is the single biggest lever for high-precision tasks.
 - **Grounding** *(critical for document/image/video and extraction)* — For any task that reads a source, tell the model to answer **only** from what's actually present, to mark anything it can't find or read as missing/illegible rather than guessing, and — where stakes are high — to surface a confidence signal. An ungrounded vision/extraction prompt hallucinates plausibly, and a fabricated lab value, dosage, or total is far worse than an honest "couldn't read it."
 - **Verification & oversight** — How does the result get checked? *One-off:* run tests, diff against expected output, "stop and ask." *Production:* a schema you can validate, a confidence threshold that routes low-confidence runs to human review, and a fallback — because nobody is watching each run. Oversight is the Director's job made durable.
+- **Works once vs. works every time** *(production)* — A prompt that passed on one clean example is a demo; a product has to hold across the messy inputs real users send (blurry scans, odd layouts, missing fields, a second page). Before the template goes live, run it against a small set of real, varied inputs — including the ugly ones — and check every output against the schema. Karpathy's line: demo is `works.any()`, product is `works.all()`.
+- **Autonomy level** — Decide how much freedom the prompt grants: small, easy-to-check steps for anything that matters ("rename these three functions, change nothing else, show the diff first"), and wide latitude ("refactor however you see fit") only when the result is cheap to verify — a big change nobody reads is the leash coming off.
 - **Output contract** — Is the desired format explicit? For structured tasks, specify the exact schema: field names, types, allowed values, and **what to emit when a value is absent** (usually `null` — not omitted, not invented).
 
 ### D. Priming
@@ -98,7 +101,7 @@ Then move to Plan-First.
 > - **Task:** [the precise instruction]
 > - **Constraints & rules:** [the guardrails]
 > - **Output contract:** [the exact shape/schema, incl. how to mark missing values]
-> - **Verification / oversight:** [how the result is checked; for production: validation + confidence routing + fallback]
+> - **Verification / oversight:** [how the result is checked; for production: validation + confidence routing + fallback + a test set of real, varied inputs before it goes live]
 
 Wait for approval (or the user's Builder answers) before generating.
 
