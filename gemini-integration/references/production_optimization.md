@@ -1,5 +1,10 @@
 # Production Optimization
 
+> Code samples use `MODEL_ID` (and `IMAGE_MODEL_ID` / `EMBEDDING_MODEL_ID` / `GEMMA_MODEL_ID`) as placeholders.
+> Substitute the model ID confirmed with the user during discovery — see [model_discovery.md](model_discovery.md).
+> Client construction differs between AI Studio and Vertex AI, and the REST samples here target the AI Studio
+> endpoint — Vertex uses a regional host, a project/location path, and a bearer token. See [platforms.md](platforms.md).
+
 ## Table of Contents
 1. [Context Caching](#context-caching)
 2. [Inference Tiers](#inference-tiers)
@@ -16,21 +21,21 @@
 Caches minimize repetitive processing costs when you send the same large context (e.g., a system prompt, a document, or reference material) across multiple requests.
 
 ### Minimum Token Requirements
-- **Gemini 3.5/3.1**: Minimum 4,096 tokens
+Caches have a minimum size (in the low thousands of tokens) that varies by model — check the current figure for the chosen model before designing around caching, since a context below the minimum is silently not cacheable.
 
 ### Creating an Explicit Cache
 
 **Python:**
 ```python
 cache = client.caches.create(
-    model="gemini-3.1-pro",
+    model=MODEL_ID,
     contents=[client.files.get(name="massive_doc")],
     config={"ttl": "3600s"}  # Cache for 1 hour
 )
 
 # Use the cache in subsequent requests
 response = client.models.generate_content(
-    model="gemini-3.1-pro",
+    model=MODEL_ID,
     contents="Summarize the key findings.",
     config={"cached_content": cache.name}
 )
@@ -62,7 +67,7 @@ For processing large datasets asynchronously:
 ```python
 # Submit a batch job
 batch_job = client.batches.create(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     requests=[
         {"contents": "Summarize document 1..."},
         {"contents": "Summarize document 2..."},
@@ -78,7 +83,7 @@ status = client.batches.get(name=batch_job.name)
 
 ## Safety Settings
 
-Configure content filtering thresholds per harm category. By default, safety filters are **Off** for Gemini 3.x models.
+Configure content filtering thresholds per harm category. Defaults differ by model generation — recent Gemini models ship with filters off — so set thresholds explicitly rather than inheriting whatever the default happens to be.
 
 ### Harm Categories
 - `HARM_CATEGORY_HATE_SPEECH`
@@ -87,7 +92,7 @@ Configure content filtering thresholds per harm category. By default, safety fil
 - `HARM_CATEGORY_HARASSMENT`
 
 ### Threshold Levels
-- `BLOCK_NONE` / `OFF` — No blocking (default for Gemini 3.x)
+- `BLOCK_NONE` / `OFF` — No blocking (the default on recent Gemini models)
 - `BLOCK_ONLY_HIGH` — Block only high-probability unsafe content
 - `BLOCK_MEDIUM_AND_ABOVE` — Block medium and high
 - `BLOCK_LOW_AND_ABOVE` — Block low, medium, and high (strictest)
@@ -99,7 +104,7 @@ Configure content filtering thresholds per harm category. By default, safety fil
 from google.genai import types
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Some content to analyze",
     config=types.GenerateContentConfig(
         safety_settings=[
@@ -119,7 +124,7 @@ response = client.models.generate_content(
 **Node.js:**
 ```javascript
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Some content to analyze",
   config: {
     safetySettings: [
@@ -132,7 +137,7 @@ const response = await ai.models.generateContent({
 
 **REST:**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -X POST \
@@ -170,7 +175,7 @@ Always validate token counts before sending large requests:
 **Python:**
 ```python
 token_count = client.models.count_tokens(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Your potentially large prompt here..."
 )
 print(f"Token count: {token_count.total_tokens}")
@@ -179,7 +184,7 @@ print(f"Token count: {token_count.total_tokens}")
 **Node.js:**
 ```javascript
 const tokenCount = await ai.models.countTokens({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Your potentially large prompt here...",
 });
 console.log(`Token count: ${tokenCount.totalTokens}`);
@@ -187,11 +192,7 @@ console.log(`Token count: ${tokenCount.totalTokens}`);
 
 ### Context Windows
 
-| Model | Context Window |
-|---|---|
-| Gemini 3.5 Flash | 1,000,000 |
-| Gemini 3.1 Pro | 1,000,000+ |
-| Gemini 3.1 Flash-Lite | 1,000,000 |
+Current Gemini models have very large context windows, but the exact limit is per-model and changes between releases. Read it from the model list during discovery ([model_discovery.md](model_discovery.md)) rather than assuming the flagship figure applies — and use `countTokens` to validate real payloads instead of estimating.
 
 ### Cost Monitoring
 
@@ -221,7 +222,7 @@ def generate_with_retry(prompt, max_retries=3):
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model=MODEL_ID,
                 contents=prompt,
             )
             return response
@@ -239,7 +240,7 @@ async function generateWithRetry(prompt, maxRetries = 3) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: MODEL_ID,
         contents: prompt,
       });
     } catch (error) {

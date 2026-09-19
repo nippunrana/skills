@@ -1,11 +1,25 @@
 # Client Setup & Authentication
 
 ## Table of Contents
-1. [Python Setup](#python-setup)
-2. [Node.js Setup](#nodejs-setup)
-3. [REST / cURL Setup](#rest-setup)
-4. [API Key Management](#api-key-management)
-5. [Model Selection Guide](#model-selection-guide)
+1. [Before you start](#before-you-start)
+2. [Python Setup](#python-setup)
+3. [Node.js Setup](#nodejs-setup)
+4. [REST / cURL Setup](#rest-setup)
+5. [Credential Management](#credential-management)
+6. [Model Selection](#model-selection)
+7. [Thinking Configuration](#thinking-configuration)
+8. [Generation Config Parameters](#generation-config-parameters)
+
+---
+
+## Before you start
+
+Two things must be settled first, or the code below is guesswork:
+
+- **Platform** — Google AI Studio (Developer API, API key) or Vertex AI / Gemini Enterprise Agent Platform (GCP project + ADC). See [platforms.md](platforms.md). The snippets below show the AI Studio client; swap in the enterprise client from `platforms.md` if that's the choice.
+- **Model** — resolve it live and confirm it with the user. See [model_discovery.md](model_discovery.md).
+
+`MODEL_ID` below is a placeholder, not a model name. Replace it with the confirmed ID, defined once (e.g. `MODEL_ID = os.environ.get("GEMINI_MODEL", "...")`) and referenced everywhere else.
 
 ---
 
@@ -38,7 +52,7 @@ Quick test:
 
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="How does AI work?"
 )
 print(response.text)
@@ -67,7 +81,7 @@ Quick test:
 ```javascript
 async function main() {
   const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
+    model: MODEL_ID,
     contents: "How does AI work?",
   });
   console.log(response.text);
@@ -89,7 +103,7 @@ https://generativelanguage.googleapis.com/v1beta/
 Quick test:
 
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -102,9 +116,9 @@ curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:g
 
 ---
 
-## API Key Management
+## Credential Management
 
-### Getting an API Key
+### Getting an API Key (AI Studio)
 
 1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
 2. Click "Create API key"
@@ -131,30 +145,50 @@ export GEMINI_API_KEY="your-api-key-here"
 GEMINI_API_KEY=your-api-key-here
 ```
 
+If both `GOOGLE_API_KEY` and `GEMINI_API_KEY` are set, the SDK uses `GOOGLE_API_KEY`. Set one.
+
+### Vertex AI credentials
+
+No API key. The client authenticates with Application Default Credentials:
+
+```bash
+gcloud auth application-default login          # local development
+export GOOGLE_CLOUD_PROJECT='your-project-id'
+export GOOGLE_CLOUD_LOCATION='us-central1'
+```
+
+In production on Cloud Run / GKE / Compute Engine, attach a service account with the Vertex AI user role and skip key files entirely — workload identity is safer than a downloaded JSON key. Full client construction, env vars, and the `enterprise` vs `vertexai` flag caveat are in [platforms.md](platforms.md).
+
 ---
 
-## Model Selection Guide
+## Model Selection
 
-| Model | Context Window | Thinking | Best For |
-|---|---|---|---|
-| `gemini-3.5-flash` | 1,000,000 tokens | Native (configurable) | Default choice. Fast reasoning, vision, and text. |
-| `gemini-3.1-pro` | 1,000,000+ tokens | Yes | Complex multimodal synthesis, long-document analysis. |
-| `gemini-3.1-flash-lite` | 1,000,000 tokens | Limited | High-throughput, low-latency, cost-optimized tasks. |
-| `gemma-4-31b-it` | 256,000 tokens | Yes (`thinking_config`) | Open-weights (Apache 2.0) dense model; cost/portability priority, no audio. |
-| `gemma-4-26b-a4b-it` | 256,000 tokens | Yes (`thinking_config`) | Open-weights MoE model; high-throughput, no audio. |
+Model IDs are deliberately not listed here — they change faster than this file can. Resolve the current lineup with the protocol in [model_discovery.md](model_discovery.md): check the official list or `client.models.list()`, report what was found, and confirm the choice with the user before writing it into code.
 
-Gemma 4 models share the same `generateContent` call shape as Gemini — see [gemma_models.md](gemma_models.md) for Gemma-specific guidance (sampling defaults, when to prefer it over Gemini, Interactions API support).
+What to weigh when recommending one:
+
+| Consideration | Ask |
+|---|---|
+| Latency budget | Is a user waiting on this response? Favour a Flash or Flash-Lite tier |
+| Reasoning depth | Multi-step synthesis or hard problems? A Pro tier earns its cost |
+| Volume | Thousands of short calls? Flash-Lite changes the bill materially |
+| Modality | Audio, video, PDF, or image *output*? Verify per-model support — it is not uniform |
+| Context size | Large but model-specific. Check the chosen model's limit rather than assuming |
+| Licensing / portability | Need open weights or a self-hosting path? See [gemma_models.md](gemma_models.md) |
+| Stability | Preview IDs get retired. Prefer stable for production and pin exactly |
+
+---
 
 ### Thinking Configuration
 
-Gemini 3.5+ models have native "thinking" enabled by default. Control it with the `thinking_config`:
+Current Gemini models have native "thinking" enabled by default (confirm for the specific model — support and defaults vary by tier). Control it with the `thinking_config`:
 
 **Python:**
 ```python
 from google.genai import types
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Solve this step by step: 15% of 340",
     config=types.GenerateContentConfig(
         thinking_config=types.ThinkingConfig(thinking_level="low")
@@ -167,7 +201,7 @@ response = client.models.generate_content(
 import { ThinkingLevel } from "@google/genai";
 
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Solve this step by step: 15% of 340",
   config: {
     thinkingConfig: {
@@ -194,7 +228,7 @@ Fine-tune generation behavior:
 **Python:**
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Explain quantum computing",
     config=types.GenerateContentConfig(
         temperature=0.1,
@@ -206,7 +240,7 @@ response = client.models.generate_content(
 **Node.js:**
 ```javascript
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Explain quantum computing",
   config: {
     temperature: 0.1,
@@ -217,7 +251,7 @@ const response = await ai.models.generateContent({
 
 **REST:**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \

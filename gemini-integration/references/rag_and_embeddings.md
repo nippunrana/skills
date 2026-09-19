@@ -1,5 +1,10 @@
 # RAG & Embeddings
 
+> Code samples use `MODEL_ID` (and `IMAGE_MODEL_ID` / `EMBEDDING_MODEL_ID` / `GEMMA_MODEL_ID`) as placeholders.
+> Substitute the model ID confirmed with the user during discovery — see [model_discovery.md](model_discovery.md).
+> Client construction differs between AI Studio and Vertex AI, and the REST samples here target the AI Studio
+> endpoint — Vertex uses a regional host, a project/location path, and a bearer token. See [platforms.md](platforms.md).
+
 ## Table of Contents
 1. [File Search (Managed RAG)](#file-search-managed-rag)
 2. [Embeddings API](#embeddings-api)
@@ -15,7 +20,7 @@ File Search is Google's managed RAG solution. You upload documents, and the syst
 
 Key facts:
 - File API uploads expire in **48 hours**, but FileSearchStore embeddings **persist indefinitely**.
-- Uses `gemini-embedding-2` for multimodal embedding (text + images in documents).
+- Uses a multimodal embedding model (text + images in documents).
 
 ### Creating a Store and Uploading Documents
 
@@ -24,7 +29,7 @@ Key facts:
 # Create a FileSearchStore
 store = client.file_search.create_store(
     display_name="Engineering Docs",
-    embedding_model="models/gemini-embedding-2"  # Required for multimodal
+    embedding_model="models/EMBEDDING_MODEL_ID"  # Required for multimodal
 )
 
 # Upload documents to the store
@@ -36,7 +41,7 @@ client.file_search.upload(store_name=store.name, file_path="spec.pdf")
 ```javascript
 const store = await client.fileSearch.createStore({
   displayName: "Engineering Docs",
-  embeddingModel: "models/gemini-embedding-2",
+  embeddingModel: "models/EMBEDDING_MODEL_ID",
 });
 
 await client.fileSearch.upload({
@@ -50,7 +55,7 @@ await client.fileSearch.upload({
 curl -X POST "https://generativelanguage.googleapis.com/v1beta/fileSearchStores" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"display_name": "Engineering Docs", "embedding_model": "models/gemini-embedding-2"}'
+  -d '{"display_name": "Engineering Docs", "embedding_model": "models/EMBEDDING_MODEL_ID"}'
 ```
 
 ### Querying a Store
@@ -59,7 +64,7 @@ Once documents are uploaded, use the File Search tool in your generation request
 
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="What are the safety requirements in section 4.2?",
     config={
         "tools": [{
@@ -82,7 +87,7 @@ Use embeddings for semantic search, classification, clustering, and building cus
 **Python:**
 ```python
 result = client.models.embed_content(
-    model="gemini-embedding-2",
+    model=EMBEDDING_MODEL_ID,
     contents="What is the meaning of life?"
 )
 print(result.embeddings)
@@ -91,7 +96,7 @@ print(result.embeddings)
 **Node.js:**
 ```javascript
 const response = await ai.models.embedContent({
-  model: "gemini-embedding-2",
+  model: EMBEDDING_MODEL_ID,
   contents: "What is the meaning of life?",
 });
 console.log(response.embeddings);
@@ -99,21 +104,25 @@ console.log(response.embeddings);
 
 **REST:**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL_ID}:embedContent" \
   -H "Content-Type: application/json" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -d '{
-    "model": "models/gemini-embedding-2",
+    "model": "models/EMBEDDING_MODEL_ID",
     "content": {"parts": [{"text": "What is the meaning of life?"}]}
   }'
 ```
 
 ### Embedding Models
 
-| Model | Modalities | Output Dim | Best For |
-|---|---|---|---|
-| `gemini-embedding-2` | Text, image, video, audio, docs | 768 | Multimodal search, cross-modal retrieval |
-| `gemini-embedding-001` | Text only | 768 | Text-only search, classification |
+Google ships two kinds of embedding model, and the choice is about modality rather than quality:
+
+| Kind | Modalities | Best For |
+|---|---|---|
+| Multimodal embedding | Text, image, video, audio, docs | Multimodal search, cross-modal retrieval |
+| Text embedding | Text only | Text-only search, classification, clustering |
+
+Resolve the current IDs and output dimensions from the model list ([model_discovery.md](model_discovery.md)). Embeddings from different models are not comparable — re-embed the whole corpus when switching, or retrieval silently degrades.
 
 ### Batch Embeddings
 
@@ -121,7 +130,7 @@ Embed multiple texts in one call:
 
 ```python
 result = client.models.embed_content(
-    model="gemini-embedding-2",
+    model=EMBEDDING_MODEL_ID,
     contents=[
         "What is machine learning?",
         "How do neural networks work?",
@@ -137,7 +146,7 @@ result = client.models.embed_content(
 
 Specifying the right task type optimizes embeddings for the intended use case.
 
-### With gemini-embedding-2 (Prompt-Based)
+### Multimodal embedding models (prompt-based)
 
 Format your input with a task prefix:
 
@@ -162,7 +171,7 @@ text = "task: clustering | query: Recent advances in renewable energy."
 text = "task: sentence similarity | query: The cat sat on the mat."
 ```
 
-### With gemini-embedding-001 (Config-Based)
+### Text embedding models (config-based)
 
 Use the `task_type` parameter:
 
@@ -170,7 +179,7 @@ Use the `task_type` parameter:
 from google.genai import types
 
 result = client.models.embed_content(
-    model="gemini-embedding-001",
+    model=EMBEDDING_MODEL_ID,
     contents=["What is AI?", "How does ML work?"],
     config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
 )

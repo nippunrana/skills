@@ -1,5 +1,10 @@
 # Structured Outputs & JSON Schema Enforcement
 
+> Code samples use `MODEL_ID` (and `IMAGE_MODEL_ID` / `EMBEDDING_MODEL_ID` / `GEMMA_MODEL_ID`) as placeholders.
+> Substitute the model ID confirmed with the user during discovery — see [model_discovery.md](model_discovery.md).
+> Client construction differs between AI Studio and Vertex AI, and the REST samples here target the AI Studio
+> endpoint — Vertex uses a regional host, a project/location path, and a bearer token. See [platforms.md](platforms.md).
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Python (Pydantic)](#python-pydantic)
@@ -32,7 +37,7 @@ class ProductInfo(BaseModel):
     tags: list[str]
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Extract product details from: Ultra-Widget, $49.99, categories: tools, diy.",
     config=types.GenerateContentConfig(
         response_mime_type="application/json",
@@ -60,7 +65,7 @@ class Customer(BaseModel):
     loyalty_tier: str
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Extract customer info from: John Doe, john@email.com, 123 Main St, NYC, USA, Gold member",
     config=types.GenerateContentConfig(
         response_mime_type="application/json",
@@ -85,7 +90,7 @@ const ProductSchema = z.object({
 });
 
 const result = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Extract product details from: Ultra-Widget, $49.99, categories: tools, diy.",
   config: {
     responseMimeType: "application/json",
@@ -103,7 +108,7 @@ const product = JSON.parse(result.text);
 Provide the schema directly in the request body:
 
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -124,7 +129,7 @@ curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:g
   }'
 ```
 
-> **Note for Gemini 2.0 models**: Include an explicit `propertyOrdering` list within the JSON schema to ensure the preferred structure is maintained. This is not required for Gemini 3.x models.
+> **Older models**: some earlier Gemini generations needed an explicit `propertyOrdering` list in the JSON schema to keep field order stable. Current models don't. If a legacy model ID is in play, add it; otherwise leave it out.
 
 ---
 
@@ -162,7 +167,7 @@ class ReviewAnalysis(BaseModel):
     summary: str
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Analyze: 'This product is amazing, best purchase ever!'",
     config=types.GenerateContentConfig(
         response_mime_type="application/json",

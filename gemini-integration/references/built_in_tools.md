@@ -1,5 +1,10 @@
 # Built-in Tool Integration
 
+> Code samples use `MODEL_ID` (and `IMAGE_MODEL_ID` / `EMBEDDING_MODEL_ID` / `GEMMA_MODEL_ID`) as placeholders.
+> Substitute the model ID confirmed with the user during discovery — see [model_discovery.md](model_discovery.md).
+> Client construction differs between AI Studio and Vertex AI, and the REST samples here target the AI Studio
+> endpoint — Vertex uses a regional host, a project/location path, and a bearer token. See [platforms.md](platforms.md).
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Google Search Grounding](#google-search-grounding)
@@ -23,7 +28,7 @@ Reduces hallucinations by retrieving real-time web data. Use when the user asks 
 **Python:**
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="What are the latest developments in quantum computing?",
     config={"tools": [{"google_search": {}}]}
 )
@@ -37,7 +42,7 @@ if response.candidates[0].grounding_metadata:
 **Node.js:**
 ```javascript
 const result = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "What are the latest developments in quantum computing?",
   config: { tools: [{ googleSearch: {} }] },
 });
@@ -45,7 +50,7 @@ const result = await ai.models.generateContent({
 
 **REST:**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -66,7 +71,7 @@ Enables location-aware workflows. Provide `user_location` (latitude/longitude) i
 **Python:**
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Find Italian restaurants near me",
     config={
         "tools": [{"google_maps": {}}],
@@ -88,7 +93,7 @@ Allows Gemini to write and run Python code. The model can perform calculations, 
 **Python:**
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Calculate the standard deviation of [14, 22, 17, 31, 25, 19, 28]",
     config={"tools": [{"code_execution": {}}]}
 )
@@ -97,7 +102,7 @@ response = client.models.generate_content(
 **Node.js:**
 ```javascript
 const result = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Calculate the standard deviation of [14, 22, 17, 31, 25, 19, 28]",
   config: { tools: [{ codeExecution: {} }] },
 });
@@ -114,7 +119,7 @@ Retrieves content from URLs to ground the model's response. Uses a two-step proc
 **Python:**
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Summarize the key findings from this report",
     config={
         "tools": [{
@@ -128,7 +133,7 @@ response = client.models.generate_content(
 
 **REST:**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -155,7 +160,7 @@ tools = [
 ]
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Analyze the data from this CSV and compare it with current market trends",
     config={"tools": tools}
 )
@@ -169,7 +174,7 @@ const tools = [
 ];
 
 const result = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Analyze this data and compare with current market trends",
   config: { tools },
 });

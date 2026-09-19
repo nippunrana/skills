@@ -4,43 +4,55 @@
     {
       "id": 1,
       "prompt": "I want to add an AI chatbot to my Next.js app using Gemini. It should stream responses in real-time and remember conversation context. The chatbot should act as a customer support agent for an e-commerce store. Can you set up the backend API route and the Gemini integration?",
-      "expected_output": "A complete implementation including: Gemini client initialization with API key from env vars, system instructions for customer support persona, streaming response via generateContentStream or Interactions API, multi-turn chat history management, and a Next.js API route that proxies the Gemini calls.",
+      "expected_output": "Before writing code, checks the current Gemini model lineup from an official Google source (or client.models.list()), states where that came from, and asks which model to use — rather than asserting a model ID from memory. Then a complete implementation: client init for the chosen platform with credentials from env vars, system instructions for the customer support persona, streaming via generateContentStream, multi-turn history management, and a Next.js API route that keeps the credential server-side. The model ID is defined once (env var or constant) rather than inlined at each call site.",
       "files": []
     },
     {
       "id": 2,
       "prompt": "I need to extract structured product data from uploaded product images using Gemini. Each image shows a product with its price tag. I need the output as JSON with fields: product_name, price, currency, and category. This is for a Python Flask backend.",
-      "expected_output": "A Flask endpoint that accepts image uploads, sends them to Gemini with a multimodal request (inline base64 or File API), uses structured outputs with a Pydantic schema to enforce the JSON format (product_name, price, currency, category), and returns the parsed JSON response.",
+      "expected_output": "A Flask endpoint accepting image uploads, sending them to Gemini as multimodal input (inline base64 or File API), using structured outputs with a Pydantic/response schema enforcing product_name, price, currency, category, and returning parsed JSON. The model is resolved live and confirmed with the user before being written in, not recalled from memory.",
       "files": []
     },
     {
       "id": 3,
       "prompt": "Build me a Gemini-powered search assistant for my Node.js Express app. It should be able to call my existing REST API to look up order status, and also use Google Search for general product questions. The assistant needs to handle both types of queries intelligently.",
-      "expected_output": "An Express route that configures Gemini with both function calling (for the order status API) and Google Search grounding (for product questions). Should include: function declaration for order_status lookup, the function call/response loop with thought signature handling, combined tools configuration, and system instructions to guide when to use which tool.",
+      "expected_output": "An Express route configuring both function calling (order status API) and Google Search grounding: function declaration for the order lookup, the call/response loop with thought signatures returned unmodified, combined tools config, and system instructions for tool routing. Model chosen via the live-discovery step; if grounding support is model-dependent it is verified rather than assumed.",
       "files": []
     },
     {
       "id": 4,
-      "prompt": "I want to add a chat endpoint to my Node/Express app using Gemma 4 instead of Gemini — I'd rather use an open model to keep costs down and have the option to self-host later. Can you set that up?",
-      "expected_output": "An Express route using @google/genai with model set to gemma-4-31b-it or gemma-4-26b-a4b-it (a real, correct Gemma 4 API model ID, not an invented one like gemma-4-e4b-it), API key read from an environment variable, and a brief note on the Gemini-vs-Gemma trade-off (cost/open-weights vs audio/1M context) rather than treating it as a silent drop-in.",
+      "prompt": "We're a regulated healthcare company on GCP and legal says our patient-facing summarization feature can't send data outside the EU. I want to use Gemini for it. How should I set this up?",
+      "expected_output": "Identifies that the Gemini Developer API / AI Studio does not offer data residency guarantees and that Vertex AI (Gemini Enterprise Agent Platform) is the correct platform, with a specific EU region rather than the global endpoint (which pools quota and does not satisfy residency). Client init uses the enterprise/vertexai flag with project + location and ADC/service-account auth, not an API key. Confirms model availability in the chosen region.",
       "files": []
     },
     {
       "id": 5,
-      "prompt": "I need to extract structured invoice data (vendor_name, total, currency, line_items) from scanned invoice images as JSON. Someone recommended using Gemma 4 via Google AI Studio since it's cheaper than Gemini. Python backend.",
-      "expected_output": "Python code calling generate_content with model gemma-4-31b-it (or gemma-4-26b-a4b-it), image passed as multimodal input with the image placed before the text prompt, and a schema-enforced JSON extraction (response_schema/Pydantic) with a note to verify schema conformance on Gemma since it isn't officially documented the way it is for Gemini.",
+      "prompt": "quick q — which gemini model should i use for a feature that summarizes long support email threads? want it cheap but not dumb",
+      "expected_output": "Does not answer from memory. Checks an official Google source for the current lineup, reports the finding with provenance (e.g. 'from checking Google's model list just now...'), presents 2-4 realistic candidates with the speed/cost/depth trade-off, gives a recommendation, and asks the user to choose. Does not present a remembered model ID as current fact.",
       "files": []
     },
     {
       "id": 6,
-      "prompt": "Build a coding agent using Gemma 4 that can call my internal REST API to fetch repo metadata and then reason about it before answering. I want it to actually think through the problem, not just pattern-match.",
-      "expected_output": "Function calling implementation with gemma-4-31b-it, a function declaration for the repo metadata lookup, the call/response loop, and thinking_config with thinking_level set to high (via the API config, not raw <|think|> prompt tokens) reserved for the reasoning step.",
+      "prompt": "I've got a Gemini integration working locally with an API key and now I need to deploy it to Cloud Run for our enterprise rollout. What do I need to change?",
+      "expected_output": "Explains that the platform, not the code, is what changes: swap the API-key client for the enterprise/Vertex client (project + location, ADC via the attached service account, no key file), re-verify the model ID is available in the target region, and re-check quotas since they are per project and region. Notes the SDK flag naming should be verified against the installed version, and that call sites stay unchanged if client construction lives in one module.",
       "files": []
     },
     {
       "id": 7,
-      "prompt": "Not sure whether to use gemini-3.5-flash or gemma 4 for a voice memo transcription + summarization feature in my app. What do you recommend?",
-      "expected_output": "A recommendation that correctly identifies Gemma 4's two API-hosted models (31B, 26B A4B) do not support audio input, so Gemini (which does) is the correct choice for voice memo transcription — not a claim that Gemma supports audio.",
+      "prompt": "I want to add a chat endpoint to my Node/Express app using Gemma instead of Gemini — I'd rather use an open model to keep costs down and have the option to self-host later. Can you set that up?",
+      "expected_output": "Looks up which Gemma models are actually callable on the API right now (models.list() or the official list) rather than assembling an ID from a model card, since most family sizes are download-only. Express route using @google/genai, credentials from env vars, and a brief note on the Gemini-vs-Gemma trade-off (open weights and cost vs modality support and context size) rather than treating it as a silent drop-in.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "Not sure whether to use a Gemini flash model or Gemma for a voice memo transcription + summarization feature in my app. What do you recommend?",
+      "expected_output": "Correctly identifies that the API-hosted Gemma models do not accept audio input, so Gemini is the right choice for voice memos — and verifies modality support for the specific model it recommends rather than asserting it from memory. Does not claim Gemma supports audio.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "Here's our config file. Our Gemini calls started failing in production this morning with a 404 on the model. Nothing was deployed. What's going on?",
+      "expected_output": "Recognizes a retired/shut-down model ID as the leading explanation (especially for a preview ID), checks the official model list for its deprecation status and the current replacement, and proposes pinning a stable ID. Also considers the region-availability case if the app is on Vertex. Does not guess a replacement ID without checking.",
       "files": []
     }
   ]

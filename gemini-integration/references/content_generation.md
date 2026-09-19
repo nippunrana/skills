@@ -1,5 +1,10 @@
 # Content Generation
 
+> Code samples use `MODEL_ID` (and `IMAGE_MODEL_ID` / `EMBEDDING_MODEL_ID` / `GEMMA_MODEL_ID`) as placeholders.
+> Substitute the model ID confirmed with the user during discovery — see [model_discovery.md](model_discovery.md).
+> Client construction differs between AI Studio and Vertex AI, and the REST samples here target the AI Studio
+> endpoint — Vertex uses a regional host, a project/location path, and a bearer token. See [platforms.md](platforms.md).
+
 ## Table of Contents
 1. [Basic Text Generation](#basic-text-generation)
 2. [System Instructions](#system-instructions)
@@ -18,7 +23,7 @@ The simplest form of Gemini integration — send text, get text back.
 **Python:**
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="Explain how neural networks learn"
 )
 print(response.text)
@@ -27,7 +32,7 @@ print(response.text)
 **Node.js:**
 ```javascript
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Explain how neural networks learn",
 });
 console.log(response.text);
@@ -35,7 +40,7 @@ console.log(response.text);
 
 **REST:**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -53,7 +58,7 @@ System instructions configure the model's persona and behavior. They persist acr
 from google.genai import types
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     config=types.GenerateContentConfig(
         system_instruction="You are a senior Python developer. Provide concise, production-ready code with error handling."
     ),
@@ -64,7 +69,7 @@ response = client.models.generate_content(
 **Node.js:**
 ```javascript
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Write a function to validate email addresses",
   config: {
     systemInstruction: "You are a senior Python developer. Provide concise, production-ready code with error handling.",
@@ -74,7 +79,7 @@ const response = await ai.models.generateContent({
 
 **REST:**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -106,7 +111,7 @@ from PIL import Image
 
 image = Image.open("/path/to/photo.png")
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents=[image, "Describe what you see in this image"]
 )
 ```
@@ -117,7 +122,7 @@ import { createUserContent, createPartFromUri } from "@google/genai";
 
 const image = await ai.files.upload({ file: "/path/to/photo.png" });
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: [
     createUserContent([
       "Describe what you see in this image",
@@ -130,7 +135,7 @@ const response = await ai.models.generateContent({
 **Node.js (inline base64 for small images):**
 ```javascript
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: [
     "Identify the hardware components in this photo.",
     { inlineData: { data: base64Image, mimeType: "image/png" } },
@@ -148,7 +153,7 @@ with open("voice_memo.mp3", "rb") as f:
     audio_bytes = f.read()
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents=[
         "Transcribe this audio, then give a 2-sentence summary.",
         types.Part.from_bytes(data=audio_bytes, mime_type="audio/mp3"),
@@ -160,7 +165,7 @@ response = client.models.generate_content(
 ```javascript
 const audioFile = await ai.files.upload({ file: "/path/to/meeting.wav" });
 const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: [
     createUserContent([
       "Transcribe this audio, then give a 2-sentence summary.",
@@ -172,13 +177,13 @@ const response = await ai.models.generateContent({
 
 Reference specific moments with `MM:SS` timestamps in the prompt (e.g. "what's said at 1:30?"). Combine with `structured_outputs.md`'s schema enforcement to get a transcript back as clean JSON instead of free text.
 
-> **Gemma 4 note**: the two API-hosted Gemma 4 models do not support audio input — use a Gemini model for any audio task. See [gemma_models.md](gemma_models.md).
+> **Gemma note**: the API-hosted Gemma models do not support audio input — use a Gemini model for any audio task. See [gemma_models.md](gemma_models.md).
 
 ### PDF / Document Input
 
 ```python
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents=[
         "Summarize this PDF.",
         client.files.get(name='uploaded_doc')
@@ -201,14 +206,14 @@ Use `media_resolution` to balance quality vs. token cost:
 
 Some Gemini models generate images as output, not just understand them. This is a separate capability from the multimodal *input* handling above — it needs a dedicated image-generation model and `response_modalities` set to request image output.
 
-**Models**: `gemini-3-pro-image` (highest quality, complex compositions), `gemini-3.1-flash-image` (default choice — fast, high-volume), `gemini-3.1-flash-lite-image` (fastest/cheapest, simpler images).
+**Models**: image generation uses a dedicated image model, not the text model — the IDs usually carry an `-image` suffix and come in Pro (highest quality, complex compositions), Flash (fast, high-volume default), and Flash-Lite (cheapest, simpler images) variants. Resolve the current IDs with [model_discovery.md](model_discovery.md); `IMAGE_MODEL_ID` below is a placeholder.
 
 **Python:**
 ```python
 from google.genai import types
 
 response = client.models.generate_content(
-    model="gemini-3.1-flash-image",
+    model=IMAGE_MODEL_ID,
     contents="Generate an infographic-style image of a butterfly life cycle.",
     config=types.GenerateContentConfig(
         response_modalities=["TEXT", "IMAGE"],
@@ -225,7 +230,7 @@ for part in response.parts:
 **Node.js:**
 ```javascript
 const response = await ai.models.generateContent({
-  model: "gemini-3.1-flash-image",
+  model: IMAGE_MODEL_ID,
   contents: "Generate an infographic-style image of a butterfly life cycle.",
   config: { responseModalities: ["TEXT", "IMAGE"] },
 });
@@ -239,7 +244,7 @@ for (const part of response.candidates[0].content.parts) {
 
 `response_modalities` (or `responseModalities` in Node.js) must include `"IMAGE"` to get image output at all — omit `"TEXT"` if you only want the image with no accompanying caption. Aspect ratio and resolution are configurable per-request via an `image_config`/`imageConfig` field; check current SDK types for the exact shape, since this part of the API has moved fastest since the Gemini 3 image models launched. Multi-turn image editing (refining a previously generated image) is supported by referencing the prior response in the next turn, same as any other multi-turn chat.
 
-> **Gemma 4 note**: image generation is a Gemini-only capability — Gemma 4 models understand images as input but do not generate them. See [gemma_models.md](gemma_models.md).
+> **Gemma note**: image generation is a Gemini-only capability — Gemma models understand images as input but do not generate them. See [gemma_models.md](gemma_models.md).
 
 ---
 
@@ -252,7 +257,7 @@ Streaming delivers response tokens incrementally, critical for responsive chat U
 **Python:**
 ```python
 response = client.models.generate_content_stream(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents=["Explain how AI works"]
 )
 for chunk in response:
@@ -262,7 +267,7 @@ for chunk in response:
 **Node.js:**
 ```javascript
 const response = await ai.models.generateContentStream({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: "Explain how AI works",
 });
 for await (const chunk of response) {
@@ -272,7 +277,7 @@ for await (const chunk of response) {
 
 **REST (Server-Sent Events):**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:streamGenerateContent?alt=sse" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   --no-buffer \
@@ -286,7 +291,7 @@ The Interactions API provides richer streaming with step-based events (thinking,
 **Python:**
 ```python
 stream = client.interactions.create(
-    model="gemini-3-flash-preview",
+    model=MODEL_ID,
     input="Count from 1 to 25.",
     stream=True,
 )
@@ -299,7 +304,7 @@ for event in stream:
 **Node.js:**
 ```javascript
 const stream = await client.interactions.create({
-  model: "gemini-3-flash-preview",
+  model: MODEL_ID,
   input: "Count from 1 to 25.",
   stream: true,
 });
@@ -326,7 +331,7 @@ The SDKs provide a chat interface that automatically manages conversation histor
 
 **Python:**
 ```python
-chat = client.chats.create(model="gemini-3.5-flash")
+chat = client.chats.create(model=MODEL_ID)
 
 response = chat.send_message("I have 2 dogs in my house.")
 print(response.text)
@@ -342,7 +347,7 @@ for message in chat.get_history():
 **Node.js:**
 ```javascript
 const chat = ai.chats.create({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   history: [
     { role: "user", parts: [{ text: "Hello" }] },
     { role: "model", parts: [{ text: "Hi! What would you like to know?" }] },
@@ -358,7 +363,7 @@ console.log(response2.text);
 
 **REST (manual history management):**
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -375,7 +380,7 @@ curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:g
 
 **Python:**
 ```python
-chat = client.chats.create(model="gemini-3.5-flash")
+chat = client.chats.create(model=MODEL_ID)
 response = chat.send_message_stream("Tell me a story about a robot.")
 for chunk in response:
     print(chunk.text, end="")

@@ -1,5 +1,10 @@
 # Function Calling: Connecting Gemini to Your APIs
 
+> Code samples use `MODEL_ID` (and `IMAGE_MODEL_ID` / `EMBEDDING_MODEL_ID` / `GEMMA_MODEL_ID`) as placeholders.
+> Substitute the model ID confirmed with the user during discovery — see [model_discovery.md](model_discovery.md).
+> Client construction differs between AI Studio and Vertex AI, and the REST samples here target the AI Studio
+> endpoint — Vertex uses a regional host, a project/location path, and a bearer token. See [platforms.md](platforms.md).
+
 ## Table of Contents
 1. [Architecture Overview](#architecture-overview)
 2. [Python Implementation](#python-implementation)
@@ -44,7 +49,7 @@ def get_weather(location: str, unit: str = "celsius") -> dict:
     return {"temperature": 22, "condition": "sunny", "unit": unit}
 
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="What's the weather in San Francisco?",
     config={"tools": [get_weather]}
 )
@@ -77,7 +82,7 @@ weather_tool = types.Tool(
 
 # Step 2: Send the request
 response = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents="What's the weather in Tokyo?",
     config=types.GenerateContentConfig(tools=[weather_tool]),
 )
@@ -91,7 +96,7 @@ for part in response.candidates[0].content.parts:
         
         # Step 4: Return the result to the model
         follow_up = client.models.generate_content(
-            model="gemini-3.5-flash",
+            model=MODEL_ID,
             contents=[
                 types.Content(role="user", parts=[types.Part(text="What's the weather in Tokyo?")]),
                 response.candidates[0].content,  # includes thought_signature
@@ -130,7 +135,7 @@ const tools = [{
 }];
 
 const result = await ai.models.generateContent({
-  model: "gemini-3.5-flash",
+  model: MODEL_ID,
   contents: [{ role: "user", parts: [{ text: "Weather in London?" }] }],
   config: { tools },
 });
@@ -143,7 +148,7 @@ if (functionCall) {
   const weatherData = await getWeather(args.location, args.unit);
   
   const followUp = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
+    model: MODEL_ID,
     contents: [
       { role: "user", parts: [{ text: "Weather in London?" }] },
       result.candidates[0].content,
@@ -160,7 +165,7 @@ if (functionCall) {
 ## REST Implementation
 
 ```bash
-curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent" \
+curl "https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -X POST \
@@ -220,7 +225,7 @@ for part in response.candidates[0].content.parts:
 
 # Send all results back in one request
 follow_up = client.models.generate_content(
-    model="gemini-3.5-flash",
+    model=MODEL_ID,
     contents=[
         *original_contents,
         response.candidates[0].content,
