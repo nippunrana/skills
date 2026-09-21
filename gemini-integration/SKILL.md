@@ -1,6 +1,6 @@
 ---
 name: gemini-integration
-description: Help developers integrate Google Gemini AI into any website, webapp, or mobile app — through either of the two ways Google ships it — Google AI Studio (the Gemini Developer API, API-key based) or Vertex AI (now the Gemini Enterprise Agent Platform, GCP project + IAM based). Also covers Gemma open-weights models served through the same SDK. Use this skill whenever the user mentions Gemini, Gemma, Google AI Studio, Vertex AI, Gemini Enterprise Agent Platform, google-genai or @google/genai, generative AI integration, LLM-powered features, AI chatbot, multimodal AI, structured AI outputs, function calling, grounding with Google Search, or embeddings. Trigger it even for simple questions — API key setup, "which Gemini model should I use", AI Studio vs Vertex, adding text generation or image/document analysis to an app, or choosing between Gemini and Gemma. Always trigger before naming or writing a Gemini model ID, because this skill carries the live model-discovery protocol that keeps the choice current.
+description: Integrate Google Gemini AI and Gemma models into web and mobile apps. Use for Google AI Studio or Vertex AI SDK setup, multimodal generation, streaming, structured JSON outputs, tool/function calling, and live model discovery.
 ---
 
 # Gemini AI Integration

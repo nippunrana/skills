@@ -1,6 +1,6 @@
 ---
-name: prompt-checker-and-builder
-description: Evaluates and improves prompts for any AI task, or builds robust new prompts from scratch through interactive questioning — using context-engineering principles (pack the context window with just-enough information, route work the model is unreliable at to deterministic steps, ground document/image/video and extraction tasks in their source, and direct the model with a precise spec and output contract). Works for coding prompts AND non-coding agent prompts: system prompts, data/text extraction, document/image/video understanding (lab reports, receipts, prescriptions, video analysis), high-precision arithmetic or logic, and prompts embedded in LangChain / n8n / API agent workflows. Use this whenever the user asks to review, check, score, evaluate, refine, tighten, or build a prompt or system prompt for an AI model or agent, mentions prompt engineering or context engineering, or whenever you notice the user's own prompt is vague, bloated, ungrounded, or under-specified and would benefit from refinement before it runs — even if they don't explicitly ask for a prompt review.
+name: prompt-checker-builder
+description: Evaluate and optimize prompts for AI models and agents using context-engineering principles. Use for reviewing, scoring, and crafting high-precision system prompts, few-shot prompts, multimodal extraction tasks, and agent workflow instructions.
 ---
 
 # Prompt Checker and Builder

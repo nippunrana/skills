@@ -1,15 +1,6 @@
 ---
 name: et-frontend-design
-description: >
-  Create distinctive, production-grade frontend interfaces with high design quality and
-  conversion-focused UX. Use this skill when the user asks to build, style, redesign, beautify,
-  or polish any web UI: WordPress templates, landing pages, product pages, homepages, dashboards,
-  React/Vue/Next.js components, HTML/CSS/JS layouts, mobile app screens, forms, navigation, cards,
-  heroes, or any visual frontend work. Also triggers when the user wants to improve conversion
-  rates, create a theme or color scheme, fix ugly layouts, optimize for mobile, add animations or
-  micro-interactions, or when they paste a design mockup and want it coded. Even if the user just
-  says "make it look better" or "this looks ugly" — use this skill. Generates creative,
-  production-ready code with exceptional design craft that avoids generic AI aesthetics.
+description: Design and build distinctive, production-grade frontend interfaces with high aesthetic craft and conversion UX. Use for UI/UX styling, landing pages, design systems, responsive layouts, components, and interactive micro-animations.
 license: Complete terms in LICENSE.txt
 ---
 

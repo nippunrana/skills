@@ -1,39 +1,6 @@
 ---
 name: wp-block-theme
-description: >
-  Expert WordPress 7.0 theme AND plugin developer. Covers the full WP 7.0 surface: Full Site
-  Editing block themes, templates, template parts, block patterns, theme.json design systems —
-  AND the new plugin-side APIs: WP AI Client (`wp_ai_client_prompt()` with JSON schema responses
-  and multimodal generation like image/audio/video), Connectors API, client-and-server Abilities API
-  (`wp_register_ability` / `registerAbility`), DataViews and DataForms (`groupBy`, `onReset`, Field validation,
-  `getValueFormatted`), Block Bindings, Block Hooks, PHP-only blocks (`autoRegister`), viewport `blockVisibility`,
-  dimensions and textIndent supports, customisable Navigation Overlays, Interactivity API `watch()` with
-  server-populated `state.url`, and Breadcrumb filters. Use this skill whenever the user wants
-  to create, modify, or scaffold any part of a WP 7.0 theme OR plugin — new templates, template
-  parts, block patterns, child theme extensions, custom blocks (PHP-only or classic dynamic),
-  AI abilities, DataViews admin screens, custom Connectors, theme.json configuration, modular
-  asset pipelines, or Site Editor debugging. CRITICALLY: use this skill whenever the user
-  provides raw HTML/CSS/JS and asks to "convert it to a block theme template", or asks to
-  "add an AI feature", "register an ability", "build an admin table", "call Claude/OpenAI from
-  PHP", "register a custom AI provider", "manage API keys for AI", or implements anything that
-  touches the AI Client, Abilities, Connectors, or DataViews APIs. ALSO use this skill for
-  WP 7.0 core-platform work — real-time collaboration gates (`wp_is_collaboration_enabled` /
-  `wp_is_collaboration_allowed`), AI environment checks and governance (`wp_supports_ai`,
-  `wp_ai_client_prevent_prompt`, the request-timeout filter), Block Hooks REST-injection scoping
-  (`rest_block_hooks_post_types`), Script Module translations (`wp_set_script_module_translations`),
-  admin View Transitions and the Command Palette, password-hashing filters (Argon2 via
-  `wp_hash_password_algorithm`), and image LCP / `fetchpriority` optimization. ALSO use this skill for
-  WooCommerce work in a block theme — "override the WooCommerce shop / single product / cart /
-  checkout / order confirmation template", "style the Mini-Cart", "customize the Add to Cart
-  block", "register a Cart/Checkout filter via registerCheckoutFilters()", "use is_shop() /
-  is_product() / is_cart()", "call wc_get_logger()", or any work touching `woocommerce/*` blocks
-  or the `Automattic\WooCommerce` namespace. ALSO covers WooCommerce checkout extensibility —
-  "add a custom checkout field", "woocommerce_register_additional_checkout_field", "validate /
-  sanitize a checkout field", "conditional checkout field via JSON Schema", "onCheckoutValidation /
-  onPaymentSetup / onCheckoutSuccess", "checkout SlotFill (ExperimentalOrderMeta)",
-  "wc/store/checkout data store" — plus WooCommerce store performance ("exclude cart/checkout from
-  cache", "fix password reset loop", "Core Web Vitals for a store") and coding standards ("safe
-  WooCommerce customization", "child theme template override", "is_ssl behind a load balancer").
+description: Expert WordPress 7.0 theme and plugin developer. Use for Full Site Editing (FSE) block themes, templates, block patterns, theme.json, and WP 7.0 APIs (WP AI Client, Abilities, DataViews, Block Bindings/Hooks). Also covers WooCommerce block themes and checkout extensibility.
 ---
 
 # WordPress 7.0 Theme & Plugin Developer

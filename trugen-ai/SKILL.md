@@ -1,6 +1,6 @@
 ---
 name: trugen-ai
-description: Help developers build, configure, and optimize applications using TruGen AI. Use this skill whenever the user mentions TruGen, conversational video agents, real-time avatar pipelines (STT/TTS/Video rendering), Huma-1, Hawkeye-1 vision perception, or LiveKit avatar streams. Make sure to trigger this skill even if the user asks simple API questions about TruGen, needs help designing system prompts, or wants to set up webhook notifications.
+description: Build and optimize real-time conversational video avatar applications using TruGen AI. Use for avatar streaming (LiveKit), STT/TTS pipelines, Huma-1 and Hawkeye-1 perception, and agent prompt configuration.
 ---
 
 # TruGen AI Developer Assistant

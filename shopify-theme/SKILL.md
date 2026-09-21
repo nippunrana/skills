@@ -1,18 +1,6 @@
 ---
 name: shopify-theme
-description: >
-  Use for any Shopify Online Store 2.0 theme work: sections ({% schema %},
-  settings, blocks, presets), JSON templates, theme.liquid layout, section
-  groups (header-group/footer-group), theme blocks (/blocks/,
-  {% content_for %}), snippets, settings_schema.json, performance (JS ≤16KB,
-  Lighthouse ≥60, asset_url cache-busting, {% stylesheet %} CSS subsetting),
-  and theme editor JS (shopify:section:load, shopify:block:select,
-  shopify:section:unload). Invoke when the user wants to add a section, create
-  a Shopify template, build a theme block, customize the header or footer, add
-  schema settings, fix theme editor behavior, improve Lighthouse scores,
-  convert HTML to a section, add an app block, wire storefront events, or touch
-  any Liquid theme file, section schema, settings_schema.json, or the Shopify
-  CLI.
+description: Shopify Online Store 2.0 theme development and customization. Use for Liquid sections, JSON templates, schema settings, theme blocks, theme editor JS events, Storefront APIs, and theme performance optimization.
 ---
 
 # Shopify Theme Developer

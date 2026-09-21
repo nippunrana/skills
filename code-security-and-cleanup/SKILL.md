@@ -1,15 +1,6 @@
 ---
 name: code-security-and-cleanup
-description: >
-  Professional-grade code audit and dead code removal for PHP/JS projects. Performs
-  baseline measurement, AST-aware dead code detection, OWASP security hardening,
-  complexity analysis, and surgical removal with git safety. Produces executive-ready
-  reports with risk matrices, before/after scorecards, and prevention recommendations.
-  Use this skill whenever the user mentions dead code, unused imports, technical debt
-  cleanup, code hygiene, pre-delivery audit, bundle size reduction, code bloat,
-  stale feature flags, orphaned functions, or wants to clean up after completing a
-  feature, refactoring, or before submitting code for review. Also triggers for
-  security audits focused on leftover debug code, exposed secrets, or unused endpoints.
+description: Pre-delivery code audit and dead code removal for PHP and JavaScript projects. Use for baseline code metrics, AST-aware dead code detection, OWASP security hardening, and safe, surgical cleanup of unused code and secrets.
 ---
 
 # Pre-Delivery Code Audit & Dead Code Removal

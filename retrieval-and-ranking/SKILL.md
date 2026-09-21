@@ -1,21 +1,6 @@
 ---
 name: retrieval-and-ranking
-description: >
-  Use for any Python retrieval or ranking task: semantic search, vector search,
-  embedding search, sentence-transformers, SentenceTransformer, all-MiniLM-L6-v2,
-  cosine similarity, dot-product similarity, bi-encoder, encode documents, encode
-  query, BM25, lexical search, keyword search, full-text search, rank_bm25,
-  BM25Okapi, hybrid search, Reciprocal Rank Fusion, RRF, NDCG, MAP, P@k, MRR,
-  Recall@k, retrieval evaluation metrics, ranking metrics, mean average precision,
-  normalized discounted cumulative gain, retrieval pipeline, CPU-friendly embeddings,
-  local embeddings without API, static embeddings, model2vec, offline retrieval,
-  large corpus, scale, millions of documents, memory-safe retrieval, out-of-core
-  embeddings, Polars, BM25 tokenization at scale, chunked matmul, corpus chunking.
-  Invoke when the user wants to: add or improve a retrieval function, build a
-  semantic search script, implement BM25 lexical retrieval, combine BM25 and
-  semantic search, validate retrieval quality with NDCG/MAP/P@k, measure ranking
-  performance, build a local embedding pipeline (no OpenAI/Cohere API), or compute
-  retrieval metrics to benchmark a search system.
+description: CPU-friendly Python retrieval and ranking pipeline. Use for semantic search, vector embeddings (SentenceTransformers), BM25 lexical search, hybrid fusion (RRF), and ranking evaluation metrics (NDCG, MAP, MRR, Recall@k).
 ---
 
 # Retrieval & Ranking Engineer

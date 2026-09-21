@@ -1,6 +1,6 @@
 ---
 name: resume-analyzer
-description: "Evaluates and improves resumes based on modern ATS realities and human-centric recruitment strategies. Features reverse-engineering role fit, gap analysis, and computational date verification. Use this skill whenever a user asks to review, critique, rate, improve, or format their resume, or when they mention ATS, CV optimization, or applying for jobs."
+description: Evaluate and optimize resumes for ATS parsing and recruiter impact. Use for role-fit gap analysis, keyword alignment, work history verification, and executive CV formatting.
 ---
 
 # Resume Analyzer

@@ -1,23 +1,6 @@
 ---
 name: python-engineering
-description: >
-  Use whenever the task involves writing, refactoring, or reviewing Python code.
-  Invoke for: writing new Python scripts or modules, refactoring functions or
-  classes to be more Pythonic or idiomatic, adding or improving type hints
-  (PEP 484), implementing or reviewing SOLID principles in Python, setting up or
-  configuring the quality toolchain (Ruff, Mypy, Pytest), creating or updating
-  pyproject.toml, reviewing Python code for clean-code compliance (naming, SRP,
-  DRY), designing Python class hierarchies or data models, converting Java-esque
-  APIs to idiomatic Pythonic wrappers, implementing the Adapter pattern, writing
-  context managers or magic methods, structuring a data pipeline, or any task
-  where the primary output is Python source code.
-  Trigger on phrases like: "write a Python script", "make this Pythonic",
-  "add type hints", "refactor this Python function or class", "set up Ruff or
-  Mypy or Pytest", "review my Python code", "create a pyproject.toml",
-  "implement SOLID in Python", "clean up this Python class", "design a Python
-  data pipeline", "this Python code is messy", "add tests to this script".
-  Do NOT use for debugging a specific runtime error (use the debugger skill), or
-  removing dead code from PHP or JavaScript (use code-security-and-cleanup).
+description: Production-grade Python engineering. Use for writing, refactoring, or reviewing Python 3.10+ code, including type hints (PEP 484), SOLID architecture, clean code, data pipelines, and quality tooling (Ruff, Mypy, Pytest, pyproject.toml).
 ---
 
 # Python Engineering

@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Hypothesis-driven multi-domain debugger that finds the ROOT CAUSE of any bug — visual/CSS layout, code logic, async/race conditions, API/network failures, backend errors, performance issues, build/tooling problems. Use this skill whenever the user is stuck on a bug or unexpected behavior, regardless of stack or language. The skill auto-routes based on chat context, picks the lightest-weight probe (paste-ready browser-console snippet, injected debug instrumentation in source, or both), follows a strict phase-gated scientific workflow (observe → hypothesize → probe → measure → confirm → fix → cleanup), and removes every line of debug code it injects (unless the user opts to keep one) so nothing leaks into production. Trigger this skill aggressively — for phrases like "why isn't this working", "this is broken", "weird bug", "the page looks wrong", "my API returns 500" — not only when the user literally says "debug".
+description: Hypothesis-driven, multi-domain debugging to find root causes across code logic, visual/CSS layout, async/race conditions, APIs, backend errors, and performance. Generates lightweight diagnostic probes and verifies fixes with data before changing code.
 ---
 
 # Debugger
