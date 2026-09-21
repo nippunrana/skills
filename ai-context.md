@@ -4,7 +4,7 @@ This repository contains a collection of production-ready AI agent skills packag
 
 ## Core Architecture
 - **Skill Format:** Every skill MUST have a `SKILL.md` file containing YAML frontmatter (`name` and `description`) followed by Markdown instructions.
-- **Routing:** The `description` field in the frontmatter is the *only* routing signal used by platforms (Antigravity IDE, Claude Code, Gemini CLI, Cursor). It must be optimized to match realistic user prompts.
+- **Routing & Description Budget:** The `description` field in the frontmatter is the routing signal injected into IDE system prompts. It must stay concise (under 50 words / ~60 tokens) focusing strictly on domain triggers. Never enumerate entire APIs or keyword-stuff; deep details belong in `references/`.
 - **Layered Loading:** Keep the primary `SKILL.md` file focused on the workflow. Place deep-dive docs in a `references/` subdirectory to be loaded on demand. This keeps context windows efficient.
 
 ## Repository Rules & Conventions
