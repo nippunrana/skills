@@ -76,8 +76,11 @@ Build an internal strategy brief using this structure (do NOT output it raw to t
 4. **Component hierarchy:** Map atoms (buttons, inputs, badges) → molecules (cards, nav items,
    form groups) → organisms (header, hero, feature grid, footer). Plan the page flow as a funnel,
    not a stack of sections.
-5. **Design system seeds:** Light or dark? Font pairing direction? Color mood? Commit before
-   coding — don't switch mid-implementation.
+5. **Design system seeds:** Font pairing direction? Color mood? Commit before coding — don't
+   switch mid-implementation. **Always default to light mode.** Use dark mode only when the
+   user explicitly asks for it. An aesthetic direction (dark tech, cyberpunk, luxury) or a
+   product category (developer tool, media) is not a request for dark mode — render it on light
+   surfaces. Never ask the user "light or dark?" in Phase 3; the default answers it.
 
 Use your internal thought/scratchpad block to run through this phase. If you do not have a hidden thought block, do not output the full raw brief; instead, compress it into a short summary for the user rather than dumping the raw internal structure.
 

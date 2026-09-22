@@ -8,7 +8,7 @@ Use a 4px base unit (`--space-1: 4px` through `--space-12: 96px`). All spacing v
 ## Color Tokens
 Use semantic naming so colors carry meaning, not just values (`--color-text-primary`, `--color-surface`, `--color-accent`). Follow the 60-30-10 rule: 60% neutral (backgrounds, body text), 30% secondary (borders, cards, muted text), 10% accent (CTAs, links, highlights). Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
 
-For dark mode: map the same semantic token names to different values. Never swap individual colors ad-hoc — remap the entire system. Use `prefers-color-scheme: dark` or a `.dark-theme` class on the root element.
+Light mode is the default. Build dark mode only when the user explicitly asks for it. When they do: map the same semantic token names to different values. Never swap individual colors ad-hoc — remap the entire system. Use `prefers-color-scheme: dark` or a `.dark-theme` class on the root element.
 
 ## Typography Scale
 Define 6-8 named sizes using `clamp()` for fluid scaling. Each carries its own line-height and letter-spacing as a triplet — never set `font-size` without its companions. Maximum 2 font families — one display, one body. Never more.
@@ -60,4 +60,4 @@ These patterns are the telltale signs of generic AI output. Avoid them in Brand 
 - **Never** pair a beautiful stock image with weak, generic typography
 - **Never** use cookie-cutter component patterns without context-specific adaptation
 
-Every project should feel distinct. Vary light/dark themes, font choices, color palettes, and layout approaches. Interpret creatively and make unexpected choices that feel genuinely designed for the specific context.
+Every project should feel distinct. Vary font choices, color palettes, and layout approaches. Interpret creatively and make unexpected choices that feel genuinely designed for the specific context.

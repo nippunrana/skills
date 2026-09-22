@@ -132,6 +132,9 @@ systems. Copy and adapt these tokens as the foundation for any project.
 
 ## Dark Mode Token Mapping
 
+Use this section only when the user has explicitly asked for dark mode. Light mode is the
+default and needs no remap.
+
 Remap semantic tokens to different primitives — same variable names, different values:
 
 ```css

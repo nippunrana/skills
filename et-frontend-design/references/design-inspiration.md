@@ -4,6 +4,11 @@ Use this reference when choosing a creative direction. Each category describes d
 characteristics, typography recommendations, color palette direction, motion patterns, and common
 pitfalls to avoid. Match the category to the project's purpose and audience.
 
+**Light mode is the default for every category.** Where a category below describes dark
+backgrounds or dark surfaces, that is the dark-mode variant — use it only when the user has
+explicitly asked for dark mode. Otherwise translate the same character (accent colors, typography,
+motion, density) onto light surfaces.
+
 ---
 
 ## SaaS / Developer Tool Aesthetic
@@ -108,9 +113,9 @@ native-feeling interactions. Designed for touch from the start, not retrofitted 
 that work on narrow screens. Avoid long blocks of text — break into scannable chunks with clear
 headings.
 
-**Color direction:** Light themes with clear contrast tend to perform better in mobile contexts
-(outdoor readability). Dark themes work for media, entertainment, and nighttime use. High
-contrast between interactive and non-interactive elements.
+**Color direction:** Light themes with clear contrast perform better in mobile contexts
+(outdoor readability), so the light default holds here. Build a dark theme only when the user
+asks for one. High contrast between interactive and non-interactive elements.
 
 **Motion:** Touch feedback (scale down on press, spring back on release), swipe gestures for
 navigation and actions, pull-to-refresh, bottom-sheet slides for contextual menus. Keep
