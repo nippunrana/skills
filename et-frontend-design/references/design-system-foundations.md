@@ -13,7 +13,12 @@ Light mode is the default. Build dark mode only when the user explicitly asks fo
 ## Typography Scale
 Define 6-8 named sizes using `clamp()` for fluid scaling. Each carries its own line-height and letter-spacing as a triplet — never set `font-size` without its companions. Maximum 2 font families — one display, one body. Never more.
 
-**Font loading:** Use `font-display: swap` and `<link rel="preload">` for the primary font. Define fallback font metrics with `size-adjust` and `ascent-override` to prevent layout shifts.
+**Font loading & Zero-Runtime-Cloud Rule:**
+- **Never use runtime CSS `@import` or CDN `<link>` tags** for fonts (e.g. `fonts.googleapis.com`). They block stylesheet parsing, stall First Contentful Paint (FCP), and add render-blocking network cascades.
+- **In Next.js:** Always use `next/font/google` or `next/font/local`. Next.js downloads `.woff2` files at build time into `.next/static/media/` and inlines them without runtime external requests.
+- **In Vite / Static HTML:** Download `.woff2` files to `public/fonts/` and declare local `@font-face` blocks with `font-display: swap`.
+- **Prevent CSS Custom Property Cycles:** When using `next/font` with CSS variables and fallback declarations in `:root`, never assign a custom property to itself (e.g., `--font-sans: var(--font-sans)` is invalid in CSS). Use distinct variable names from the font loader (e.g., `--font-sans-loaded`) and consume them as `--font-sans: var(--font-sans-loaded), system-ui, sans-serif`.
+- **Layout Shift Prevention:** Use `font-display: swap` and define fallback font metrics with `size-adjust` and `ascent-override` to eliminate Cumulative Layout Shift (CLS) on font swap.
 
 **Typography craft:**
 - `-webkit-font-smoothing: antialiased` for consistent rendering

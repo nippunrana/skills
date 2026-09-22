@@ -65,11 +65,18 @@ roughly 18 KB and all trigger setup work from the critical path.
 
 ## Rules
 
-- **Never hide the LCP element before JavaScript runs.** No `opacity: 0`,
-  `autoAlpha: 0`, `visibility: hidden`, or `color: transparent` on the hero
-  heading or hero image in the initial CSS, and no `gsap.from()` with those
-  values on it. This applies to the LCP element only. Other hero elements
-  (subheadline, CTA, decoration) may still fade from 0.
+- **Never hide the LCP element or primary conversion CTA before JavaScript runs.**
+  No `opacity: 0`, `autoAlpha: 0`, `visibility: hidden`, or `color: transparent` on
+  the hero heading, hero image, or primary CTA in the initial CSS, and no
+  `gsap.from()` with those values on them. The heading/image drives LCP; the primary
+  CTA drives Interaction to Next Paint (INP) and early interaction readiness.
+  Their start state must be a transform offset only (`y`, `scale`). Only secondary
+  accents (badges, decorative cards) may start faded.
+- **Hero animation duration budget: under 1 second total.** While LCP measures the
+  initial paint, human psychology equates "animations still unfolding" with "the page
+  is still loading." Keep total hero entrance sequences between 0.8s – 1.0s. Use tight
+  overlapping staggers (`stagger: 0.05s - 0.08s`, `duration: 0.3s - 0.5s`); never chain
+  long serialized `.to()` timelines that drag past 1.5s.
 - **Hero entrances animate transforms from a CSS-defined start state with
   `gsap.to()`.** `gsap.from()` is banned above the fold: it depends on
   JavaScript to apply the start state, so a late script makes already-visible
@@ -115,9 +122,9 @@ hero chunk can be late without hurting LCP.
   transform: translateY(40px);
 }
 
-/* Non-LCP elements may also start faded. Never the title. */
-.hero-subtitle,
-.hero-cta {
+/* Primary CTA and heading stay visible (opacity: 1) for instant INP / LCP. Only secondary accents fade. */
+.hero-accent,
+.hero-decorative {
   opacity: 0;
 }
 
@@ -464,6 +471,10 @@ Islands take Tier C:
   breaks and a re-layout. Wait on `document.fonts.ready`, or set
   `autoSplit: true` and create the animation inside `onSplit()` so the re-split
   after font load re-creates it.
+- **Render-blocking font cascades.** External `@import` or CDN font `<link>` tags
+  stall CSS parsing and delay the hero entrance. Use build-time self-hosted fonts
+  (`next/font` in Next.js, or local `.woff2` files with `font-display: swap`).
+  See the Zero-Runtime-Cloud Font Rule in `et-frontend-design`.
 - **Text reveals on the hero heading.** Splitting the LCP heading is fine;
   hiding the pieces is not. Characters at `opacity: 0`, and lines pushed fully
   out of an `overflow: hidden` wrapper (`yPercent: 100` with `mask: "lines"`),
