@@ -310,6 +310,7 @@ In React, use the `useGSAP()` hook (@gsap/react NPM package) to ensure proper cl
 - ❌ Create ScrollTriggers in random or async order without setting **refreshPriority**; refresh runs in creation order (or by refreshPriority), and wrong order can affect layout (e.g. pin spacing). Create them top-to-bottom or assign **refreshPriority** so they refresh in page order.
 - ❌ Leave **markers: true** in production.
 - ❌ Forget **refresh()** after layout changes (new content, images, fonts) that affect trigger positions; viewport resize is handled automatically.
+- ❌ Use CSS `content-visibility: auto` or `hidden` on any section that contains or precedes a ScrollTrigger; it behaves like `display: none` for measurement and breaks start/end positions.
 
 ### Learn More
 

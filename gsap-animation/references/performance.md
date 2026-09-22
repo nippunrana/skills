@@ -3,7 +3,9 @@
 Optimizing GSAP animations for smooth 60fps: preferring transforms, avoiding
 layout thrashing, `will-change`, and batching. Build animations with `SKILL.md`
 (transforms, autoAlpha) and `references/timeline.md`; for ScrollTrigger
-performance see `references/scrolltrigger.md`.
+performance see `references/scrolltrigger.md`. For load-time metrics (LCP, CLS,
+INP) and splitting animation code by fold, see `references/loading.md`; this
+file covers runtime frame rate only.
 
 ## Prefer Transform and Opacity
 

@@ -201,6 +201,7 @@ const { gsap, ScrollTrigger, lazyLoadPlugin } = useGSAP();
 
 - ✅ **`useGSAP()`** provides typed access to the gsap instance and lazy load method.
 - ✅ **Lazy-load any plugin** (SplitText, MorphSVG, etc.) that is not widely used in your app to reduce initial bundle size.
+- ✅ Load ScrollTrigger and below-the-fold animations lazily, never in the hero chunk — see `references/loading.md`.
 - ✅ Use **gsap.context(scope)** and **onUnmounted → ctx.revert()** in components, same as Vue 3.
 
 ## Svelte

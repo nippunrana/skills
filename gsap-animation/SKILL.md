@@ -1,6 +1,6 @@
 ---
 name: gsap-animation
-description: Guidance for GSAP (GreenSock Animation Platform) and modern web interactions. Use for GSAP tweens, timelines, ScrollTrigger, SVG morphing, and framework integrations (React, Vue, Svelte, vanilla JS). Also covers 3D animations with React Three Fiber and native View Transitions.
+description: Guidance for GSAP (GreenSock Animation Platform) and modern web interactions. Use for GSAP tweens, timelines, ScrollTrigger, SVG morphing, framework integrations (React, Vue, Svelte, vanilla JS), and Core Web Vitals-safe loading. Also covers 3D animations with React Three Fiber and native View Transitions.
 license: MIT
 ---
 
@@ -30,6 +30,7 @@ reference **before** writing code:
 | React or Next.js: `useGSAP`, refs, `gsap.context()`, cleanup, SSR | `references/react.md` |
 | Vue, Nuxt, Svelte, SvelteKit: lifecycle hooks, scoping, cleanup | `references/frameworks.md` |
 | Optimizing for 60fps, reducing jank, `will-change`, batching, `quickTo()` | `references/performance.md` |
+| Page-load / hero entrance animations, splitting animation code above vs below the fold, LCP, CLS, INP, Core Web Vitals, FOUC, lazy-loading ScrollTrigger | `references/loading.md` |
 | 3D models, Canvas setup, React Three Fiber (R3F), Drei `useScroll`/`useFrame`, mesh traversal, degToRad rotation | `references/threejs-r3f.md` |
 | Declarative React animations, Motion (Framer Motion), tap/hover/drag gestures, drag constraints, scrollYProgress | `references/motion.md` |
 | Same-origin Multi-Page transition effects, `@view-transition` CSS rules, named layers, hero morphing, accessibility | `references/view-transitions.md` |
@@ -112,7 +113,7 @@ GSAP's CSSPlugin (included in core) animates DOM elements. Use **camelCase** for
 
 Relative values work: `x: "+=20"`, `rotation: "-=30"`. Default units: x/y in px, rotation in deg.
 
-- **autoAlpha** — Prefer over `opacity` for fade in/out. When the value is `0`, GSAP also sets `visibility: hidden` (better rendering and no pointer events); when non-zero, `visibility` is set to `inherit`. Avoids leaving invisible elements blocking clicks.
+- **autoAlpha** — Prefer over `opacity` for fade in/out of elements that are not the page's LCP element. When the value is `0`, GSAP also sets `visibility: hidden` (better rendering and no pointer events); when non-zero, `visibility` is set to `inherit`. Avoids leaving invisible elements blocking clicks. Never start the largest above-the-fold element (hero heading or hero image) at `autoAlpha: 0` or `opacity: 0`; Chrome ignores it for LCP until it becomes visible — see `references/loading.md`.
 - **CSS variables** — GSAP can animate custom properties (e.g. `"--hue": 180`, `"--size": 100`). Supported in browsers that support CSS variables.
 - **svgOrigin** _(SVG only)_ — Like `transformOrigin` but in the SVG's **global** coordinate space (e.g. `svgOrigin: "250 100"`). Use when several SVG elements should rotate or scale around a common point. Only one of `svgOrigin` or `transformOrigin` can be used. No percentage values; units optional.
 - **Directional rotation** — Append a suffix to rotation values (string): **`_short`** (shortest path), **`_cw`** (clockwise), **`_ccw`** (counter-clockwise). Applies to `rotation`, `rotationX`, `rotationY`. Example: `rotation: "-170_short"` (20° clockwise instead of 340° counter-clockwise); `rotationX: "+=30_cw"`.
@@ -266,7 +267,19 @@ mm.add(
 
 Respecting **prefers-reduced-motion** is important for users with vestibular disorders. Use `duration: 0` or skip the animation when `reduceMotion` is true. Do not nest **gsap.context()** inside matchMedia — matchMedia creates a context internally; use **mm.revert()** only.
 
+The handler only runs while **at least one** condition matches. The example above works because `isDesktop` and `isMobile` cover every viewport. A conditions object whose only entry is `reduceMotion: "(prefers-reduced-motion: reduce)"` never runs for default users, so nothing animates and any CSS-hidden start state stays hidden. To gate an animation on reduced motion, use the string form `mm.add("(prefers-reduced-motion: no-preference)", () => { ... })`, or include a complementary condition.
+
 Full docs: [gsap.matchMedia()](https://gsap.com/docs/v3/GSAP/gsap.matchMedia/). For immediate re-run of all matching handlers (e.g. after toggling a reduced-motion control), use **gsap.matchMediaRefresh()**.
+
+## Page-load (above-the-fold) animations
+
+Hero entrance animations are the main way GSAP can hurt Core Web Vitals. Chrome does not count an element painted at `opacity: 0`, `visibility: hidden`, or with transparent text as a Largest Contentful Paint (LCP) candidate, so a hero that fades in from hidden delays LCP until the JavaScript that starts the animation has downloaded and run.
+
+- The LCP element (usually the hero `h1` or hero image) must be visible in the initial HTML/CSS. Animate it with transforms (`y`, `scale`) only, or start at `opacity: 0.1` if a fade is non-negotiable.
+- Set the hero's pre-animation state in CSS and animate with `gsap.to()`, not `gsap.from()`, so a late script cannot snap the hero backwards.
+- Load ScrollTrigger and below-the-fold animations in a separate chunk after load.
+
+Full strategy, framework snippets, and measurement: `references/loading.md`.
 
 ## Official GSAP best practices
 
@@ -276,6 +289,7 @@ Full docs: [gsap.matchMedia()](https://gsap.com/docs/v3/GSAP/gsap.matchMedia/). 
 - ✅ Store the tween/timeline return value when controlling playback (pause, play, reverse, kill).
 - ✅ Prefer timelines instead of chaining animations using `delay` — see `references/timeline.md`.
 - ✅ Use **gsap.matchMedia()** for responsive breakpoints and **prefers-reduced-motion** so animations can be reduced or disabled for accessibility.
+- ✅ Keep the LCP element visible on first paint; hero entrances use transforms from a CSS-defined start state, and ScrollTrigger loads in a deferred chunk — see `references/loading.md`.
 
 ## Do Not
 
@@ -284,3 +298,5 @@ Full docs: [gsap.matchMedia()](https://gsap.com/docs/v3/GSAP/gsap.matchMedia/). 
 - ❌ Rely on the default **immediateRender: true** when stacking multiple **from()** or **fromTo()** tweens on the same property of the same target; set **immediateRender: false** on the later tweens so they animate correctly.
 - ❌ Use invalid or non-existent ease names; stick to documented eases.
 - ❌ Forget that **gsap.from()** uses the element's current state as the end state; the initial values in the tween will be applied immediately unless `immediateRender: false` is in the `vars`.
+- ❌ Start the hero's largest text or image at `opacity: 0`, `autoAlpha: 0`, `visibility: hidden`, or `color: transparent` before JavaScript runs; Chrome ignores it for LCP until it becomes visible.
+- ❌ Import ScrollTrigger (or any scroll plugin) in the same chunk as the hero entrance animation; hero code needs gsap core only.

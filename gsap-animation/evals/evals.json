@@ -4,14 +4,16 @@
     {
       "id": 1,
       "prompt": "I'm building a vanilla JS landing page and want a hero section where the headline, subheadline, and CTA button fade+slide up into view on page load, staggered one after another, with a nice overshoot/bounce feel on the CTA button. What library should I use and can you write the animation code?",
-      "expected_output": "Recommends GSAP (no library was specified). Uses gsap.from() or gsap.to() with autoAlpha and y for the fade+slide, camelCase properties, a stagger between the three elements, and a back.out() or similar overshoot ease specifically on the CTA button (not a generic ease for everything).",
+      "expected_output": "Recommends GSAP (no library was specified). Uses gsap.to() with y (and autoAlpha on non-LCP elements) for the fade+slide, camelCase properties, a stagger between the three elements, and a back.out() or similar overshoot ease specifically on the CTA button (not a generic ease for everything). Because these are above-the-fold elements on page load, the response keeps the headline visible in the initial CSS/HTML (no opacity: 0 / visibility: hidden start), animates with gsap.to() from a CSS-defined transform offset, and does not use gsap.from() with autoAlpha: 0 on the headline.",
       "files": [],
       "expectations": [
         "Recommends GSAP explicitly as the animation library, since none was specified in the prompt",
-        "Uses autoAlpha (not raw opacity alone) for the fade-in",
+        "Does not start the largest visible text element (usually the headline, i.e. the LCP element) at opacity 0, autoAlpha 0, or visibility hidden; if a fade is used it starts at a non-zero opacity or is limited to elements that are not the LCP candidate",
+        "Sets the pre-animation state in CSS (or via gsap.set from a non-hidden state) and animates the hero entrance with gsap.to(), not gsap.from()",
+        "Mentions that hiding the hero before JavaScript runs delays Largest Contentful Paint",
         "Uses the y transform alias (not top/margin-top) for the slide-up movement",
         "Uses camelCase property names throughout (e.g. backgroundColor, not background-color)",
-        "Uses a stagger value/object to offset the headline, subheadline, and CTA button in sequence",
+        "Sequences the headline, subheadline, and CTA button one after another using a stagger value/object or timeline position parameters (not manual delay values)",
         "Uses an overshoot-style ease (e.g. back.out(...) or elastic.out(...)) specifically on the CTA button, distinct from the ease used on the headline/subheadline",
         "The GSAP API calls shown (gsap.to/from/fromTo, property names, ease syntax) are syntactically valid per the documented API"
       ]
@@ -26,9 +28,10 @@
         "The scrollTrigger config includes pin: true",
         "The scrollTrigger config includes scrub set to true or a number",
         "The scrollTrigger config is attached to a gsap.timeline() (or a single top-level tween), not to each of the three card tweens individually",
-        "The three card animations are sequenced within one timeline (via chaining and/or the position parameter), not via three separate ScrollTrigger instances",
+        "The three card animations are sequenced within one timeline (via chaining, the position parameter, or stagger), not via three separate ScrollTrigger instances",
         "start and end values are specified for the ScrollTrigger",
-        "Does not nest a scrollTrigger config inside a child tween that is part of a timeline"
+        "Does not nest a scrollTrigger config inside a child tween that is part of a timeline",
+        "The pinned timeline is actually created for users with no reduced-motion preference: if gsap.matchMedia() is used, the animation code runs under a '(prefers-reduced-motion: no-preference)' query or a condition set that covers default users, not solely under a '(prefers-reduced-motion: reduce)' condition"
       ]
     },
     {
@@ -44,6 +47,37 @@
         "Handles prefers-reduced-motion explicitly, e.g. via gsap.matchMedia() with a '(prefers-reduced-motion: reduce)' query, rather than ignoring it",
         "Does not call gsap or ScrollTrigger APIs during server-side rendering (animation setup is confined to the client-side hook)",
         "Cleanup on unmount is handled automatically by useGSAP, or an explicit ctx.revert()/kill() is shown if a useEffect fallback is used"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "PageSpeed Insights says my LCP is 4.8s on mobile. The LCP element is the hero h1. I animate it with GSAP on load: gsap.from('.hero h1', { autoAlpha: 0, y: 60, duration: 1.2, delay: 0.5 }) and the CSS has .hero h1 { visibility: hidden } to avoid a flash. The script is loaded with defer at the end of body. What is going on and how do I fix it without losing the entrance animation?",
+      "expected_output": "Explains that Chrome ignores elements painted at opacity 0 / visibility hidden as LCP candidates, so LCP is not recorded until the deferred script downloads, runs, waits 0.5s, and starts the tween. Fix: remove visibility: hidden from the h1, set the start offset in CSS via transform (e.g. translateY(60px)) at full opacity, animate with gsap.to() to y: 0, drop the delay, keep the fade for non-LCP elements only or start at opacity 0.1 if a fade is required. Suggests preloading the hero script chunk and confirming with the web-vitals attribution build that the h1 is the LCP target and element render delay is small.",
+      "files": [],
+      "expectations": [
+        "Identifies that the h1 is invisible to Chrome's LCP algorithm while at opacity 0 / visibility hidden, and that LCP is therefore delayed until the animation starts",
+        "Removes visibility: hidden (and any opacity: 0 start) from the h1's initial CSS",
+        "Replaces gsap.from() with a CSS-defined transform start state plus gsap.to()",
+        "Keeps the h1 at non-zero opacity on first paint (transform-only entrance, or opacity 0.1 as an explicit workaround)",
+        "Removes or drastically reduces the 0.5s delay on the LCP element's animation",
+        "Recommends measuring the result with LCP attribution (web-vitals attribution build or DevTools LCP breakdown), not only a Lighthouse score",
+        "Does not suggest hiding the whole page or the hero behind a loader/preloader as the fix"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "I'm building a marketing landing page in Next.js (App Router). The hero has a headline and image with a simple entrance animation. Below the fold there are five sections with GSAP ScrollTrigger effects, one of them pinned with a scrubbed timeline. Core Web Vitals matter for SEO. How should I structure and load the GSAP code so the page stays fast?",
+      "expected_output": "Proposes splitting animation code by fold: a hero client component that imports gsap core only (no ScrollTrigger) and runs via useGSAP, with the hero's start state defined in CSS using transforms so the LCP element is visible on first paint; and a separate below-the-fold module that dynamically imports gsap/ScrollTrigger (next/dynamic with ssr: false, or a dynamic import() inside useGSAP) after load. ScrollTriggers are created top-to-bottom or given refreshPriority, followed by ScrollTrigger.refresh(). The pinned section is initialised right after load (idle time), not lazily when scrolled into view, to avoid layout shift from the pin-spacer. Warns against content-visibility: auto and against hiding the hero. Notes that ScrollTrigger is a separate, deferrable chunk (roughly core 28 KB gzip, ScrollTrigger 18 KB gzip).",
+      "files": [],
+      "expectations": [
+        "Separates hero animation code from below-the-fold ScrollTrigger code into different modules/chunks",
+        "The hero chunk imports gsap core only and does not register or import ScrollTrigger",
+        "Keeps the hero headline/image visible on first paint (transform-based start state in CSS, no opacity 0 / visibility hidden start)",
+        "Loads the ScrollTrigger chunk after initial load via next/dynamic with ssr: false or a dynamic import() in a client-only hook, not in the shared layout bundle",
+        "Creates ScrollTriggers in page order or assigns refreshPriority, and calls ScrollTrigger.refresh() after the deferred chunk sets up",
+        "Initialises the pinned section shortly after load (e.g. idle callback) rather than only when it enters the viewport, and gives the layout-shift (pin-spacer) reason",
+        "Does not run gsap or ScrollTrigger during SSR (client components / useGSAP)",
+        "Does not recommend content-visibility: auto for the ScrollTrigger sections"
       ]
     }
   ]
