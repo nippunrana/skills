@@ -11,6 +11,7 @@ A collection of production-ready AI agent skills packaged as `SKILL.md` files. E
 | Skill | Description |
 |---|---|
 | [et-frontend-design](et-frontend-design/) | Conversion-focused frontend UI with 4-phase discovery before coding |
+| [et-copywriting](et-copywriting/) | Sales-psychology copywriting: headlines, CTAs, ad copy, landing page and email copy for a persona |
 | [skill-creator](skill-creator/) | Create, test, benchmark, and iterate on AI skills with an evaluation loop |
 | [prompt-checker-builder](prompt-checker-builder/) | Pre-flight prompt scoring or Socratic prompt builder |
 | [debugger](debugger/) | Hypothesis-driven bug diagnosis across visual, code, API, and perf domains |

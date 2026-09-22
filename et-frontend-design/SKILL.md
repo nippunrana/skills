@@ -239,6 +239,14 @@ this whenever copy leans on a vague qualifier like "fast," "easy," or "close by.
 - Weak: "Fast delivery" → Strong: "Arrives in 23 minutes"
 - Weak: "Beach house with garden" → Strong: "Beachside escape steps from the sand"
 
+**Plain-language directive:** Write every headline, section, and CTA so that someone outside
+the industry understands it on first read — everyday words, short sentences, one idea per
+sentence. Aim for a reading age of 12 to 14. No industry jargon by default; the only exception
+is a term the specific reader uses every day, and even then explain it in the same sentence
+when the audience is broad. A wide audience cannot convert on words it has to look up.
+- Weak: "Leverage our omnichannel orchestration layer" → Strong: "Reach customers on every channel from one place"
+- Weak: "Utilize automated reconciliation workflows" → Strong: "Match your payments to invoices automatically"
+
 **Headline formula:** `[End Result] + [Time Period] + [Emotional Payoff]`
 - "Calm Your Horse in Just 2 Weeks So You Can Enjoy Safer Rides"
 - "Get a Lean Body in 45 Minutes a Day and Feel Great in Your Clothes"

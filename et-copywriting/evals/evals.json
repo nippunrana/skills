@@ -1,0 +1,82 @@
+{
+  "skill_name": "et-copywriting",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Write Google search ad copy for a payroll tool aimed at owners of small businesses with 2 to 50 employees who currently do payroll by hand. We have no customer numbers or testimonials yet. Give me headlines and descriptions.",
+      "expected_output": "A set of standalone headlines at or under 30 characters and descriptions at or under 90 characters, each with its character count shown. Headlines mix keyword-matched, benefit-led, and offer-led angles and none depends on another to make sense. The CTA sits in a description. No customer counts, percentages, or testimonials are invented. Assumptions about reader and awareness stage are stated briefly.",
+      "files": [],
+      "expectations": [
+        "Every headline is 30 characters or fewer and every description is 90 characters or fewer, with counts shown",
+        "Headlines each make sense on their own; none depends on another headline",
+        "At least one headline matches the reader's likely search intent (payroll for small business)",
+        "The CTA appears in a description, not a headline",
+        "No invented statistics, customer counts, or testimonials appear anywhere",
+        "The output states its assumptions about the reader and awareness stage in a few lines",
+        "None of the banned hype words (seamless, revolutionary, cutting-edge, powerful, unlock, etc.) appear"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Write the hero section copy (headline, subheadline, CTA button, effort line) for a landing page selling an online course that teaches nurses how to move into medical coding. Traffic comes from Facebook ads to nurses who are burned out but have not considered coding as an option. We have 340 graduates and a 30-day refund policy.",
+      "expected_output": "Three hero variants labeled by angle and psychological lever. The opening leads with self-recognition of the burned-out nurse rather than the course, because the reader is unaware or problem-aware. Body copy is second person, the CTA button is first person with a light verb, an effort line sits under the button, and the refund policy is used as risk reversal. The real graduate count may be used; nothing else numeric is invented. A recommended variant is named with a one-sentence reason tied to the reader's objection.",
+      "files": [],
+      "expectations": [
+        "Three variants are delivered, each labeled with its angle and the lever it relies on",
+        "The headline or opening addresses the nurse's situation before naming the course",
+        "The CTA button uses first person (my) and a verb such as Start, See, Get, or Show, not Subscribe or Submit",
+        "An effort line appears directly under the CTA",
+        "The 30-day refund is used as risk reversal near the CTA",
+        "Only the supplied number (340 graduates) is used; no other statistics are invented",
+        "Body copy addresses the reader as 'you'",
+        "One variant is recommended with a one-sentence reason linked to the reader's objection"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Rewrite this feature section copy to actually sell: 'Our platform offers a robust, cutting-edge API with seamless integrations, real-time analytics dashboards, and enterprise-grade security. Built on a powerful cloud-native architecture.' The reader is a head of engineering at a 200-person SaaS company evaluating vendors.",
+      "expected_output": "A diagnosis first: the original is feature-led, uses hype adjectives, assumes a most-aware reader, and makes no claim the reader can verify. Then three rewrites that translate each feature through the so-that bridge into an engineering-leader benefit, use specific language, drop every banned hype word, and keep anything in the original that worked. The recommended rewrite is marked with what changed and why.",
+      "files": [],
+      "expectations": [
+        "A diagnosis of the original copy precedes the rewrites and names at least two specific failures",
+        "The diagnosis identifies the awareness stage the original assumes versus the reader's actual stage",
+        "Every feature in the rewrite is connected to a reader benefit (so-that bridge)",
+        "None of the words robust, cutting-edge, seamless, powerful, enterprise-grade, or next-generation appear in the rewrites",
+        "Three rewrite variants are delivered",
+        "No performance numbers, uptime figures, or customer names are invented",
+        "The recommended variant explains what changed and why",
+        "The rewrites use plain everyday language; any technical term kept for the engineering reader is explained in the same sentence"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I need 5 CTA button options plus the line that goes under each for the pricing page of a meal-planning app. The hidden objection is that people think they will have to enter a credit card and forget to cancel. Trial is 14 days, no card required, and we send a reminder email 3 days before the trial ends.",
+      "expected_output": "Five first-person CTA buttons using light verbs, each paired with an effort or risk-reversal line that answers the credit-card and forget-to-cancel objection using only the supplied facts (14 days, no card, reminder 3 days before). One option is recommended with the reason tied to the objection.",
+      "files": [],
+      "expectations": [
+        "Five CTA buttons are delivered, all in first person",
+        "No button uses Subscribe, Submit, Sign up, or Register",
+        "Each button has a paired line beneath it",
+        "The paired lines answer the credit-card objection and the forget-to-cancel objection using the 14-day, no-card, and 3-day-reminder facts",
+        "No facts beyond those supplied are invented",
+        "One option is recommended with a reason tied to the stated objection"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Write full landing page copy for a bookkeeping service for freelance designers. Reader: a freelance designer earning around 80k a year who does their own books in a spreadsheet, dreads tax season, and has tried and abandoned two accounting apps. They found us by searching 'bookkeeper for freelancers'. We have 12 named client testimonials I can supply later, and pricing is a flat monthly fee.",
+      "expected_output": "Assumptions stated (solution-aware reader, big idea, one action). A framework is chosen and named (PAS or 4Ps fits a solution-aware reader who has abandoned alternatives). Copy is delivered section by section in the landing page sequence, each section with a one-line job. The opening differentiates the mechanism from the abandoned apps rather than repeating the category promise. Testimonial slots are described as awaiting the user's real testimonials, not written. The CTA repeats after every two or three sections with a different lead-in. No pricing figure or client count is invented. A short list of what the user should supply closes the output.",
+      "files": [],
+      "expectations": [
+        "Assumptions about reader, awareness stage, big idea, and single action are stated before the copy",
+        "A single framework is named and the section order follows it",
+        "Every section has a one-line job statement",
+        "The copy differentiates from the abandoned apps by mechanism rather than restating the category promise",
+        "No testimonial text is written; the output says real testimonials will be placed there",
+        "No monthly price figure or client count is invented",
+        "The CTA appears more than once, each time with a different lead-in line",
+        "The output ends with a list of what the user must supply (testimonials, price)"
+      ]
+    }
+  ]
+}
