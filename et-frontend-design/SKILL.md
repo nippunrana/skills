@@ -49,6 +49,9 @@ Think like a conversion strategist, not a decorator. Silently analyze:
 - **Emotional landscape:** What fears, objections, or hesitations might stop the user from
   converting? What does "trust" look like in this industry?
 - **Brand mode vs Product mode:** Determined from context (see mode definitions above).
+- **Existing fonts:** If the work lives inside an existing site or codebase, find every font
+  family it already loads — theme, layout, and icon fonts included. Follow Step 1 in
+  `references/typography.md`.
 
 Use your internal thought/scratchpad block to run through this phase. If you do not have a hidden thought block, do not output the full analysis; instead, compress it into a short summary.
 
@@ -77,7 +80,9 @@ Build an internal strategy brief using this structure (do NOT output it raw to t
    form groups) → organisms (header, hero, feature grid, footer). Plan the page flow as a funnel,
    not a stack of sections.
 5. **Design system seeds:** Font pairing direction? Color mood? Commit before coding — don't
-   switch mid-implementation. **Always default to light mode.** Use dark mode only when the
+   switch mid-implementation. **Never let a page render more than two font families in total** —
+   counting fonts the site already loads, icon fonts, and monospace. One family is often enough.
+   Choose fonts by personality fit using `references/typography.md`. **Always default to light mode.** Use dark mode only when the
    user explicitly asks for it. An aesthetic direction (dark tech, cyberpunk, luxury) or a
    product category (developer tool, media) is not a request for dark mode — render it on light
    surfaces. Never ask the user "light or dark?" in Phase 3; the default answers it.
@@ -121,6 +126,9 @@ time):
      blank canvas?"
    - "What's the technical environment — WordPress, static HTML, React?" (Only if not obvious
      from context)
+   - "Your site already uses [Family A] and [Family B] — keep them for this page, or use
+     separate fonts that replace them here?" (Only when Phase 1 found existing fonts. Use the
+     full question template in `references/typography.md`, Step 2.)
 
 **Question quality rules:**
 - Only ask about decisions where the wrong assumption would produce a fundamentally different
@@ -388,6 +396,7 @@ one screen rather than a single conversion moment.
 To keep this primary skill file focused on strategy and conversion, all technical design execution standards have been extracted into the `references/` directory. 
 
 **Before executing Phase 4, use your file reading tools to ingest ONLY the `references/` files that are strictly necessary for the chosen stack and design requirements. Do not blindly read all reference files if they are not relevant to the current task:**
+- **Always** read `references/typography.md` when the task chooses, changes, or loads a font. It holds the two-family limit, the font-psychology research, the font selection workflow, and the check to run before delivering.
 - Read `references/design-system-foundations.md` for spacing, typography scale, color tokens, and aesthetic principles.
 - Read `references/motion-and-interaction.md` for animation physics, interaction states, and accessibility defaults.
 - Read `references/mobile-first.md` for container queries, fluid typography, touch targets, and image optimization.

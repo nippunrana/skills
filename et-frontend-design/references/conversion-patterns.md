@@ -155,7 +155,7 @@ and edges are the hardest to reach on modern phones (especially large screens).
 ### Performance as Conversion
 Every 100ms of additional load time reduces conversion by ~1% (Google/Deloitte research).
 On mobile, performance IS conversion:
-- Preload hero images and fonts
+- Preload the hero image and the one font the LCP element uses
 - Lazy-load everything below the fold
 - Minimize third-party scripts
 - Target LCP < 2.5s on 4G connections

@@ -14,12 +14,14 @@ motion, density) onto light surfaces.
 ## SaaS / Developer Tool Aesthetic
 
 **Defining characteristics:** Dark or deep-neutral backgrounds, sharp geometric elements,
-monospace font accents for technical credibility, subtle gradient glows, high information density
+monospace accents for technical credibility (mono as one of the two families), subtle gradient glows, high information density
 presented with clarity.
 
 **Typography:** Pair a geometric sans-serif display font (tight tracking for headlines) with a
-humanist sans for body. Use a monospace font for code, data, or technical labels. Negative
-letter-spacing on large headlines creates the "developer brand" feel.
+humanist sans for body. If the brand needs monospace for code, data, or technical labels, the
+mono replaces one of those two roles — pick a superfamily pair such as Geist + Geist Mono or
+IBM Plex Sans + IBM Plex Mono. Never add mono as a third family. Negative letter-spacing on large
+headlines creates the "developer brand" feel.
 
 **Color direction:** Dark surfaces (not pure black — use #0a0a0f to #1a1a2e range). One or two
 vibrant accent colors for CTAs and interactive elements — electric blue, cyan, purple, or green.
@@ -88,7 +90,8 @@ This is where you push boundaries.
 
 **Typography:** Go bold. Extra-large display fonts with dramatic weight contrast. Oversized
 hero headlines (120px+ on desktop). Experimental type treatments — text clipping with images,
-animated type, mixed serif and sans in the same headline. This is brand mode at maximum.
+animated type, mixed serif and sans in the same headline (using the two families already
+chosen — never a third). This is brand mode at maximum.
 
 **Color direction:** Can go in any direction, but commit fully. Monochromatic schemes with one
 pop color, or vibrant maximalist palettes. The portfolio itself is a design statement — the color

@@ -180,9 +180,9 @@ Remap semantic tokens to different primitives — same variable names, different
 ## Font Loading Pattern
 
 ```html
-<!-- Preload the primary font for fastest LCP -->
+<!-- Preload ONE font: the file used by the LCP element (usually the hero headline).
+     Preloading more steals bandwidth from the hero image. -->
 <link rel="preload" href="/fonts/display-font.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/body-font.woff2" as="font" type="font/woff2" crossorigin>
 ```
 
 ```css
@@ -200,7 +200,10 @@ Remap semantic tokens to different primitives — same variable names, different
   font-display: swap;
 }
 
-/* Fallback with size-adjust to minimize CLS during swap */
+/* Fallback with size-adjust to minimize CLS during swap.
+   The values below match one specific font only. Generate the real values for the
+   chosen font with a tool (Fontaine or Capsize; next/font does it automatically) —
+   never copy or guess them. */
 @font-face {
   font-family: 'BodyFont-Fallback';
   src: local('Arial');

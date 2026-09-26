@@ -11,14 +11,15 @@ Use semantic naming so colors carry meaning, not just values (`--color-text-prim
 Light mode is the default. Build dark mode only when the user explicitly asks for it. When they do: map the same semantic token names to different values. Never swap individual colors ad-hoc — remap the entire system. Use `prefers-color-scheme: dark` or a `.dark-theme` class on the root element.
 
 ## Typography Scale
-Define 6-8 named sizes using `clamp()` for fluid scaling. Each carries its own line-height and letter-spacing as a triplet — never set `font-size` without its companions. Maximum 2 font families — one display, one body. Never more.
+Define 6-8 named sizes using `clamp()` for fluid scaling. Each carries its own line-height and letter-spacing as a triplet — never set `font-size` without its companions. Maximum 2 font families per page in total — counting theme, icon, and monospace fonts. Never more. `references/typography.md` is the source of truth for font count, weight budget, and font choice.
 
 **Font loading & Zero-Runtime-Cloud Rule:**
 - **Never use runtime CSS `@import` or CDN `<link>` tags** for fonts (e.g. `fonts.googleapis.com`). They block stylesheet parsing, stall First Contentful Paint (FCP), and add render-blocking network cascades.
 - **In Next.js:** Always use `next/font/google` or `next/font/local`. Next.js downloads `.woff2` files at build time into `.next/static/media/` and inlines them without runtime external requests.
 - **In Vite / Static HTML:** Download `.woff2` files to `public/fonts/` and declare local `@font-face` blocks with `font-display: swap`.
 - **Prevent CSS Custom Property Cycles:** When using `next/font` with CSS variables and fallback declarations in `:root`, never assign a custom property to itself (e.g., `--font-sans: var(--font-sans)` is invalid in CSS). Use distinct variable names from the font loader (e.g., `--font-sans-loaded`) and consume them as `--font-sans: var(--font-sans-loaded), system-ui, sans-serif`.
-- **Layout Shift Prevention:** Use `font-display: swap` and define fallback font metrics with `size-adjust` and `ascent-override` to eliminate Cumulative Layout Shift (CLS) on font swap.
+- **Layout Shift Prevention:** Use `font-display: swap` and define fallback font metrics with `size-adjust` and `ascent-override` to eliminate Cumulative Layout Shift (CLS) on font swap. Generate the metric values with a tool (Fontaine or Capsize; `next/font` does it automatically) — never guess them.
+- **Preload one font only:** the file used by the LCP element (usually the hero headline). Preloading more fonts steals bandwidth from the hero image.
 
 **Typography craft:**
 - `-webkit-font-smoothing: antialiased` for consistent rendering
@@ -42,7 +43,7 @@ Organize output for AI readability and maintainability:
 This is where the creative vision meets the design system. The system provides consistency — this section provides character.
 
 **Typography as expression:**
-Choose fonts that are beautiful, distinctive, and unexpected. Pair a characterful display font with a refined body font. Use negative letter-spacing on large headings (the Vercel/Geist technique — tighter text feels more "designed"). Explore variable fonts for responsive weight and width adjustments.
+Choose fonts that are beautiful, distinctive, and right for the brand's personality — research shows a font that fits the content raises trust and choice, while a clashing one lowers them (see `references/typography.md`). Pair a characterful display font with a refined body font. Use negative letter-spacing on large headings (the Vercel/Geist technique — tighter text feels more "designed"). Explore variable fonts for responsive weight and width adjustments.
 
 **Color as atmosphere:**
 Create depth and mood rather than flat backgrounds. Apply gradient meshes, noise textures (via SVG `feTurbulence` filters), layered transparencies, and contextual effects that match the aesthetic. Full-bleed backgrounds with subtle texture outperform stark white surfaces.
@@ -61,7 +62,7 @@ These patterns are the telltale signs of generic AI output. Avoid them in Brand 
 - **Never** use a SaaS card grid as the hero section
 - **Never** add a carousel with no narrative purpose
 - **Never** stack identical cards instead of designing a real layout
-- **Never** default to a single "signature" font pair across different contexts; tailor the typography to the specific brand personality of the current workspace/brief (e.g., monospace details for tech, serif for editorial, geometric sans for modern consumer brands)
+- **Never** default to a single "signature" font pair across different contexts; tailor the typography to the specific brand personality of the current workspace/brief (e.g., a mono family for tech, a serif for editorial, a geometric sans for modern consumer brands — these are alternatives for filling the two family slots, never additions)
 - **Never** pair a beautiful stock image with weak, generic typography
 - **Never** use cookie-cutter component patterns without context-specific adaptation
 
