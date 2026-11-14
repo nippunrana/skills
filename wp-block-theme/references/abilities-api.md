@@ -173,7 +173,9 @@ function my_plugin_enqueue_abilities(): void {
 add_action( 'admin_enqueue_scripts', 'my_plugin_enqueue_abilities' );
 ```
 
-A dependency runs only when a file imports it. Import `@wordpress/core-abilities` in your file when it needs the server's abilities (§4); leave it out of both the dependency array and the file when the page only uses its own.
+A dependency runs only when a file imports it, which is why §4 imports `@wordpress/core-abilities`. When the page only uses its own client-side abilities, drop it from both the dependency array and the file.
+
+`__FILE__` is right only when this function sits in the main plugin file. From another file of the plugin, pass the main file's path instead; in a theme, use `get_theme_file_uri( 'assets/js/abilities.js' )`.
 
 ---
 
@@ -181,6 +183,8 @@ A dependency runs only when a file imports it. Import `@wordpress/core-abilities
 
 ```js
 import { registerAbilityCategory, registerAbility } from '@wordpress/abilities';
+// Runs the loader that fetches the server's abilities and categories into the store.
+import '@wordpress/core-abilities';
 
 const { apiFetch } = window.wp;
 
@@ -214,7 +218,7 @@ registerAbility( {
 } );
 ```
 
-This is `assets/js/abilities.js`, the script module registered in §3. `canManageLogs` stands for a boolean your page already holds (for example a value your PHP passed to the script). `apiFetch` comes from the classic `wp-api-fetch` script enqueued in §3: `@wordpress/api-fetch` is not a script module, so a module cannot import it by name.
+This is `assets/js/abilities.js`, the script module registered in §3. `canManageLogs` stands for a boolean the page already holds. To hand a value from PHP to a script module, return it from the `script_module_data_{$module_id}` filter and read the JSON that WordPress prints in the `<script id="wp-script-module-data-{$module_id}">` element; `wp_localize_script()` and `wp_add_inline_script()` do not work for a script module. `apiFetch` comes from the classic `wp-api-fetch` script enqueued in §3: `@wordpress/api-fetch` is not a script module, so a module cannot import it by name.
 
 | Field | Constraint |
 |---|---|
@@ -238,8 +242,9 @@ PHP uses snake_case `permission_callback`; JavaScript uses camel-case `permissio
 ## 6. Reading abilities in React
 
 ```js
-import { useSelect } from '@wordpress/data';
 import { store as abilitiesStore } from '@wordpress/abilities';
+
+const { useSelect } = window.wp.data;
 
 function MyAbilitiesPicker() {
 	const abilities = useSelect(
@@ -252,7 +257,7 @@ function MyAbilitiesPicker() {
 
 Server abilities appear in the store once `@wordpress/core-abilities` has loaded; no manual `fetch()` is needed.
 
-As written, this component needs a build step: `@wordpress/data` is a classic script (`wp-data`), not a script module, so a browser cannot resolve that `import` on its own. Without a build, take `useSelect` from the `wp.data` global and import `store` from `@wordpress/abilities` in a script module set up as in §3.
+This file is a script module set up as in §3. `useSelect` comes from the `wp.data` global, not from an `import`: `@wordpress/data` is a classic script (`wp-data`), not a script module, so a browser cannot resolve `import … from '@wordpress/data'` on its own.
 
 ---
 

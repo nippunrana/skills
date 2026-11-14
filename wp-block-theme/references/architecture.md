@@ -69,6 +69,8 @@ theme-name/
 ├── patterns/                     ← Block patterns (PHP files)
 │   └── my-section.php
 │
+├── inc/                          ← PHP that functions.php loads (listed below)
+│
 └── assets/
     ├── fonts/
     ├── images/
@@ -1225,7 +1227,7 @@ WordPress does not enqueue a block theme's `style.css` for you. This skill keeps
 
 ```php
 /**
- * Loads the parent theme's stylesheet. Priority 9 puts it ahead of the child's own styles.
+ * Loads the parent theme's stylesheet. Priority 9 runs it before other callbacks on this hook.
  */
 function {{THEME_PREFIX}}_enqueue_parent_style(): void {
 	wp_enqueue_style(

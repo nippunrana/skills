@@ -136,6 +136,25 @@ the runtime globals WordPress provides instead of bundling them. For example,
 `@woocommerce/blocks-checkout` resolves to `window.wc.blocksCheckout`. Without it, you ship
 a duplicate copy and risk version mismatches against core.
 
+With `@wordpress/scripts`, add `@woocommerce/dependency-extraction-webpack-plugin` as a dev
+dependency and swap it for the default extraction plugin in a `webpack.config.js` at the
+project root. A plain `wp-scripts build` does not map `@woocommerce/*` imports.
+
+```js
+const defaultConfig = require( '@wordpress/scripts/config/webpack.config' );
+const WooCommerceDependencyExtractionWebpackPlugin = require( '@woocommerce/dependency-extraction-webpack-plugin' );
+
+module.exports = {
+	...defaultConfig,
+	plugins: [
+		...defaultConfig.plugins.filter(
+			( plugin ) => plugin.constructor.name !== 'DependencyExtractionWebpackPlugin'
+		),
+		new WooCommerceDependencyExtractionWebpackPlugin(),
+	],
+};
+```
+
 ### 5.2 `is_ssl()` Behind Load Balancers
 
 Behind a reverse proxy / load balancer, TLS terminates before WordPress, so `is_ssl()` can

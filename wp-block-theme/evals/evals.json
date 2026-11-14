@@ -236,7 +236,7 @@
     },
     {
       "id": 17,
-      "prompt": "Add a tiny value object called Nova_Theme_Promo_Banner to my 'nova-theme' block theme for a 'Promo Banner' pattern: it holds a headline and a call-to-action URL, cleans up the URL whenever it is set, and exposes both for reading from outside. I've confirmed in Site Health that the site runs WordPress 7.1 on PHP 8.4. Use whatever PHP 8.4 gives us if it makes the class simpler. The project does not run PHP_CodeSniffer.",
+      "prompt": "Add a tiny value object called Nova_Theme_Promo_Banner to my 'nova-theme' block theme for a 'Promo Banner' pattern: it holds a headline and a call-to-action URL, cleans up the URL whenever it is set (the URL can be changed after the object is created), and exposes both for reading from outside. I've confirmed in Site Health that the site runs WordPress 7.1 on PHP 8.4. Use whatever PHP 8.4 gives us if it makes the class simpler. The project does not run PHP_CodeSniffer.",
       "expected_output": "A class written for PHP 8.4 that is shorter than the 8.2 version because it uses 8.4 features where they fit: a property hook on the URL property to sanitise on assignment (e.g. `set => esc_url_raw( $value );`) and/or asymmetric visibility (public private(set)) for read-only-from-outside properties, with typed properties throughout. No PHP 8.5-only syntax (no pipe operator, no clone-with). No property hook sits on a `readonly` property (PHP rejects that combination). The answer declares or recommends `Requires PHP: 8.4` in style.css; if it mentions `Requires at least`, the value is 7.0, because the class uses no 7.1-only feature. It keeps WordPress house style (tabs, array(), Yoda conditions, class-nova-theme-promo-banner.php).",
       "files": [],
       "assertions": [
@@ -245,13 +245,14 @@
         "Uses no PHP 8.5-only syntax (no pipe operator |>, no clone with property overrides, no #[\\NoDiscard])",
         "Sets or recommends `Requires PHP: 8.4` in the theme's style.css header",
         "All properties are declared and typed; no implicitly nullable parameters",
-        "File is named class-nova-theme-promo-banner.php and starts with declare(strict_types=1)"
+        "File is named class-nova-theme-promo-banner.php and starts with declare(strict_types=1)",
+        "The URL is cleaned with a WordPress function (for example esc_url_raw() or sanitize_url()) every time it is assigned, not only in the constructor"
       ]
     },
     {
       "id": 18,
       "prompt": "My block theme 'nova-theme' runs on WordPress 7.0 and PHP 8.4 with WooCommerce 11.3 and the block Cart and Checkout. Two small wording changes, in the theme please, with no build step: the Place Order button should say 'Pay securely', and a line item that costs nothing should show '(free)' after its price in the cart.",
-      "expected_output": "Three theme files. assets/js/checkout.js: the whole file wrapped in a function, reading registerCheckoutFilters from the window.wc.blocksCheckout global, with ONE registerCheckoutFilters( 'nova-theme', { … } ) call that sets both placeOrderButtonLabel and cartItemPrice; the cartItemPrice callback returns a string that still contains <price/>. inc/woocommerce.php: a named, typed function hooked to woocommerce_blocks_cart_block_registration and woocommerce_blocks_checkout_block_registration that requires the class file and registers the integration. inc/class-nova-theme-checkout-integration.php: a class implementing Automattic\\WooCommerce\\Blocks\\Integrations\\IntegrationInterface with all five methods, registering the script with wc-blocks-checkout (and wp-i18n when strings are translated) as dependencies. functions.php requires inc/woocommerce.php but never the class file, so the theme keeps working when WooCommerce is deactivated. No template override, no DOM text replacement.",
+      "expected_output": "Three new theme files and one added line in functions.php. assets/js/checkout.js: the whole file wrapped in a function, reading registerCheckoutFilters from the window.wc.blocksCheckout global, with ONE registerCheckoutFilters( 'nova-theme', { … } ) call that sets both placeOrderButtonLabel and cartItemPrice; the cartItemPrice callback returns a string that still contains <price/>. inc/woocommerce.php: a named, typed function hooked to woocommerce_blocks_cart_block_registration and woocommerce_blocks_checkout_block_registration that requires the class file and registers the integration. inc/class-nova-theme-checkout-integration.php: a class implementing Automattic\\WooCommerce\\Blocks\\Integrations\\IntegrationInterface with all five methods, registering the script with wc-blocks-checkout (and wp-i18n when strings are translated) as dependencies. functions.php requires inc/woocommerce.php but never the class file, so the theme keeps working when WooCommerce is deactivated. No template override, no DOM text replacement.",
       "files": [],
       "assertions": [
         "Reads registerCheckoutFilters from the wc.blocksCheckout global (no bare `import` from '@woocommerce/blocks-checkout', since there is no build step)",
@@ -262,7 +263,10 @@
         "The class file is not required from functions.php at load time: it is required inside the registration callback, or otherwise guarded so the theme does not cause a fatal error when WooCommerce is inactive",
         "The script is registered with wc-blocks-checkout among its dependencies",
         "The JavaScript file declares no top-level const/let: its code is wrapped in a function",
-        "Does not override a Cart or Checkout template and does not change the text by DOM manipulation or jQuery"
+        "Does not override a Cart or Checkout template and does not change the text by DOM manipulation or jQuery",
+        "get_script_handles() returns the handle of the script the class registers (not an empty array)",
+        "functions.php requires inc/woocommerce.php (or the answer says to add that require)",
+        "The free-item check allows for line_total being a string (for example === '0', or converting it to a number first); it does not compare the raw line_total value with the number 0"
       ]
     },
     {
@@ -273,11 +277,13 @@
       "assertions": [
         "Places the code in a plugin (not in the theme or a child theme), or clearly states that it belongs in a plugin, and gives the reason that it must survive a theme switch",
         "Subscribes with onCheckoutValidation taken from the checkoutEvents object (window.wc.blocksCheckoutEvents.checkoutEvents), not destructured directly from wc.blocksCheckoutEvents",
-        "Blocks the checkout by returning an object with type 'error' (or 'failure') and a message; it does not rely on returning false, returning a string, or throwing",
+        "Blocks the checkout by returning an object with type 'error' (or 'failure') whose text is in the errorMessage property (or in validationErrors) — not in a property named message; it does not rely on returning false, returning a string, or throwing",
         "The script is registered with wc-blocks-checkout-events among its dependencies",
         "The script is loaded through a class implementing IntegrationInterface registered on the Checkout block's registration hook, and the class file is required inside that callback or otherwise guarded against WooCommerce being inactive",
         "Inside the plugin the script URL is built with plugins_url() (not get_theme_file_uri()) and the version does not come from wp_get_theme()",
-        "The observer does not POST or fetch to the server itself, and uses no jQuery"
+        "The observer does not POST or fetch to the server itself, and uses no jQuery",
+        "get_script_handles() returns the handle of the script the class registers (not an empty array)",
+        "The main plugin file requires the file that hooks the integration (or the registration code is in the main plugin file itself)"
       ]
     }
   ]

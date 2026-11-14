@@ -1,6 +1,6 @@
 # Block Theme Scaffold Trees
 
-Copy these layouts verbatim when starting a new theme, child theme, or dynamic block. Replace `{{THEME_SLUG}}` with the actual kebab-case slug, and `{{THEME_PREFIX}}` with its snake_case form (`my-theme` → `my_theme`) wherever a PHP function name needs a prefix.
+Copy these layouts verbatim when starting a new theme, child theme, companion plugin, build step, or dynamic block. Replace `{{THEME_SLUG}}` with the actual kebab-case slug, and `{{THEME_PREFIX}}` with its snake_case form (`my-theme` → `my_theme`) wherever a PHP function name needs a prefix.
 
 > **PHP rule:** Every `.php` file containing active PHP logic (functions, classes, or `add_action`/`add_filter` calls) must begin with `<?php` followed immediately by `declare(strict_types=1);`. All named functions must have typed parameters and a return type (e.g. `function my_fn( string $arg ): void {}`). Callbacks passed to `add_action` / `add_filter` are named functions, not closures; a `render_callback` closure must also be typed. **Exception:** Pure-markup pattern files in `patterns/*.php` that contain only the block comment docblock header and HTML block markup — with no function or class definitions — are exempt from `declare(strict_types=1);` because strict_types has no effect without typed signatures. See `references/architecture.md → PHP Requirements` for the complete checklist and the PHP version step (default 8.4; 8.2 and 8.3 through `references/php-compatibility.md`).
 
@@ -82,7 +82,7 @@ When the child theme is the one being built, `{{THEME_SLUG}}` **is the child's s
 
 ## Companion plugin
 
-For WooCommerce code that the Placement gate sends to a plugin (`references/woocommerce.md → §2`). Here `{{THEME_SLUG}}`, `{{THEME_PREFIX}}` and `{{TEXT_DOMAIN}}` stand for the **plugin's** slug, prefix and text domain.
+For WooCommerce code that the Placement gate sends to a plugin (`references/woocommerce.md → §2`). Here `{{THEME_SLUG}}`, `{{THEME_PREFIX}}` and `{{TEXT_DOMAIN}}` stand for the **plugin's** slug, prefix and text domain. The plugin needs a slug of its own, different from the theme's — for example the theme's slug followed by `-store`.
 
 ```
 {{THEME_SLUG}}/
@@ -105,6 +105,7 @@ Only when the project needs one (`references/architecture.md → No build step b
 ```
 {{THEME_SLUG}}/
 ├── package.json                        ← "scripts": { "build": "wp-scripts build", "start": "wp-scripts start" }
+├── webpack.config.js                   ← Only when the source imports @woocommerce/* packages (references/woocommerce-standards.md → §5.1)
 ├── src/
 │   └── index.js                        ← Source: JSX, TypeScript, npm imports
 └── build/                              ← Generated; never edit. Register scripts from here
@@ -119,7 +120,13 @@ Register the built file with the generated asset file, so the dependency list ne
  * Registers the built script with the dependencies and version the build recorded.
  */
 function {{THEME_PREFIX}}_register_app_script(): void {
-	$asset = require get_theme_file_path( 'build/index.asset.php' );
+	$asset_file = get_theme_file_path( 'build/index.asset.php' );
+
+	if ( ! file_exists( $asset_file ) ) {
+		return; // The build has not been run.
+	}
+
+	$asset = require $asset_file;
 
 	wp_register_script(
 		'{{THEME_SLUG}}-app',
@@ -132,11 +139,15 @@ function {{THEME_PREFIX}}_register_app_script(): void {
 add_action( 'init', '{{THEME_PREFIX}}_register_app_script' );
 ```
 
-Pass other entry points as arguments (`wp-scripts build src/checkout.js src/admin.js`); each produces its own `.js` and `.asset.php` pair in `build/`. `import` statements for `@wordpress/*` packages are mapped to the `wp.*` globals and listed in the asset file; for `@woocommerce/*` packages see `references/woocommerce-standards.md → §5.1`.
+This only registers the script. Enqueue the handle where it is used: on `wp_enqueue_scripts` for the frontend, on `admin_enqueue_scripts` for an admin screen, or by returning it from a WooCommerce integration (`references/woocommerce.md → §6.4`).
+
+**In a plugin** the two theme helpers do not apply. From the main plugin file use `__DIR__ . '/build/index.asset.php'` for the asset file and `plugins_url( 'build/index.js', __FILE__ )` for the URL.
+
+Pass other entry points as arguments (`wp-scripts build src/checkout.js src/admin.js`); each produces its own `.js` and `.asset.php` pair in `build/`. `import` statements for `@wordpress/*` packages are mapped to the `wp.*` globals and listed in the asset file. `@woocommerce/*` packages are **not** mapped by a plain `wp-scripts build`; they need the `webpack.config.js` in `references/woocommerce-standards.md → §5.1`.
 
 ## Dynamic block (WP 7.0 `autoRegister`)
 
-A dynamic block registered with `'autoRegister' => true` does not need any `block.json` or editor JavaScript. Everything lives in PHP.
+A dynamic block registered with `'supports' => array( 'autoRegister' => true )` does not need any `block.json` or editor JavaScript. Everything lives in PHP.
 
 ```
 {{THEME_SLUG}}/

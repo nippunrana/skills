@@ -21,6 +21,7 @@ If a name you need is not listed, look it up in core source or on developer.word
 | `get_template_directory_uri()` | Parent theme directory URI. Prefer `get_parent_theme_file_uri()`. |
 | `wp_get_theme( '{{THEME_SLUG}}' )->get( 'Version' )` | The theme's own version, for asset cache-busting. Pass the slug: with no argument `wp_get_theme()` returns the *active* theme, which is the child when one is active. |
 | `style.css` headers `Requires at least` / `Requires PHP` | WordPress checks both on activation and refuses to switch to the theme when either is not met. |
+| Plugin header `Requires Plugins` | Since 6.5. Comma-separated slugs of the plugins a plugin depends on, for example `woocommerce`. |
 
 Pattern file headers core reads from `patterns/*.php`: `Title`, `Slug`, `Description`, `Viewport Width`, `Inserter`, `Categories`, `Keywords`, `Block Types`, `Post Types`, `Template Types`. There is no "synced" header — a pattern shipped as a theme file is always unsynced.
 
@@ -152,6 +153,7 @@ See `references/ai-client.md`.
 |---|---|
 | `wp_register_script_module( string $id, string $src, array $deps = array(), $version = false, array $args = array() )` | Since 6.5. |
 | `wp_enqueue_script_module( string $id )` | Since 6.5. May be called while a block renders. |
+| `script_module_data_{$module_id}` filter | Since 6.7. Passes data from PHP to a script module: WordPress prints the returned array as JSON in a `<script id="wp-script-module-data-{$module_id}">` element. `wp_localize_script()` does not work for script modules. |
 | `wp_deregister_script_module()` / `wp_dequeue_script_module()` | Since 6.5. |
 | `wp_set_script_module_translations( string $id, string $domain = 'default', string $path = '' ): bool` | Since 7.0. |
 | `load_script_module_textdomain( string $id, string $domain = 'default', string $path = '' )` | Since 7.0. Returns `string|false`. |

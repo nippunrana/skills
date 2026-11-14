@@ -586,7 +586,7 @@ Overriding a WooCommerce template (`single-product.html`, `archive-product.html`
 | `references/architecture.md` | Before writing ANY theme code (mandatory pre-write read). Holds the pattern-asset loader. |
 | `references/theme-json.md` | Modifying `theme.json` beyond a `customTemplates` entry. |
 | `references/api-allowlist.md` | Before every WordPress function, hook, block name or `theme.json` key you are not certain exists. |
-| `references/scaffold-tree.md` | Creating a new theme directory, a companion plugin, or adding new top-level folders. |
+| `references/scaffold-tree.md` | Creating a new theme directory, a companion plugin or a build step, or adding new top-level folders. |
 | `references/ai-client.md` | The user wants to call an LLM from PHP, let a model call abilities, work with Connectors, or manage AI API keys and cost. |
 | `references/abilities-api.md` | The user is registering an ability (PHP or JavaScript), exposing one over REST, or needs the REST method-mapping rules for `readonly` / `destructive` / `idempotent` annotations. |
 | `references/dataviews.md` | The user is building a DataViews admin screen, configuring `groupBy` / `onReset`, adding field validation, or formatting displayed values with `getValueFormatted`. |
