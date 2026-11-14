@@ -247,6 +247,38 @@
         "All properties are declared and typed; no implicitly nullable parameters",
         "File is named class-nova-theme-promo-banner.php and starts with declare(strict_types=1)"
       ]
+    },
+    {
+      "id": 18,
+      "prompt": "My block theme 'nova-theme' runs on WordPress 7.0 and PHP 8.4 with WooCommerce 11.3 and the block Cart and Checkout. Two small wording changes, in the theme please, with no build step: the Place Order button should say 'Pay securely', and a line item that costs nothing should show '(free)' after its price in the cart.",
+      "expected_output": "Three theme files. assets/js/checkout.js: the whole file wrapped in a function, reading registerCheckoutFilters from the window.wc.blocksCheckout global, with ONE registerCheckoutFilters( 'nova-theme', { … } ) call that sets both placeOrderButtonLabel and cartItemPrice; the cartItemPrice callback returns a string that still contains <price/>. inc/woocommerce.php: a named, typed function hooked to woocommerce_blocks_cart_block_registration and woocommerce_blocks_checkout_block_registration that requires the class file and registers the integration. inc/class-nova-theme-checkout-integration.php: a class implementing Automattic\\WooCommerce\\Blocks\\Integrations\\IntegrationInterface with all five methods, registering the script with wc-blocks-checkout (and wp-i18n when strings are translated) as dependencies. functions.php requires inc/woocommerce.php but never the class file, so the theme keeps working when WooCommerce is deactivated. No template override, no DOM text replacement.",
+      "files": [],
+      "assertions": [
+        "Reads registerCheckoutFilters from the wc.blocksCheckout global (no bare `import` from '@woocommerce/blocks-checkout', since there is no build step)",
+        "Both filters (placeOrderButtonLabel and cartItemPrice) are set in a single registerCheckoutFilters() call; there are not two calls using the same namespace",
+        "The cartItemPrice callback returns a string that contains the <price/> placeholder",
+        "The script is loaded through a class implementing Automattic\\WooCommerce\\Blocks\\Integrations\\IntegrationInterface that defines all five methods (get_name, initialize, get_script_handles, get_editor_script_handles, get_script_data)",
+        "The integration is registered from a named function (not a closure) hooked to both woocommerce_blocks_cart_block_registration and woocommerce_blocks_checkout_block_registration",
+        "The class file is not required from functions.php at load time: it is required inside the registration callback, or otherwise guarded so the theme does not cause a fatal error when WooCommerce is inactive",
+        "The script is registered with wc-blocks-checkout among its dependencies",
+        "The JavaScript file declares no top-level const/let: its code is wrapped in a function",
+        "Does not override a Cart or Checkout template and does not change the text by DOM manipulation or jQuery"
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "Same 'nova-theme' project (WordPress 7.0, PHP 8.4, WooCommerce 11.3, block Checkout, no build step). Stop an order from being placed when the order note is longer than 500 characters and show the shopper a clear message. Put it wherever it belongs.",
+      "expected_output": "The answer says this is store behaviour (validation), so it belongs in a small plugin rather than the theme, because it has to keep working when the theme is switched, and builds that plugin: a main plugin file with a header, inc/woocommerce.php, the integration class file and assets/js/checkout.js. The script takes the subscribe function from window.wc.blocksCheckoutEvents.checkoutEvents (checkoutEvents.onCheckoutValidation), reads the note from the wc/store/checkout store, and blocks checkout by returning an object with type 'error' and an errorMessage. The script is registered with wc-blocks-checkout-events as a dependency, its URL comes from plugins_url() and its version from the plugin, and the class file is required only inside the registration callback.",
+      "files": [],
+      "assertions": [
+        "Places the code in a plugin (not in the theme or a child theme), or clearly states that it belongs in a plugin, and gives the reason that it must survive a theme switch",
+        "Subscribes with onCheckoutValidation taken from the checkoutEvents object (window.wc.blocksCheckoutEvents.checkoutEvents), not destructured directly from wc.blocksCheckoutEvents",
+        "Blocks the checkout by returning an object with type 'error' (or 'failure') and a message; it does not rely on returning false, returning a string, or throwing",
+        "The script is registered with wc-blocks-checkout-events among its dependencies",
+        "The script is loaded through a class implementing IntegrationInterface registered on the Checkout block's registration hook, and the class file is required inside that callback or otherwise guarded against WooCommerce being inactive",
+        "Inside the plugin the script URL is built with plugins_url() (not get_theme_file_uri()) and the version does not come from wp_get_theme()",
+        "The observer does not POST or fetch to the server itself, and uses no jQuery"
+      ]
     }
   ]
 }

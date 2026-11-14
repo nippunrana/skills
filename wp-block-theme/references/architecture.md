@@ -1047,7 +1047,7 @@ Register the theme's pattern category on `init`, before patterns reference it �
 
 Everything this skill emits runs without a build: PHP patterns, `theme.json`, plain CSS, and native ES modules. A block's `view.js` imports `@wordpress/interactivity` directly — WordPress resolves that specifier through its import map.
 
-Add a build only when the project needs one (TypeScript, SCSS, npm dependencies, a `block.json` block with a React editor script). `@wordpress/scripts` is the supported toolchain for themes and blocks. **Never** emit an `@wordpress/build` configuration for a theme: that package is a pre-1.0 build system for plugins organised as `packages/*`, with its own `package.json` keys, and it does not replace `@wordpress/scripts`.
+Add a build only when the project needs one (TypeScript, SCSS, npm dependencies, a `block.json` block with a React editor script). `@wordpress/scripts` is the supported toolchain for themes and blocks (folder layout: `references/scaffold-tree.md → With a build step`). **Never** emit an `@wordpress/build` configuration for a theme: that package is a pre-1.0 build system for plugins organised as `packages/*`, with its own `package.json` keys, and it does not replace `@wordpress/scripts`.
 
 ### How pattern assets load
 

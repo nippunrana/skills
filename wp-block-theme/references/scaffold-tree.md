@@ -98,6 +98,42 @@ For WooCommerce code that the Placement gate sends to a plugin (`references/wooc
 
 The PHP rule at the top of this file applies unchanged. The main file requires its `inc/` files with `require_once __DIR__ . '/inc/…';`.
 
+## With a build step
+
+Only when the project needs one (`references/architecture.md → No build step by default`). `@wordpress/scripts` reads `src/` and writes `build/`; with no `block.json` in `src/`, its entry point is `src/index.js`.
+
+```
+{{THEME_SLUG}}/
+├── package.json                        ← "scripts": { "build": "wp-scripts build", "start": "wp-scripts start" }
+├── src/
+│   └── index.js                        ← Source: JSX, TypeScript, npm imports
+└── build/                              ← Generated; never edit. Register scripts from here
+    ├── index.js
+    └── index.asset.php                 ← The script's WordPress dependencies and a version computed from the source
+```
+
+Register the built file with the generated asset file, so the dependency list never drifts from the imports:
+
+```php
+/**
+ * Registers the built script with the dependencies and version the build recorded.
+ */
+function {{THEME_PREFIX}}_register_app_script(): void {
+	$asset = require get_theme_file_path( 'build/index.asset.php' );
+
+	wp_register_script(
+		'{{THEME_SLUG}}-app',
+		get_theme_file_uri( 'build/index.js' ),
+		$asset['dependencies'],
+		$asset['version'],
+		array( 'in_footer' => true )
+	);
+}
+add_action( 'init', '{{THEME_PREFIX}}_register_app_script' );
+```
+
+Pass other entry points as arguments (`wp-scripts build src/checkout.js src/admin.js`); each produces its own `.js` and `.asset.php` pair in `build/`. `import` statements for `@wordpress/*` packages are mapped to the `wp.*` globals and listed in the asset file; for `@woocommerce/*` packages see `references/woocommerce-standards.md → §5.1`.
+
 ## Dynamic block (WP 7.0 `autoRegister`)
 
 A dynamic block registered with `'autoRegister' => true` does not need any `block.json` or editor JavaScript. Everything lives in PHP.
