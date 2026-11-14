@@ -1,116 +1,132 @@
-# DataViews & DataForms (WP 7.0+)
+# DataViews & DataForm (WordPress 7.0+)
 
-DataViews powers admin-style listings (the Pages list, the Patterns list, plugin order tables, etc.). DataForms is the matching form layer. Both consume **field definitions** that drive rendering, validation, and formatting.
+DataViews renders a dataset as a table, grid, list or activity feed with search, filters, sorting and pagination. DataForm is the matching form layer. Both are driven by **field definitions**.
 
-**Load this file when**: the user is building or modifying a DataViews-driven admin screen, wants custom validation on a field, asks about `groupBy` / `onReset`, or needs `getValueFormatted` to display a different value than what's stored.
+**Load this file when**: the user is building or modifying a DataViews-driven admin screen, wants validation on a field, asks about `groupBy` / `onReset`, or needs `getValueFormatted`.
 
 ---
 
-## 1. `groupBy` is now an object
+## 0. Getting the components
 
-The legacy string form (`groupBy: 'status'`) is **deprecated**. Always emit the object form:
+DataViews is not a core script handle — install and bundle it.
+
+```
+npm install @wordpress/dataviews --save
+```
+
+When the build uses `@wordpress/scripts`, import from the `/wp` entry so WordPress's own packages stay external:
 
 ```js
-view = {
-    type: 'table',
-    groupBy: {
-        field: 'status',         // required — the field id to group by
-        direction: 'desc',       // optional, 'asc' | 'desc'. Defaults to 'asc'.
-        label: 'Group by status' // optional, overrides the auto-generated UI label
-    },
-    // …
+import { DataViews } from '@wordpress/dataviews/wp';
+```
+
+---
+
+## 1. `groupBy` is an object
+
+The old `groupByField: 'status'` string key was replaced in 7.0 by a `groupBy` object:
+
+```js
+const view = {
+	type: 'table',
+	groupBy: {
+		field: 'status',   // required — the field id to group by
+		direction: 'desc', // optional, 'asc' | 'desc'. Defaults to 'asc'.
+		showLabel: true,   // optional boolean — label visibility for the groups
+	},
+	// …
 };
 ```
 
-If you encounter old code with `groupBy: 'status'`, migrate it. Don't pass both forms — the object wins but emits a deprecation warning.
+If you find `groupByField` in existing code, migrate it to `groupBy: { field: … }`.
 
 ---
 
 ## 2. `onReset` semantics
 
-The "Reset view" button in the view controls is governed by the `onReset` prop. Pick the value that matches the desired UX state:
+The "Reset view" button is governed by the `onReset` prop:
 
-| `onReset` value | Button state | Use when… |
+| `onReset` value | Button | Use when… |
 |---|---|---|
-| `undefined` | Hidden | The view is not persisted (every page load starts from defaults), so there is nothing to reset. |
-| `false` | Visible but disabled | View persistence is active **and** the current view already matches defaults. The disabled state confirms to the user that there are no customisations to clear. |
-| `function` | Active | View persistence is active **and** the current view diverges from defaults. The function is invoked when the user clicks "Reset view". |
-
-Drive the value reactively from your store state:
+| `undefined` | Hidden | The view is not persisted, so there is nothing to reset. |
+| `false` | Shown, disabled | The view is persisted and currently matches the default. |
+| `function` | Shown, enabled | The view is persisted and has been modified. Called when the user clicks the button. |
 
 ```js
-const isAtDefaults = useSelect( ( s ) => s( store ).isViewAtDefaults() );
-const persistsView = true; // your decision
-
-const onReset = ! persistsView
-    ? undefined
-    : isAtDefaults
-        ? false
-        : () => dispatch( store ).resetView();
+<DataViews
+	data={ data }
+	view={ view }
+	onChangeView={ setView }
+	onReset={ isModified ? resetToDefault : false }
+/>
 ```
+
+`isModified` and `resetToDefault` come from whatever persists the view in your screen.
 
 ---
 
-## 3. Field API validation rules
+## 3. Field validation: `isValid`
 
-Declarative validation moved into the field definition in WP 7.0. Rules align with JSON Schema vocabulary and run client-side before the form is submitted; server-side enforcement is still your responsibility on the REST handler.
+Validation rules live in the field's **`isValid`** object. A key named `validation` is ignored.
 
-| Rule | Supported field types | Notes |
+| Rule | Field types | Notes |
 |---|---|---|
-| `pattern` | `text`, `email`, `tel`, `url` | Standard JS regex source (no leading/trailing `/`). |
-| `minLength` / `maxLength` | `text`, `email`, `tel`, `url` | Inclusive bounds. |
-| `min` / `max` | `integer`, `number` | Inclusive bounds. |
+| `required` | any | Boolean. |
+| `pattern` | `text`, `email`, `telephone`, `url` | Regex source string, no surrounding slashes. |
+| `minLength` / `maxLength` | `text`, `email`, `telephone`, `url` | |
+| `min` / `max` | `integer`, `number` | |
+| `elements` | fields with `elements` | Restricts the value to the listed elements. On by default. |
+| `custom` | any | `( item, field ) => string | null`. Return a message when invalid, `null` when valid. |
 
 ```js
 const fields = [
-    {
-        id: 'order_id',
-        label: 'Order ID',
-        type: 'text',
-        validation: {
-            pattern: '^ORD-[0-9]{6}$',
-            minLength: 10,
-            maxLength: 10,
-        },
-    },
-    {
-        id: 'quantity',
-        label: 'Quantity',
-        type: 'integer',
-        validation: { min: 1, max: 999 },
-    },
+	{
+		id: 'order_id',
+		label: 'Order ID',
+		type: 'text',
+		isValid: {
+			required: true,
+			pattern: '^ORD-[0-9]{6}$',
+			minLength: 10,
+			maxLength: 10,
+		},
+	},
+	{
+		id: 'quantity',
+		label: 'Quantity',
+		type: 'integer',
+		isValid: { min: 1, max: 999 },
+	},
 ];
 ```
 
-Validation errors are surfaced through the form's `errors` state. Combine rules freely — they evaluate independently.
+Validation runs in the browser. Mirror every rule in the REST handler — client validation is UX, not security.
 
 ---
 
-## 4. `getValueFormatted` for display logic
+## 4. `getValueFormatted` for display
 
-Field definitions accept `getValueFormatted( item, field )` to derive the visible string from the stored value. The stored value goes to the REST API and the database; the formatted value goes to the screen.
+`getValueFormatted` receives **one object**, `{ item, field }`, and returns the string to display. The stored value is unchanged.
 
 ```js
-{
-    id: 'file_size',
-    label: 'Size',
-    type: 'integer',
-    getValueFormatted: ( item ) => {
-        const bytes = item.file_size;
-        if ( bytes < 1024 ) return `${ bytes } B`;
-        if ( bytes < 1024 * 1024 ) return `${ ( bytes / 1024 ).toFixed( 1 ) } KB`;
-        return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
-    },
-}
+const fileSizeField = {
+	id: 'file_size',
+	label: 'Size',
+	type: 'integer',
+	getValueFormatted: ( { item, field } ) => {
+		const bytes = field.getValue( { item } );
+		if ( bytes < 1024 ) {
+			return `${ bytes } B`;
+		}
+		if ( bytes < 1024 * 1024 ) {
+			return `${ ( bytes / 1024 ).toFixed( 1 ) } KB`;
+		}
+		return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
+	},
+};
 ```
 
-Common use cases:
-- Bytes → human-readable size
-- Unix timestamps → locale-aware date strings (`new Date( item.created_at ).toLocaleDateString()`)
-- Status codes → translated labels
-- Role slugs → role display names
-
-Do **not** put filtering or sorting logic in `getValueFormatted` — that operates on the raw value, not the formatted one. Sorting a column displays raw values in sort order, then renders each with the formatter.
+Each field type ships a default formatter (number separators, dates). Override it only when the stored and displayed values differ in a way the type does not handle. Keep sorting and filtering logic out of it — those work on the raw value.
 
 ---
 
@@ -118,8 +134,9 @@ Do **not** put filtering or sorting logic in `getValueFormatted` — that operat
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Deprecation warning on `groupBy` | Used legacy string form | Switch to the object form with `field` / `direction` / `label` |
-| "Reset view" button always hidden | `onReset` left as `undefined` | Set `false` (disabled) or a function once the view is persisted |
-| Validation passes but server rejects | Only client-side rules added | Mirror the rules on your REST handler — client validation is UX, not security |
-| Formatted value disappears on sort | Put sort/filter logic in `getValueFormatted` | Sort uses the raw value; keep formatting purely presentational |
-| Regex pattern silently invalid | Wrapped pattern in `/…/` | Pass the source string only, e.g. `^ORD-[0-9]{6}$` |
+| Grouping ignored | Used `groupByField` or a string `groupBy` | Use the object form with `field` |
+| "Reset view" button always hidden | `onReset` left `undefined` | Pass `false` or a function once the view is persisted |
+| Validation rules ignored | Rules placed under `validation` | Put them under `isValid` |
+| Formatter shows `undefined` | Treated the argument as the item | Destructure `( { item, field } )` |
+| Validation passes but server rejects | Only client-side rules | Mirror the rules in the REST handler |
+| Regex never matches | Wrapped the pattern in `/…/` | Pass the source string only |

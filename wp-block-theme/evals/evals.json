@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "I've got a static HTML page for our new 'Research Hub' landing page — it has a hero section, a 3-column features grid, an FAQ accordion, and a footer CTA. The HTML, CSS, and JS are all in one file. I need this inside WordPress so editors can assign it to a page and it shows up in the Site Editor. The theme is my-theme (kebab-case slug, text domain my-theme). Here's the file:\n\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head><meta charset=\"UTF-8\"><title>Research Hub</title>\n<style>\n  *{margin:0;padding:0;box-sizing:border-box}\n  body{font-family:'Inter',sans-serif;background:#0a0a1a;color:#fff}\n  .hero{padding:120px 40px;text-align:center;background:linear-gradient(135deg,#1a1a2e,#16213e)}\n  .hero h1{font-size:3.5rem;margin-bottom:1rem}\n  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;padding:80px 40px}\n  .card{background:rgba(255,255,255,0.05);border-radius:12px;padding:2rem}\n  .faq{padding:80px 40px}\n  .faq details{border-bottom:1px solid rgba(255,255,255,0.1);padding:1rem 0}\n  .cta{padding:120px 40px;text-align:center;background:#e94560}\n</style></head>\n<body>\n  <section class=\"hero\"><h1>Research Hub</h1><p>Science-backed protocols.</p></section>\n  <section class=\"features\">\n    <div class=\"card\"><h3>Purity</h3><p>99%+ certified.</p></div>\n    <div class=\"card\"><h3>Speed</h3><p>Next-day delivery.</p></div>\n    <div class=\"card\"><h3>Support</h3><p>Expert guidance.</p></div>\n  </section>\n  <section class=\"faq\">\n    <details><summary>What is the purity?</summary><p>99%+ certified.</p></details>\n    <details><summary>How long does delivery take?</summary><p>1-2 working days in the UK.</p></details>\n  </section>\n  <section class=\"cta\"><h2>Ready to start?</h2><a href=\"/shop\">Shop Now</a></section>\n  <script>\n    document.querySelectorAll('.card').forEach(c=>{c.addEventListener('mouseenter',()=>c.style.transform='translateY(-4px)');c.addEventListener('mouseleave',()=>c.style.transform='')});\n  </script>\n</body></html>\n```",
-      "expected_output": "A complete set of files written under a theme root: templates/research-hub.html, patterns/research-hub.php (master, Inserter: false), sub-pattern PHP files for each section, scoped CSS files under patterns/{section}/style.css, JS files only where genuinely needed, a theme.json customTemplates entry, and functions.php additions that call register_block_style() to bind pattern CSS to its outermost wrapper block. theme.json uses `\"version\": 3` and the pinned WP 7.0 schema URL (https://schemas.wp.org/wp/7.0/theme.json). No fabricated APIs (no register_block_ability, no is_ai_ready, no wp_register_icons, no WP_Icons_Registry, no __experimentalRole).",
+      "expected_output": "A complete set of files written under a theme root: templates/research-hub.html, patterns/research-hub.php (master, Inserter: false), sub-pattern PHP files for each section, scoped CSS files under patterns/{section}/style.css, JS files only where genuinely needed, a theme.json customTemplates entry, and PHP that registers each sub-pattern as a block style variation with register_block_style() and enqueues its stylesheet only when a block carrying that `is-style-{slug}` class renders (the theme's pattern-asset loader), plus an editor enqueue on enqueue_block_assets. theme.json uses `\"version\": 3` and a pinned schema URL (https://schemas.wp.org/wp/7.0/theme.json). No fabricated APIs (no script_module_handle, no register_block_ability, no is_ai_ready, no wp_register_icons, no __experimentalRole).",
       "files": [],
       "assertions": [
         "templates/research-hub.html exists and calls a master pattern via wp:pattern",
@@ -12,50 +12,57 @@
         "Each visual section has its own sub-pattern file in patterns/",
         "Every CSS rule in patterns/*/style.css is scoped to .is-style-{pattern-slug} (no global selectors)",
         "theme.json gets a customTemplates entry with name: research-hub",
-        "functions.php uses register_block_style() to bind pattern CSS to a core block variation",
-        "theme.json declares \"version\": 3 and \"$schema\": \"https://schemas.wp.org/wp/7.0/theme.json\"",
-        "No file references the fabricated APIs register_block_ability, is_ai_ready, WP_Icons_Registry, or __experimentalRole",
+        "Each sub-pattern is registered as a block style variation with register_block_style()",
+        "Pattern CSS is enqueued from a render_block filter that checks the block's is-style-{slug} class (not by passing style_handle to register_block_style())",
+        "Pattern CSS is also enqueued for the editor on enqueue_block_assets",
+        "theme.json declares \"version\": 3 and a pinned \"$schema\" (https://schemas.wp.org/wp/7.0/theme.json or the site's newer release)",
+        "No file uses script_module_handle, register_block_ability, is_ai_ready, or __experimentalRole",
         "Any non-block HTML that cannot be mapped to a Core Block is rendered by a dynamic block registered via register_block_type() with a render_callback (not by a wp:html wrapper)"
       ]
     },
     {
       "id": 2,
       "prompt": "I need to add a new header variant — a slim top bar that shows a regulatory warning message and a phone number on the right. The warning icon should appear in the inserter alongside core icons. It should be editable in the Site Editor and swappable like the other header parts. Theme is my-theme; existing header parts are in parts/ and already registered in theme.json.",
-      "expected_output": "Two files: parts/header-top-bar-variant-b.html (thin pointer to a pattern) and patterns/header-top-bar-variant-b.php (real content with PHP). The pattern must NOT have Inserter: false. theme.json templateParts array gets a new entry with area: header. functions.php uses register_block_style() to bind the CSS to the template part's wrapper block variation. Icon is rendered either via the new core/icon block (WP 7.0) or, if the developer prefers maximum compatibility, via a documented PHP helper.",
+      "expected_output": "Two files: parts/header-top-bar-variant-b.html (thin pointer to a pattern) and patterns/header-top-bar-variant-b.php (real content with PHP, `Inserter: false` because it only backs the template part). theme.json templateParts gets a new entry with area: header. The pattern's outermost block carries is-style-header-top-bar-variant-b and the variation is added to the theme's pattern-asset registry. Icon: the answer depends on the site's WordPress version and says so. On 7.1+ it registers an icon collection and icon with wp_register_icon_collection() and wp_register_icon() on init and uses <!-- wp:icon {\"icon\":\"my-theme/warning\"} /-->, which also puts it in the Icon block's picker. On 7.0 it states that custom icons cannot be added to the picker and renders the SVG another way (or uses a built-in core/* icon).",
       "files": [],
       "assertions": [
         "Both a .html template part and a .php pattern file are created",
-        "The PHP pattern does NOT contain 'Inserter: false'",
-        "PHP code (get_stylesheet_directory_uri, icon helper, or core/icon block call) appears in the .php file, not the .html file",
-        "functions.php uses register_block_style() to tie the template part CSS to its root block",
+        "The PHP pattern contains 'Inserter: false' (it exists only to back the template part)",
+        "PHP code (get_theme_file_uri, icon helper, or core/icon block call) appears in the .php file, not the .html file",
+        "The pattern's outermost block has an is-style-{slug} class and that slug is registered as a block style variation",
         "theme.json templateParts array includes the new variant with area: header",
-        "No file references the fabricated WP_Icons_Registry::get_instance()->register() signature"
+        "The response establishes or states the WordPress version before promising the icon appears in the picker",
+        "If it registers a custom icon, it uses wp_register_icon_collection() and wp_register_icon() and labels them WordPress 7.1+",
+        "It does not claim custom icons can be registered on WordPress 7.0, and does not call WP_Icons_Registry::get_instance()->register() or a wp_register_icons filter"
       ]
     },
     {
       "id": 3,
       "prompt": "My hero section looks fine on the frontend but the Site Editor is showing the old version even though I updated the template file. Also, the CSS I added for the hero isn't showing up inside the editor — it only loads on the actual page. How do I fix both of these?",
-      "expected_output": "Two clear fixes: (1) Site Editor stores customisations in the database; tell the user to go to Appearance → Editor, find the template, click the ⋮ menu, select 'Clear Customizations' / 'Reset to defaults' to remove the database override. (2) The CSS must be loaded via register_block_style() targeting the component's wrapper block — WordPress then injects it into both the frontend and the editor iframe automatically. Include a concrete register_block_style() example.",
+      "expected_output": "Two clear fixes: (1) The Site Editor stores edits in the database and they override the theme file; use the Reset action for that template or template part to return to the file version (and mention that the template's revisions can restore an earlier saved version first). (2) CSS enqueued only for the frontend never reaches the editor canvas; enqueue the pattern stylesheet on enqueue_block_assets as well, which is what the theme's pattern-asset loader does for every registered variation. Include a concrete code example.",
       "files": [],
       "assertions": [
         "Response explains that the Site Editor stores customisations in the database and those take precedence over file changes",
-        "Response gives the specific steps: Appearance → Editor → ⋮ → Reset to defaults / Clear Customizations",
-        "Response explains that register_block_style() handles CSS injection inside the editor iframe automatically",
-        "Response includes a concrete register_block_style() call tied to a core block variation"
+        "Response names the Reset action (not the removed 'Clear customizations' label) as the way to return to the file version",
+        "Response explains that the stylesheet must be enqueued on enqueue_block_assets to appear inside the editor canvas",
+        "Response includes a concrete enqueue example tied to the pattern's is-style-{slug} variation",
+        "Response does not recommend style_handle on register_block_style() as the way to load the stylesheet (in a block theme it does not reach the frontend)"
       ]
     },
     {
       "id": 4,
       "prompt": "We want to add an AI-powered 'Tone Shift' button to the editorial sidebar for our blog posts. When an editor selects some text and clicks it, the prompt should rewrite the selection in a chosen tone — scientific, casual, or formal. We're on WordPress 7.0 with the WP AI Client enabled (OpenAI connector configured at Settings → Connectors). Theme slug is my-theme. Register this as an Ability on the theme so it surfaces in the AI Sidekick.",
-      "expected_output": "A functions.php snippet (or theme include) that registers a 'my-theme/editorial' ability category (on the `wp_abilities_api_categories_init` hook) and a 'my-theme/tone-shift' ability (on the `wp_abilities_api_init` hook). The ability declares input_schema with `text` and `tone` (enum scientific/casual/formal), output_schema with `rewritten`, a permission_callback gating to `edit_posts`, and an execute_callback that calls WP_AI_Client_Prompt_Builder.generate_text().",
+      "expected_output": "A functions.php snippet (or theme include) that registers an ability category whose slug has no slash, e.g. 'my-theme-editorial' (on the `wp_abilities_api_categories_init` hook) and a 'my-theme/tone-shift' ability (on the `wp_abilities_api_init` hook). The ability declares input_schema with `text` and `tone` (enum scientific/casual/formal), output_schema with `rewritten`, a permission_callback gating to `edit_posts`, and an execute_callback that builds a prompt with wp_ai_client_prompt() and calls generate_text(), returning the WP_Error on failure. Any feature detection is called on the builder instance. It sets meta.show_in_rest to true if the ability must be reachable from JavaScript.",
       "files": [],
       "assertions": [
         "Code registers an ability category via wp_register_ability_category() before the ability itself",
+        "The category slug contains only lowercase letters, digits and dashes (no slash)",
         "Code registers the ability via wp_register_ability() (not register_block_ability)",
         "The ability category is registered on `wp_abilities_api_categories_init`; the ability itself is registered on `wp_abilities_api_init` — two separate hooks",
         "The ability declares input_schema and output_schema in JSON Schema form",
         "The ability declares a permission_callback that gates execution",
-        "The execute_callback uses WP_AI_Client_Prompt_Builder (the WP 7.0 AI Client) and handles WP_Error returns from generate_text()",
+        "The execute_callback uses wp_ai_client_prompt() and handles WP_Error returns from generate_text()",
+        "is_supported_for_text_generation(), if used, is called on a builder instance (->), never statically (::)",
         "No fabricated APIs are referenced (no register_block_ability, no `intent` field, no `is_ai_ready`)"
       ]
     },
@@ -63,20 +70,24 @@
       "id": 5,
       "prompt": "We currently have a handrolled breadcrumb sub-pattern at patterns/breadcrumbs.php that builds the trail with custom PHP. I want to replace it with WordPress 7.0's new core/breadcrumbs block. We also want to drop one redundant ancestor from the trail when the current page is under the 'Knowledge Base' parent — its slug doesn't add useful information for users. Theme slug is my-theme.",
       "expected_output": "Delete the old breadcrumbs sub-pattern. Replace any references to it in templates / patterns with `<!-- wp:breadcrumbs /-->`. Add a `block_core_breadcrumbs_items` filter in functions.php (or a theme include) that removes the 'Knowledge Base' segment from the trail when the current page descends from it.",
+      "files": [],
       "assertions": [
         "Response instructs the user to delete the old patterns/breadcrumbs.php (or shows the removal)",
         "Response uses `<!-- wp:breadcrumbs /-->` in markup, not a custom pattern reference",
         "Response uses `add_filter( 'block_core_breadcrumbs_items', … )` to customise the trail",
-        "The filter callback receives the items array and returns a modified array (does not invent a different filter name)",
+        "The filter callback declares exactly one parameter (the items array) and returns a modified array",
         "No file references the fabricated APIs (no register_block_ability, no WP_Icons_Registry, no __experimentalRole)"
       ]
     },
     {
       "id": 6,
       "prompt": "We use the WordPress 7.0 AI Client for an auto-tagging feature on posts. Two things I need in PHP: (1) only enable/show the feature if the environment actually supports AI, and (2) once we cross a daily token budget I want to hard-stop any further AI prompts site-wide so we don't keep getting billed by the provider. We're on WordPress 7.0, theme slug my-theme.",
-      "expected_output": "PHP that gates the feature on wp_supports_ai() and registers a wp_ai_client_prevent_prompt filter returning true once a stored daily-budget flag is set, so further wp_ai_client_prompt() calls return WP_Error. Generation code checks is_wp_error().",
+      "expected_output": "PHP that (1) gates the feature on wp_supports_ai() — which reports whether AI has been switched off for the site — and, before showing or running it, also checks that a provider can actually serve the request with an instance call such as wp_ai_client_prompt( … )->is_supported_for_text_generation(); and (2) registers a wp_ai_client_prevent_prompt filter returning true once a stored daily-budget flag is set, so further generating calls return WP_Error. Generation code checks is_wp_error().",
+      "files": [],
       "assertions": [
         "Uses wp_supports_ai() to gate whether the AI feature is enabled/shown",
+        "Checks real availability with is_supported_for_text_generation() (or another is_supported_* method) called on a builder instance, not statically",
+        "Does not describe wp_supports_ai() as proof that a provider or API key is configured",
         "Registers the wp_ai_client_prevent_prompt filter and returns true to block prompts when the budget is exceeded",
         "Does not invent a non-existent stop/budget function (e.g. no wp_ai_client_stop(), no disable_ai())",
         "Generation code handles the WP_Error returned when a prompt is prevented or fails"
@@ -85,18 +96,20 @@
     {
       "id": 7,
       "prompt": "I have a plugin that runs a background job to rewrite post meta whenever a post is saved. On WordPress 7.0 with real-time collaboration turned on, I'm worried this background write stomps on other editors' changes while several people are in the editor together. How do I detect that a collaboration session is active and skip my background write in that case? Plugin text domain my-plugin.",
-      "expected_output": "Code that checks wp_is_collaboration_enabled() (and/or wp_is_collaboration_allowed()) and short-circuits the background meta write when collaboration is active. Does not use private/internal sync APIs.",
+      "expected_output": "The response corrects the premise: real-time collaboration was removed before WordPress 7.0 shipped and is not enabled in 7.1, so core has no function for detecting a collaboration session. It does not emit wp_is_collaboration_enabled(), wp_is_collaboration_allowed() or WP_ALLOW_COLLABORATION. It offers a real alternative for avoiding clobbered edits, such as skipping the background write while the post has an active edit lock, and says what that does and does not cover.",
+      "files": [],
       "assertions": [
-        "Uses wp_is_collaboration_enabled() (or wp_is_collaboration_allowed()) to detect active collaboration",
-        "Skips or guards the background post-meta write when collaboration is active",
-        "Does not call the private wp_collaboration_inject_setting() or the non-existent can_user_sync_entity_type()",
-        "Does not reach into internal classes like WP_Sync_Post_Meta_Storage or WP_HTTP_Polling_Sync_Server"
+        "States that real-time collaboration is not part of WordPress 7.0 or 7.1 core",
+        "Does not call wp_is_collaboration_enabled(), wp_is_collaboration_allowed() or reference WP_ALLOW_COLLABORATION as if they exist",
+        "Does not reach into classes such as WP_Sync_Post_Meta_Storage or WP_HTTP_Polling_Sync_Server",
+        "Any alternative it offers uses APIs that exist in core (for example the post edit lock)"
       ]
     },
     {
       "id": 8,
       "prompt": "Our security review wants us to move WordPress password hashing from bcrypt to Argon2id. We control wp-config.php and a small mu-plugin. How do we do this safely on WordPress 7.0 without locking anyone out if a particular server build doesn't actually support Argon2? Give me the code.",
-      "expected_output": "A mu-plugin using the wp_hash_password_algorithm filter to return PASSWORD_ARGON2ID, guarded by a defined('PASSWORD_ARGON2ID') availability check that falls back to the default otherwise. Optionally wp_hash_password_options to tune cost.",
+      "expected_output": "A mu-plugin using the wp_hash_password_algorithm filter to return PASSWORD_ARGON2ID, guarded by a defined('PASSWORD_ARGON2ID') availability check that falls back to the default otherwise. It also mentions (or uses) wp_hash_password_options for tuning the Argon2 cost parameters.",
+      "files": [],
       "assertions": [
         "Uses the wp_hash_password_algorithm filter (not a fabricated function like wp_set_password_algorithm())",
         "Guards Argon2 behind an availability check such as defined('PASSWORD_ARGON2ID') with a safe fallback",
@@ -105,9 +118,52 @@
       ]
     },
     {
+      "id": 9,
+      "prompt": "On WordPress 7.0 I want my AI summarizer to be able to call my plugin's own functions as tools. I read that you pass them to the prompt builder with ->using_abilities(). Can you wire up wp_ai_client_prompt() with using_abilities() to expose my 'fetch_order_status' function to the model?",
+      "expected_output": "Code that registers fetch_order_status as an ability with wp_register_ability() (on wp_abilities_api_init, with a registered category whose slug has no slash, input/output schemas, permission_callback, execute_callback) and then passes it to the prompt builder with ->using_abilities( 'my-plugin/fetch-order-status' ). It explains that the model returns function calls, which are executed with WP_AI_Client_Ability_Function_Resolver, and it handles WP_Error.",
+      "files": [],
+      "assertions": [
+        "Registers the function as an ability via wp_register_ability() on the wp_abilities_api_init hook with a category, schemas and permission_callback",
+        "Passes the ability to the prompt builder with ->using_abilities()",
+        "Does not claim that using_abilities() is missing from the WordPress 7.0 AI Client",
+        "Mentions WP_AI_Client_Ability_Function_Resolver (or an equivalent explicit step) for executing the model's function calls",
+        "Handles a WP_Error returned by the generation call"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme'. Create a standalone CTA sub-pattern called 'cta-section'. It should have a headline, a short paragraph, and a button. Give me the PHP pattern file and the scoped style.css for it. The button should have padding, a border-radius, a background colour (#e94560), white text, and a hover transition. Do not add any template or theme.json changes — just the pattern file and the CSS file.",
+      "expected_output": "A PHP pattern file (patterns/cta-section.php) with correct block markup, and a patterns/cta-section/style.css with: tabs for indentation, logical property ordering (Display → Box model → Colors → Other for the button rule), no magic numbers, rgba() without paren padding if used, unitless zero values, and the variation class .is-style-cta-section scoping all rules. Because the user ruled out theme.json changes, the button states stay in the pattern's stylesheet. The answer also states the one line the user must add elsewhere: a 'cta-section' entry in the pattern-asset registry (inc/pattern-assets.php), without which the CSS never loads.",
+      "files": [],
+      "assertions": [
+        "style.css uses tabs (\\t) for indentation — not spaces",
+        "The button CSS rule orders Display before Box model before Colors before Other (transition last)",
+        "Hex colours are lowercase (#e94560, #fff — not #E94560 or #FFFFFF)",
+        "Zero values have no units (e.g. margin: 0 not margin: 0px) unless for transition-duration",
+        "All rules are scoped to .is-style-cta-section (no global selectors)",
+        "Pattern PHP file has correct header with Slug: nova-theme/cta-section",
+        "States that 'cta-section' must be added to the pattern-asset registry (inc/pattern-assets.php) for the stylesheet to load"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme' on PHP 8.4. I need a small PHP-only dynamic block, 'nova-theme/notice-strip', whose render_callback outputs an <img> tag for a decorative icon (alt text 'Decorative Icon') and a disabled submit button. Give me the block's PHP file and a style.css for it. I care specifically that HTML attributes follow WordPress standards.",
+      "expected_output": "inc/blocks/notice-strip.php registering the block from a named function hooked to init, with 'supports' => array( 'autoRegister' => true ) and a render_callback that returns the markup (wrapper printed with get_block_wrapper_attributes()). In the output: all HTML attributes double-quoted; the disabled attribute written as just 'disabled' (bare, no value); the <img /> self-closing tag has exactly one space before the /; the image URL built with get_theme_file_uri(). style.css uses tabs and logical property ordering and is enqueued for the block with wp_enqueue_block_style().",
+      "files": [],
+      "assertions": [
+        "The block is registered with register_block_type() using 'supports' => array( 'autoRegister' => true ) and a render_callback — not placed inside a pattern file",
+        "The registration runs from a named function hooked to init (no closure passed to add_action)",
+        "All HTML attributes in the PHP output are double-quoted (e.g. alt=\"Decorative Icon\" not alt='Decorative Icon' or alt=Decorative)",
+        "The disabled attribute is written as just 'disabled' with no value (not disabled=\"true\", not disabled=\"false\", not disabled=\"disabled\")",
+        "The <img> self-closing tag has exactly one space before the slash: <img ... />",
+        "style.css uses tabs for indentation — not spaces",
+        "style.css orders Box model properties before Colors & Typography properties"
+      ]
+    },
+    {
       "id": 12,
       "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme'. Write the full functions.php (not a snippet — the real file) that registers pattern categories and block styles for three sub-patterns: hero-section, faq-section, and cta-section. Each sub-pattern has its own style.css. Follow WordPress PHP coding standards exactly — I care about tabs vs spaces, array syntax, string quote style, and naming.",
-      "expected_output": "A complete functions.php file with: tabs for indentation (not 4-space), array() long syntax (not []), single-quoted string literals where no interpolation is needed, snake_case function names, proper spacing inside control structure parens, declare(strict_types=1) on line 2, and no closing ?>. All three sub-patterns are registered via register_block_style() using array() for the arguments.",
+      "expected_output": "A complete functions.php file (plus the inc/pattern-assets.php it requires, shown in full, if the registry and loader are placed there) with: tabs for indentation (not 4-space), array() long syntax (not []), single-quoted string literals where no interpolation is needed, snake_case function names, proper spacing inside control structure parens, declare(strict_types=1) on line 2, and no closing ?>. All three sub-patterns are registered as block style variations with register_block_style() (directly or by looping over a registry array) and their stylesheets are enqueued per variation.",
       "files": [],
       "assertions": [
         "functions.php uses tab characters (\\t) for indentation inside function bodies — not 4 spaces",
@@ -116,7 +172,9 @@
         "Function names follow snake_case (e.g. nova_theme_register_pattern_categories not camelCase)",
         "declare(strict_types=1); appears on line 2 of functions.php",
         "The file does not end with a closing ?> tag",
-        "register_block_style() is called for all three sub-patterns (hero-section, faq-section, cta-section)"
+        "register_block_style() registers all three sub-patterns (hero-section, faq-section, cta-section) — in functions.php or in the inc/pattern-assets.php it requires, directly or by looping over a registry array",
+        "Function names are valid PHP identifiers (the kebab-case slug nova-theme becomes the nova_theme prefix)",
+        "Every add_action()/add_filter() callback is a named function passed by name — no closures or arrow functions as hook callbacks"
       ]
     },
     {
@@ -148,41 +206,46 @@
       ]
     },
     {
-      "id": 9,
-      "prompt": "On WordPress 7.0 I want my AI summarizer to be able to call my plugin's own functions as tools. I read that you pass them to the prompt builder with ->using_abilities(). Can you wire up wp_ai_client_prompt() with using_abilities() to expose my 'fetch_order_status' function to the model?",
-      "expected_output": "The response should correct the premise: there is no using_abilities() method on the WP 7.0 AI Client prompt builder. The right mechanism is the Abilities API — register fetch_order_status via wp_register_ability() (on wp_abilities_api_init, with category, schemas, permission_callback, execute_callback). It should NOT produce code that calls ->using_abilities() as if it were real.",
+      "id": 15,
+      "prompt": "Our site runs WordPress 7.0 on PHP 8.2 — the host won't move us to a newer PHP until next quarter. In my 'nova-theme' block theme I want a small class called Nova_Theme_Feature_Flags: it is given an array of flag names mapped to booleans once, exposes that list for reading but never lets outside code change it, and has a method that returns the name of the first enabled flag starting with 'beta_' (or null). Put it in the right file and follow WordPress PHP coding standards.",
+      "expected_output": "A file class-nova-theme-feature-flags.php with declare(strict_types=1) and one class written for PHP 8.2: no property hooks, no asymmetric visibility (private(set)), no typed class constants, no method call chained directly on `new Class()`. The read-only list is a readonly property or a private property with a getter. The search may use array_find_key()/array_find() (WordPress polyfills them) or a loop. The answer notes the theme header should declare Requires PHP: 8.2.",
+      "files": [],
       "assertions": [
-        "Does not write code that calls ->using_abilities() on the prompt builder as a real method",
-        "Explicitly states that using_abilities() is not part of the WP 7.0 AI Client prompt builder",
-        "Directs the user to the Abilities API (wp_register_ability) as the correct way to expose functions to AI",
-        "Shows registration on the wp_abilities_api_init hook with a category, schemas, and permission_callback"
+        "Uses no PHP 8.4-only syntax: no property hooks, no private(set) / protected(set), no method call chained directly on `new Class()` without wrapping parentheses",
+        "Uses no PHP 8.3-only syntax (no typed class constants such as `const string X`)",
+        "The flag list cannot be changed from outside the class (readonly property, or private property with a getter)",
+        "Does not define its own polyfill for array_find(), array_find_key(), array_any() or array_all()",
+        "Any nullable parameter or return type is written explicitly (e.g. ?string), never as an implicitly nullable `string $x = null`",
+        "States that the theme should declare `Requires PHP: 8.2` (or sets it in style.css)",
+        "File is named class-nova-theme-feature-flags.php and starts with declare(strict_types=1)"
       ]
     },
     {
-      "id": 10,
-      "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme'. Create a standalone CTA sub-pattern called 'cta-section'. It should have a headline, a short paragraph, and a button. Give me the PHP pattern file and the scoped style.css for it. The button should have padding, a border-radius, a background colour (#e94560), white text, and a hover transition. Do not add any template or theme.json changes — just the pattern file and the CSS file.",
-      "expected_output": "A PHP pattern file (patterns/cta-section.php) with correct block markup, and a patterns/cta-section/style.css with: tabs for indentation, logical property ordering (Display → Box model → Colors → Other for the button rule), no magic numbers, rgba() without paren padding if used, unitless zero values, and the variation class .is-style-cta-section scoping all rules.",
+      "id": 16,
+      "prompt": "Add a tiny value object to my block theme (slug nova-theme) for a 'Promo Banner' pattern: it holds a headline and a call-to-action URL, cleans up the URL whenever it is set, and exposes both for reading. I don't know which PHP version the server is on and I can't check right now.",
+      "expected_output": "The response does not assume PHP 8.4. It says the PHP version has to be established (php -v, or Tools → Site Health → Info → Server, or the project's config) and, because it cannot be right now, writes the class in a form that runs on PHP 8.2 through 8.5 (private properties with setter/getter methods, no property hooks, no asymmetric visibility), recommends `Requires PHP: 8.2` in style.css, and states that assumption plainly. It may add that on a confirmed PHP 8.4 site a property hook would do the URL clean-up more simply, and offers to record the version in the project's context file once known.",
       "files": [],
       "assertions": [
-        "style.css uses tabs (\\t) for indentation — not spaces",
-        "The button CSS rule orders Display before Box model before Colors before Other (transition last)",
-        "Hex colours are lowercase (#e94560, #fff — not #E94560 or #FFFFFF)",
-        "Zero values have no units (e.g. margin: 0 not margin: 0px) unless for transition-duration",
-        "All rules are scoped to .is-style-cta-section (no global selectors)",
-        "Pattern PHP file has correct header with Slug: nova-theme/cta-section"
+        "Does not use property hooks or asymmetric visibility in the delivered class",
+        "States explicitly that the PHP version is unknown and which PHP version the code was written to run on",
+        "Tells the user how to find the PHP version (for example php -v or Site Health) or asks them to confirm it",
+        "Sets or recommends `Requires PHP: 8.2` (not 8.4) in the theme's style.css header",
+        "The URL is normalised with a WordPress escaping/sanitising function (for example esc_url_raw() or sanitize_url()) when it is set",
+        "Does not silently create or edit a project context file; at most offers to record the version"
       ]
     },
     {
-      "id": 11,
-      "prompt": "I'm building a WP 7.0 block theme with slug 'nova-theme'. I need a hero sub-pattern called 'hero-section' that uses a PHP render_callback to output an <img> tag for a decorative icon (alt text 'Decorative Icon') and a disabled submit button in the markup. Give me just the PHP pattern file and the style.css. I care specifically that HTML attributes follow WordPress standards.",
-      "expected_output": "PHP pattern with: all HTML attributes double-quoted; the disabled attribute written as just 'disabled' (bare, no value, no =true or =false); the <img /> self-closing tag has exactly one space before the /; style.css uses tabs and logical property ordering.",
+      "id": 17,
+      "prompt": "Add a tiny value object called Nova_Theme_Promo_Banner to my 'nova-theme' block theme for a 'Promo Banner' pattern: it holds a headline and a call-to-action URL, cleans up the URL whenever it is set, and exposes both for reading from outside. I've confirmed in Site Health that the site runs WordPress 7.1 on PHP 8.4. Use whatever PHP 8.4 gives us if it makes the class simpler. The project does not run PHP_CodeSniffer.",
+      "expected_output": "A class written for PHP 8.4 that is shorter than the 8.2 version because it uses 8.4 features where they fit: a property hook on the URL property to sanitise on assignment (e.g. `set => esc_url_raw( $value );`) and/or asymmetric visibility (public private(set)) for read-only-from-outside properties, with typed properties throughout. No PHP 8.5-only syntax (no pipe operator, no clone-with). No property hook sits on a `readonly` property (PHP rejects that combination). The answer declares or recommends `Requires PHP: 8.4` in style.css; if it mentions `Requires at least`, the value is 7.0, because the class uses no 7.1-only feature. It keeps WordPress house style (tabs, array(), Yoda conditions, class-nova-theme-promo-banner.php).",
       "files": [],
       "assertions": [
-        "All HTML attributes in the PHP output are double-quoted (e.g. alt=\"Decorative Icon\" not alt='Decorative Icon' or alt=Decorative)",
-        "The disabled attribute is written as just 'disabled' with no value (not disabled=\"true\", not disabled=\"false\", not disabled=\"disabled\")",
-        "The <img> self-closing tag has exactly one space before the slash: <img ... />",
-        "style.css uses tabs for indentation — not spaces",
-        "style.css orders Box model properties before Colors & Typography properties"
+        "Uses at least one PHP 8.4 feature that genuinely simplifies the class (a property hook for the URL clean-up, or asymmetric visibility such as public private(set))",
+        "No property hook is declared on a `readonly` property, and no hooked property sits in a `readonly` class",
+        "Uses no PHP 8.5-only syntax (no pipe operator |>, no clone with property overrides, no #[\\NoDiscard])",
+        "Sets or recommends `Requires PHP: 8.4` in the theme's style.css header",
+        "All properties are declared and typed; no implicitly nullable parameters",
+        "File is named class-nova-theme-promo-banner.php and starts with declare(strict_types=1)"
       ]
     }
   ]

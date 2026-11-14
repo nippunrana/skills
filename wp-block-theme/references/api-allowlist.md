@@ -1,336 +1,241 @@
 # WordPress API Allowlist
 
-*Before writing any WordPress function or class name in skill output, confirm it appears here.* Every entry below has been verified against developer.wordpress.org. If a name you need is not on this list, look it up before writing — do not invent.
+*The checked list for everything specific to WordPress 6.5–7.1. Long-established basics (`add_action()`, `is_admin()`, `esc_url_raw()`, `core/group`) need no entry; anything you are not certain of must be confirmed here, in core source, or on developer.wordpress.org before you write it.*
 
-This allowlist targets WordPress 7.0 only. All entries below are confirmed stable in WP 7.0.
+The functions, hooks, classes, block names and `theme.json` keys below were checked against the WordPress core source at tags **7.0.8** and **7.1.4**. "Since" is the version that introduced it. Entries marked **7.1+** do not exist on a 7.0 site — see `references/core-7.1-apis.md`. WooCommerce APIs are not listed here; they live in the `woocommerce*.md` references.
+
+If a name you need is not listed, look it up in core source or on developer.wordpress.org before writing it. Do not invent, and do not trust a name because it sounds plausible — the last section lists plausible names that do not exist.
 
 ## Themes & templates
 
 | Function / class | Notes |
 |---|---|
-| `register_block_template( $name, $args )` | Available since 6.7. `$args` keys: `title`, `description`, `content`, `post_types`. No `is_ai_ready`. |
-| `wp_register_block_template_part()` | Available since 6.7. Companion to `register_block_template` for parts. |
-| `WP_Block_Templates_Registry` | Class behind the registration API. |
-| `register_block_pattern()` | Registers a pattern from PHP. |
-| `register_block_pattern_category()` | Registers a category before patterns reference it. |
-| `unregister_block_pattern()` / `unregister_block_pattern_category()` | Removes registrations. |
-| `get_template_directory_uri()` | Returns the **parent** theme URI. |
-| `get_stylesheet_directory_uri()` | Returns the **child** (or current) theme URI. |
-| `get_stylesheet_directory()` | Returns the child theme absolute path (used for `wp_style_add_data( …, 'path', … )`). |
-| `wp_get_image_alttext( $attachment_id )` | WP 7.0+. Returns the alt text stored in attachment meta. Use when importing images to pre-populate `core/image` `alt` attributes. |
+| `register_block_template( $template_name, $args )` | Since 6.7. For plugins. `$template_name` is `namespace//template_name` — two slashes, lowercase — e.g. `{{THEME_SLUG}}//template_name`. `$args` keys: `title`, `description`, `content`, `post_types`, `plugin`. An invalid name triggers `_doing_it_wrong()` and returns `WP_Error` — the template is not registered. |
+| `unregister_block_template( $template_name )` | Since 6.7. |
+| `register_block_pattern( $name, $properties )` | Registers a pattern from PHP. Patterns in a theme's `patterns/` folder register automatically. |
+| `register_block_pattern_category( $name, $properties )` | Register a category before patterns reference it. |
+| `unregister_block_pattern()` / `unregister_block_pattern_category()` | Remove registrations. |
+| `get_theme_file_uri( $file )` / `get_theme_file_path( $file )` | Since 4.7. **The default for every asset URL and path.** Resolve a theme-relative file: the child theme's copy if it exists, otherwise the parent's. |
+| `get_parent_theme_file_uri( $file )` / `get_parent_theme_file_path( $file )` | Since 4.7. Always the parent theme's copy. |
+| `get_stylesheet_directory_uri()` / `get_stylesheet_directory()` | Active (child, if any) theme directory. Valid, but a parent theme's assets disappear under a child theme — prefer the helpers above. |
+| `get_template_directory_uri()` | Parent theme directory URI. Prefer `get_parent_theme_file_uri()`. |
+| `wp_get_theme( '{{THEME_SLUG}}' )->get( 'Version' )` | The theme's own version, for asset cache-busting. Pass the slug: with no argument `wp_get_theme()` returns the *active* theme, which is the child when one is active. |
+| `style.css` headers `Requires at least` / `Requires PHP` | WordPress checks both on activation and refuses to switch to the theme when either is not met. |
 
-## Block registration
+Pattern file headers core reads from `patterns/*.php`: `Title`, `Slug`, `Description`, `Viewport Width`, `Inserter`, `Categories`, `Keywords`, `Block Types`, `Post Types`, `Template Types`. There is no "synced" header — a pattern shipped as a theme file is always unsynced.
 
-| Function / class | Notes |
+## Block registration & assets
+
+| Function / hook | Notes |
 |---|---|
-| `register_block_type( $name_or_path, $args )` | Server-side block registration. In WP 7.0, set `'supports' => array( 'autoRegister' => true )` to register a block from PHP alone (no `block.json` / JS). **`autoRegister` supported attribute types:** `string`, `number`, `integer`, `boolean`. **`autoRegister` constraint:** attributes with a `source` key (`"source": "html"`, `"source": "attribute"`, etc.) are NOT supported — `autoRegister` only works with attributes stored in the block's JSON comment boundary. Use a classic dynamic block (`block.json` + `render_callback`) when you need sourced attributes. |
-| `register_block_type_from_metadata()` | Older form; registers from a `block.json` file path. |
-| `register_block_style( $block, $args )` | Registers a block style variation. `$args` accepts `name`, `label`, `style_handle`, `script_module_handle` (since 6.7). |
-| `unregister_block_style()` | Removes a previously-registered variation. |
-| `wp_enqueue_block_style( $block, $args )` | Enqueues a stylesheet only when the named block is on the page. |
-| `core/heading` (WP 7.0 level variations) | WP 7.0 registers H1–H6 as named inserter-level variations of `core/heading`. The block name in markup is always `core/heading` — never `core/headings`. Use `level: 1–6` in attributes; editors can switch levels via the toolbar at any time. |
-| `core/navigation-overlay-close` | WP 7.0. Close button for mobile navigation overlays. Must be placed inside a `core/navigation` block that has `overlayMenu` set to `"always"` or `"mobile"`. Always include this block explicitly in custom overlay patterns — omitting it forces a theme-clashing fallback button. |
-| `core/accordion` | WP 7.0. Multi-item collapsible disclosure widget. Structure: `core/accordion` → one or more `core/accordion-item` children, each containing `core/accordion-heading` and `core/accordion-panel`. Use for FAQ-style groups with multiple items. For a single collapsible disclosure, use `core/details` instead. |
-| `core/details` | WP 6.3+. Single collapsible disclosure using native `<details>`/`<summary>` HTML. Use for one-off expandable sections. For multi-item accordion UIs, use `core/accordion` (WP 7.0). |
-| `core/playlist` | WP 7.0. Native audio playlist block with waveform visualization. Use when converting designs that include podcast players or audio track lists. |
+| `register_block_type( $block_type, $args )` | Server-side registration. Useful `$args`: `title`, `description`, `category`, `attributes`, `supports`, `render_callback`, `view_script_module_ids` (script module IDs enqueued when the block renders, since 6.5). Set `'supports' => array( 'autoRegister' => true )` (since 7.0) to register a block from PHP alone — see `references/architecture.md → Dynamic Blocks (PHP-only)`. |
+| `register_block_type_from_metadata()` | Registers from a `block.json` path. |
+| `get_block_wrapper_attributes( $extra_attributes = array() )` | Since 5.6. Call inside a `render_callback` to output the block's classes, styles and anchor on its wrapper element. |
+| `register_block_style( $block_name, $style_properties )` | Registers a block style variation (`is-style-{name}`). Keys: `name`, `label`, `inline_style`, `style_handle`, `is_default`, `style_data`. **There is no script key.** **Do not use `style_handle` in a block theme:** the stylesheet loads in the editor but not on the frontend (core ticket #55184, open on 7.0 and 7.1). |
+| `unregister_block_style( $block_name, $block_style_name )` | Removes a variation. |
+| `wp_enqueue_block_style( $block_name, $args )` | Since 5.9. Enqueues a stylesheet when the named block type is on the page. `$args`: `handle`, `src`, `path`, `deps`, `ver`, `media`. |
+| `wp_register_style()` / `wp_enqueue_style()` | Standard stylesheet registration. Calling `wp_enqueue_style()` while a block renders is how core loads block CSS on demand. |
+| `wp_style_add_data( $handle, 'path', $absolute_path )` | Lets core inline the stylesheet. Core inlines the smallest stylesheets first, up to 40,000 bytes in total per page (filter `styles_inline_size_limit`). |
+| `wp_register_script()` / `wp_enqueue_script()` | Classic scripts. `$args` array keys: `in_footer`, `strategy` (`defer` / `async`), `fetchpriority`, and (since 7.0) `module_dependencies` — a classic script that needs a script module must be in the footer or deferred. |
+| Filter `render_block` | `( string $block_content, array $block, WP_Block $instance )`. Runs for every rendered block; `$block['attrs']['className']` holds the block's classes. `render_block_{$block_name}` (e.g. `render_block_core/button`) is the per-block form. Enqueuing a style, script or script module from this filter is supported. |
+| `WP_HTML_Tag_Processor` | Since 6.2. `next_tag( $query )`, `set_attribute( $name, $value )`, `add_class()`, `get_updated_html()`. The way to change rendered block markup — including adding Interactivity API directives to core blocks. |
+| Filter `block_type_metadata_settings` | `( array $settings, array $metadata )`. Adjust a `block.json`-registered block type's settings, e.g. `$settings['supports']['interactivity'] = true` for a core block. |
+| Action `enqueue_block_assets` | Fires for the frontend **and** for the editor canvas. Styles enqueued here reach the editor iframe. |
+| Action `enqueue_block_editor_assets` | Editor-only scripts (inspector controls, sidebar panels). |
 
-## Template Part Areas (WP 7.0)
+## Core blocks added or changed
 
-Valid `area` values for `templateParts` entries in `theme.json` and for `wp:template-part` block attributes:
-
-| Area value | Use |
+| Block | Notes |
 |---|---|
-| `header` | Site header region |
-| `footer` | Site footer region |
-| `uncategorized` | General-purpose template part (default) |
-| `navigation-overlay` | WP 7.0. Mobile navigation overlay. Register area in `theme.json templateParts`; create the `/parts/*.html` file; register a pattern with `Block Types: core/template-part/navigation-overlay`; use slug-only (no theme prefix) in the Navigation block's `overlay` attribute. |
+| `core/breadcrumbs` | Since 7.0. Automatic trail. Filters below. |
+| `core/icon` | Since 7.0. Attribute `icon` is a namespaced name. On 7.0 only the built-in `core/*` set exists (88 icons, e.g. `core/info`, `core/caution`, `core/check`, `core/star-filled`, `core/arrow-right`, `core/menu`, `core/cart`); an unknown name renders nothing. Custom icons need **7.1+**. |
+| `core/navigation-overlay-close` | Since 7.0. Close button for a custom navigation overlay. It belongs inside the **overlay template part** — it is not an allowed child of `core/navigation`. |
+| `core/heading` | 7.0 registers `h1`–`h6` inserter variations. The block name in markup is always `core/heading` with `"level": 1–6`. |
+| `core/cover` | 7.0 adds `"backgroundType": "embed-video"` for YouTube/Vimeo backgrounds. |
+| `core/gallery` | 7.0 lightbox: set `"linkTo": "lightbox"` on the gallery and `"lightbox": {"enabled": true}` on each inner `core/image`. The gallery itself has no `lightbox` attribute. |
+| `core/accordion` | Since **6.9**. `core/accordion` → `core/accordion-item` → `core/accordion-heading` (holds `title`) + `core/accordion-panel`. |
+| `core/details` | Since 6.3. Single native `<details>` disclosure. |
+| `core/playlist`, `core/tabs` | **7.1+.** See `references/core-7.1-apis.md`. |
 
-## Breadcrumb Filters (WP 7.0)
+## Template part areas
+
+Valid `area` values: `header`, `footer`, `uncategorized`, and (since 7.0) `navigation-overlay`.
+
+## Breadcrumb filters (since 7.0)
 
 | Filter | Notes |
 |---|---|
-| `block_core_breadcrumbs_items` | Modifies the breadcrumb trail for `core/breadcrumbs`. Receives `array $items, WP_Block $block` — 10, 2 priority. Each item in the array is an associative array with three keys: `label` (string), `url` (string), and `allow_html` (bool). **Sanitization rule:** if `allow_html` is `true` the label is sanitized via `wp_kses_post()`; if `false` or omitted it is escaped via `esc_html()`. Always set `allow_html: false` (or omit it) unless you are intentionally injecting safe HTML such as an SVG icon. |
+| `block_core_breadcrumbs_items` | **One argument:** `array $breadcrumb_items`. Each item: `label` (string), `url` (string, optional), `allow_html` (bool, optional). With `allow_html` true the label goes through `wp_kses_post()`; otherwise `esc_html()`. Register with the default `add_filter( …, $callback )` — a callback that requires a second parameter throws `ArgumentCountError`. |
+| `block_core_breadcrumbs_post_type_settings` | `( array $settings, string $post_type, int $post_id )`. Return `taxonomy` and/or `term` slugs to choose which taxonomy and term the trail uses. |
 
 ## Block Bindings
 
 | Function / class | Notes |
 |---|---|
-| `register_block_bindings_source( $name, $args )` | Registers a custom binding source. `$args` keys: `label`, `get_value_callback`, `uses_context`. |
-| Built-in sources | `core/post-meta`, `core/post-title`, `core/post-excerpt`, `core/post-date`, `core/post-author-name`, `core/site-title`, `core/site-tagline`, `core/pattern-overrides`. |
-| Filter: `block_bindings_supported_attributes` | WP 7.0+. Allows any custom block to expose attributes to the Pattern Overrides UI. Return an array of attribute names the block exposes. Use this instead of `metadata.bindings` for fully custom blocks. Signature: `apply_filters( 'block_bindings_supported_attributes', array $supported, string $block_name )`. **Static vs. dynamic blocks:** For static blocks (no `render_callback`), WordPress uses the **WP HTML API** to locate the bound attribute values within the persisted block markup and replace them with override values at render time. Dynamic blocks (with a `render_callback`) receive override values directly as `$attributes` — no HTML API parsing occurs. Choose accordingly: static blocks for overrides that must appear in HTML attributes (`src`, `href`, etc.); dynamic blocks when the override value drives PHP logic. |
+| `register_block_bindings_source( $source_name, $source_properties )` | Since 6.5. Keys: `label`, `get_value_callback`, `uses_context`. |
+| Built-in sources | `core/post-meta` (`args.key` = meta key), `core/post-data` (since 6.9; `args.field` = `date`, `modified` or `link`), `core/term-data` (since 6.9; `args.field` = `id`, `name`, `link`, `slug`, `description`, `parent`, `count`), `core/pattern-overrides`. |
+| Filter `block_bindings_supported_attributes` | Since 6.9. `( string[] $supported_block_attributes, string $block_type )`. Lets a custom block expose attributes to bindings and, in 7.0, to Pattern Overrides. A per-block variant `block_bindings_supported_attributes_{$block_type}` also exists. |
 
-## contentOnly Pattern Opt-Out (WP 7.0+)
+## contentOnly editing (7.0)
 
 | API | Notes |
 |---|---|
-| `disableContentOnlyForUnsyncedPatterns` key inside `block_editor_settings_all` | WP 7.0+. Stable site-wide opt-out. Hook on `block_editor_settings_all` and return `true` for this key in the settings array. **Never** use `add_filter('disableContentOnlyForUnsyncedPatterns', ...)` — that filter is never called. Correct PHP: `add_filter('block_editor_settings_all', function(array $s): array { $s['disableContentOnlyForUnsyncedPatterns'] = true; return $s; });` Use only when the entire site must bypass contentOnly — rare. |
-| `disableContentOnlyForUnsyncedPatterns` JS equivalent | WP 7.0+. `wp.hooks.addFilter('blockEditor.settings', 'my-theme/disable-content-only', (settings) => ({ ...settings, disableContentOnlyForUnsyncedPatterns: true }))` |
-| `"__experimentalSettings": { "disableContentOnlyForUnsyncedPatterns": true }` | Experimental per-block attribute. Set on the outermost block's attributes to opt out for one specific pattern only. Preferred for per-pattern developer scaffolds. |
+| Default behaviour | Unsynced patterns (blocks carrying `metadata.patternName`) and template parts open in content-only mode. Editors unlock an unsynced pattern with **Edit pattern**; synced patterns and template parts with **Edit original**. |
+| `disableContentOnlyForUnsyncedPatterns` | Editor setting. The only opt-out, and it is site-wide: set `$settings['disableContentOnlyForUnsyncedPatterns'] = true` in a `block_editor_settings_all` filter callback (code in `references/architecture.md → Content-Only Editing`). Template parts and synced patterns are unaffected by it. There is no per-pattern opt-out. |
+| `"templateLock": "contentOnly"` | Block attribute. Forces content-only inside that block in every context, including the isolated editor. |
+| `"role": "content"` on an attribute | In `block.json` / `attributes`. Marks the attribute as editable content. A custom block with no content-role attribute is hidden from List View inside content-only containers. |
+| `"contentRole": true` in `supports` | Alternative when the block has no single content attribute. |
+| `"listView": true` in `supports` | Adds a List View tab to the inspector for container blocks. |
 
-## Block Supports: contentOnly & List View (WP 7.0+)
-
-| Support key | Notes |
-|---|---|
-| `"role": "content"` on `attributes` | WP 7.0+. Set on individual attribute definitions in `block.json` to mark them as content-editable in contentOnly mode. Without this, the attribute (and possibly the block) is hidden from List View inside contentOnly containers. |
-| `"contentRole": true` in `supports` | WP 7.0+. Alternative when no specific content attribute exists. Makes the block visible in List View inside contentOnly containers without tying visibility to a particular attribute. Prefer `"role": "content"` on attributes when possible. |
-| `"listView": true` in `supports` | WP 7.0+. Adds a dedicated List View tab to the block inspector for container blocks (blocks with `InnerBlocks`). Allows editors to rearrange and insert inner blocks from the sidebar. Recommended for any custom block wrapping multiple children. |
-
-## Viewport Block Visibility (WP 7.0+)
-
-**Naming convention — two different keys, two different purposes:**
-- Block support key (registered in `supports` in `block.json`): **`visibility`**
-- Attribute metadata key (the object stored on the block): **`blockVisibility`**
-
-These are intentionally different. Setting `"supports": { "visibility": true }` enables the feature for a block; the editor then writes the chosen settings into `metadata.blockVisibility` on the block instance.
-
-**Server-side parsing rule:** PHP code reading block markup via `parse_blocks()` must handle **both** forms of the `blockVisibility` field in a block's `metadata` attribute — WordPress may serialize it as a scalar boolean (`false`) or as an object (`{ "viewport": ["mobile"] }`). Always check for scalar first, then check for the viewport object:
-
-```php
-$visibility = $block['attrs']['metadata']['blockVisibility'] ?? null;
-if ( false === $visibility ) {
-	// Block is hidden everywhere (legacy scalar form)
-} elseif ( is_array( $visibility ) && isset( $visibility['viewport'] ) ) {
-	// Viewport-conditional visibility
-	$visible_on = $visibility['viewport']; // e.g. array( 'tablet', 'desktop' )
-}
-```
+## Block visibility
 
 | Key | Notes |
 |---|---|
-| `metadata.blockVisibility` | Attribute on a block instance's `metadata`. Controls per-device visibility. May be a boolean scalar OR a viewport object — parse defensively. |
-| `metadata.blockVisibility.viewport` | Array of strings. Allowed values: `"mobile"`, `"tablet"`, `"desktop"`. Block renders only on the listed device types. Omit the key entirely to show on all devices. An empty array `[]` hides the block everywhere. |
+| `metadata.blockVisibility: false` | Since 6.9. The block is not rendered at all. |
+| `metadata.blockVisibility.viewport` | Since 7.0. An **object** keyed by `mobile`, `tablet`, `desktop` with boolean values; the block is hidden where the value is `false`: `{"viewport": {"mobile": false}}`. Hiding is CSS (`display: none` in a media query) — the markup stays in the DOM. An array (`["desktop"]`) is ignored. |
+| Breakpoints | 7.0: mobile ≤ 480px, tablet ≤ 782px, desktop above — fixed. **7.1+** makes them configurable with `settings.viewport`. |
+| Block support `visibility` | Defaults to `true`; set `"visibility": false` in a block's `supports` to opt the block out. |
+| `theme.json` | 7.0 has **no** visibility setting — nothing needs enabling. **7.1+** adds `settings.blockVisibility.allowEditing` (set `false` to hide the controls). |
 
-Enable viewport visibility in `theme.json settings` before using it (per-block or globally):
-
-```json
-// Per block
-"settings": { "blocks": { "core/group": { "blockVisibility": { "viewport": true } } } }
-
-// Globally (all blocks)
-"settings": { "blockVisibility": { "viewport": true } }
-```
-
-Block markup example (hidden on mobile):
-
-```html
-<!-- wp:group {
-  "metadata": {
-    "blockVisibility": {
-      "viewport": ["tablet", "desktop"]
-    }
-  }
-} -->
-<div class="wp-block-group"><!-- hidden on mobile --></div>
-<!-- /wp:group -->
-```
-
-## Typography & Dimensions Supports (WP 7.0+)
-
-### Text Indent
+## theme.json keys (7.0)
 
 | Key | Notes |
 |---|---|
-| `supports.typography.textIndent` | WP 7.0+. Set to `true` in `block.json` supports to add a "Line Indent" control to the block inspector for any block. |
-| `typography.textIndent` in `theme.json` | Controls paragraph indentation at the Global Styles level (applies to `core/paragraph`). Two modes: `"subsequent"` (default — indents only paragraphs that directly follow another paragraph, CSS selector `.wp-block-paragraph + .wp-block-paragraph`) and `"all"` (indents every paragraph, selector `.wp-block-paragraph`). Set under `settings.typography.textIndent`. |
+| `"version": 3` | Current schema version. No version 4. |
+| `"$schema"` | `https://schemas.wp.org/wp/7.0/theme.json` (or `wp/7.1` when the site's minimum is 7.1). Never `trunk`. |
+| `settings.typography.textIndent` | Since 7.0. `true` / `"subsequent"` (indent paragraphs that follow a paragraph) or `"all"`. Block support: `supports.typography.textIndent`. |
+| `styles…typography.textIndent` | The indent amount (a CSS length). |
+| `settings.typography.textColumns` / `styles…typography.textColumns` | Since 6.3; maps to CSS `column-count`. The Paragraph block supports it in 7.0. |
+| `settings.dimensions.dimensionSizes` | Since 7.0. Presets `{ slug, name, size }`; CSS variable `--wp--preset--dimension--{slug}`. |
+| `settings.dimensions.width` / `.height` | Since 7.0. Block supports `dimensions.width` / `dimensions.height`. |
+| `styles.blocks.core/button` → `":hover"`, `":focus"`, `":focus-visible"`, `":active"` | Since 7.0. Only `core/button` in 7.0. |
+| `settings.lightbox.enabled` | Enables the image lightbox by default (also settable per block under `settings.blocks.core/image`). |
+| Block attribute `style.css` | Since 7.0. Per-block custom CSS (block support `customCSS`, on by default). |
 
-`theme.json` example:
+## Abilities API
 
-```json
-{
-  "settings": {
-    "typography": {
-      "textIndent": "subsequent"
-    }
-  }
-}
-```
-
-### Dimensions (Width / Height)
-
-| Key | Notes |
-|---|---|
-| `supports.dimensions.width` | Opt-in in `block.json`. Enables a width control in the block inspector for the registered block. |
-| `supports.dimensions.height` | Opt-in in `block.json`. Enables a height control in the block inspector for the registered block. |
-| `settings.dimensions.dimensionSizes` in `theme.json` | Array of preset objects `{ slug, name, size }`. Defines the available dimension presets. **UI threshold rule: fewer than 8 presets → renders a slider; 8 or more presets → renders a dropdown.** |
-
-`theme.json` example (slider, 3 presets):
-
-```json
-{
-  "settings": {
-    "dimensions": {
-      "dimensionSizes": [
-        { "slug": "small", "name": "Small", "size": "200px" },
-        { "slug": "medium", "name": "Medium", "size": "400px" },
-        { "slug": "large", "name": "Large", "size": "600px" }
-      ]
-    }
-  }
-}
-```
-
-## Abilities API (WP 7.0+)
+See `references/abilities-api.md`.
 
 | Function / hook | Notes |
 |---|---|
-| `wp_register_ability( $name, $args )` | Registers an ability (since 6.9; stable in 7.0). Returns `WP_Ability\|null`. Required `$args`: `label`, `description`, `category`, `execute_callback`, `permission_callback`. Optional: `input_schema`, `output_schema`, `meta` (annotations + `show_in_rest`), `ability_class` (custom class extending `WP_Ability`). |
-| `wp_register_ability_category( $slug, $args )` | Registers an ability category. Required `$args`: `label`. Categories must exist before abilities reference them. |
-| `wp_unregister_ability()` / `wp_unregister_ability_category()` | Removes registrations. |
-| Hook: `wp_abilities_api_init` | Hook your registration callbacks here, not on `init`. |
-| Client package: `@wordpress/abilities` | Pure JS state store. |
-| Client package: `@wordpress/core-abilities` | WordPress integration layer. |
-| JS function `registerAbility` | Registers a client-side ability. Imported from `@wordpress/abilities`. |
+| `wp_register_ability( string $name, array $args ): ?WP_Ability` | Since 6.9. Required `$args`: `label`, `description`, `category`, `execute_callback`, `permission_callback`. Optional: `input_schema`, `output_schema`, `meta` (`annotations`, `show_in_rest`), `ability_class`. Name: `namespace/ability-name`, lowercase letters, digits, dashes. |
+| `wp_register_ability_category( string $slug, array $args ): ?WP_Ability_Category` | Since 6.9. Slug: lowercase letters, digits and dashes **only — no slash**. `$args`: `label`, `description`. |
+| `wp_unregister_ability()` / `wp_unregister_ability_category()` | Remove registrations. |
+| `wp_has_ability()`, `wp_get_ability()`, `wp_get_abilities()` | Query the registry. `wp_get_ability( $name )->execute( $input )` runs an ability with its permission and schema checks. |
+| `wp_has_ability_category()`, `wp_get_ability_category()`, `wp_get_ability_categories()` | Query categories. |
+| Action `wp_abilities_api_categories_init` | Register categories here. |
+| Action `wp_abilities_api_init` | Register abilities here (not on `init`). |
+| REST | `wp-abilities/v1/abilities`, `wp-abilities/v1/abilities/{name}/run`, `wp-abilities/v1/categories`. Only abilities with `meta.show_in_rest => true` are exposed. |
+| JS packages | `@wordpress/abilities` (`registerAbility`, `registerAbilityCategory`, `executeAbility`, `getAbilities`, `store`), `@wordpress/core-abilities` (loads server abilities). Since 7.0. |
 
-## WP AI Client (WP 7.0+)
+## WP AI Client & Connectors (since 7.0)
 
-See `references/ai-client.md` for full coverage. Quick-reference surface:
+See `references/ai-client.md`.
 
-| Function / class | Notes |
+| Function / class / hook | Notes |
 |---|---|
-| `wp_ai_client_prompt( $text = '' )` | Entry point. Returns `WP_AI_Client_Prompt_Builder`. Pass prompt text directly or build it via `->with_text()`. |
-| `WP_AI_Client_Prompt_Builder` | Fluent builder. Configuration methods: `with_text()`, `with_file()`, `with_history()`, `using_system_instruction()`, `using_temperature()`, `using_max_tokens()`, `using_top_p()`, `using_top_k()`, `using_stop_sequences()`, `using_model_preference()`, `as_output_modalities()`, `as_output_file_type()`, `as_json_response( $schema )`. |
-| Generation methods | Text and image have direct methods: `generate_text()` → `string`, `generate_texts( $n )` → `string[]`, `generate_image()` → `File` DTO (use `getDataUri()`), `generate_images( $n )` → `File[]`. Text-to-speech, native speech, and video are result-only (use the `*_result()` variants). All can return `WP_Error`. |
-| Result-form variants | `generate_text_result()`, `generate_image_result()`, `convert_text_to_speech_result()`, `generate_speech_result()`, `generate_video_result()`. Return `GenerativeAiResult` with `getContent()` (returns the generated content string, file path, or object), `getTokenUsage()` (input/output/thinking), `getProviderMetadata()`, `getModelMetadata()`. |
-| Feature detection (static) | `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`, `::is_supported_for_image_generation()`, `::is_supported_for_text_to_speech_conversion()`, `::is_supported_for_speech_generation()`, `::is_supported_for_video_generation()`. Pure capability checks — no API call, no cost. **Always gate generation calls behind these.** |
-| `wp_supports_ai()` | WP 7.0+. Returns `bool` — whether the environment supports AI at all (coarser than the modality `is_supported_for_*` checks). Use as the outer gate; filterable via the `wp_supports_ai` filter. |
-| Filter: `wp_ai_client_prevent_prompt` | WP 7.0+. Return `true` to block a prompt before it executes (rate-limiting / budget caps). Receives a read-only builder clone; the blocked call returns `WP_Error`. |
-| Filter: `wp_ai_client_default_request_timeout` | WP 7.0+. Filters the default HTTP timeout (`float`, seconds) for AI Client requests. |
-| Hook: `wp_connectors_init` | Fires once with `WP_Connector_Registry`. Use to register or modify connectors. |
-| `WP_Connector_Registry` | Methods: `is_registered( $id )`, `register( $id, $args )`, `unregister( $id )`. Use inside `wp_connectors_init`. |
-| `AiClient` | Class containing AI Client configuration. Method: `defaultRegistry()` (returns the default connector registry for discovery/auto-discovery of connectors). |
-| `wp_get_connector( $id )` | WP 7.0+. Returns a single connector's definition as `array` (or `null`). Available after `init`. |
-| Connector `type` | AI connectors register with `'type' => 'ai_provider'` (underscore — **not** `ai-provider`). WP 7.0 generalised the registry so `type` is no longer AI-only. |
-| Credential resolution order | 1) env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), 2) PHP constant `define( 'OPENAI_API_KEY', '…' )`, 3) DB option `connectors_{$type}_{$id}_api_key` where `{$type}` is the connector type (e.g. `ai`) and `{$id}` is the connector identifier — example: `connectors_ai_openai_api_key` (managed at **Settings → Connectors**). First match wins; subsequent sources are ignored. |
-| Connectors UI | Site admin enables OpenAI / Anthropic / Google credentials at **Settings → Connectors**. Shows current credential source (env / constant / DB) per connector. |
+| `wp_ai_client_prompt( $prompt = null ): WP_AI_Client_Prompt_Builder` | Entry point. |
+| `WP_AI_Client_Prompt_Builder` | Fluent builder; snake_case calls proxy to the PHP AI Client SDK. Full method list in `references/ai-client.md`. All methods are **instance** methods. |
+| `->using_abilities( ...$abilities )` | Exposes registered abilities (names or `WP_Ability` objects) to the model as callable functions. |
+| `WP_AI_Client_Ability_Function_Resolver` | Executes the function calls a model returns, limited to the abilities passed to its constructor. |
+| `wp_supports_ai(): bool` | `false` when the constant `WP_AI_SUPPORT` is defined falsy or the `wp_supports_ai` filter returns false; otherwise `true`. An off-switch, not a capability check. |
+| Filter `wp_ai_client_prevent_prompt` | `( bool $prevent, WP_AI_Client_Prompt_Builder $builder )`. Return `true` to block a prompt; the generating call returns `WP_Error` with code `prompt_prevented`. |
+| Filter `wp_ai_client_default_request_timeout` | Default HTTP timeout in seconds (`float`, default 30). |
+| Action `wp_connectors_init` | Receives `WP_Connector_Registry`. For overriding connector metadata or registering non-AI connectors. |
+| `WP_Connector_Registry` | `register( string $id, array $args ): ?array`, `unregister( string $id ): ?array`, `is_registered( string $id ): bool`. Use only inside `wp_connectors_init`. |
+| `wp_get_connector( $id )`, `wp_get_connectors()`, `wp_is_connector_registered( $id )` | Public read functions; available after `init`. |
+| `WordPress\AiClient\AiClient::defaultRegistry()` | The **provider** registry. Provider plugins call `->registerProvider( $class_name )` on it; their connector is then created automatically. |
 
 ## Script Modules & Interactivity API
 
-| Function | Notes |
+| Function / API | Notes |
 |---|---|
-| `wp_register_script_module( $id, $src, $deps, $version )` | Registers a JavaScript module. |
-| `wp_enqueue_script_module()` | Enqueues a registered module. Usually automatic when bound via `script_module_handle` on `register_block_style`. |
-| `wp_deregister_script_module()` | Removes a registration. |
-| `wp_set_script_module_translations( $id, $domain = 'default', $path = '' )` | WP 7.0+. Sets the text domain / path for a script module's JSON translations. Returns `bool`. Call right after registering the module. |
-| `load_script_module_textdomain( $id, $domain = 'default', $path = '' )` | WP 7.0+. Loads translation data for a script module ID. Returns `string\|false`. Module equivalent of `load_script_textdomain()`. |
-| Interactivity API store | Use `store()` from `@wordpress/interactivity` in the module. |
-| HTML directives | `data-wp-interactive`, `data-wp-context`, `data-wp-on--<event>`, `data-wp-bind--<attr>`, `data-wp-class--<name>`, `data-wp-style--<prop>`, `data-wp-text`. |
-| `watch( fn )` from `@wordpress/interactivity` | WP 7.0+. Subscribes to signal changes. `fn` runs once immediately and again whenever any reactive state it reads changes. Returns a teardown cleanup function. |
-| HTML directive `data-wp-watch` | WP 7.0+. Declarative form of `watch()`. The value is a callback key in the store (e.g. `data-wp-watch="callbacks.onSaveChange"`). Runs whenever reactive state the callback reads changes. |
-
-## JavaScript Packages (WP 7.0+)
-
-| Package | Notes |
-|---|---|
-| `@wordpress/boot` | Enables plugins to register custom Site Editor pages with route validation. Import `boot` from this package and call it once during editor initialisation. WP 7.0+. |
-| `@wordpress/grid` | Standardised grid toolkit for editor interfaces. Provides `GridLayout`, `GridItem`, and related components. WP 7.0+. |
-| `@wordpress/build` | WP 7.0+ build toolchain. Replaces `@wordpress/scripts` webpack+Babel pipeline with esbuild. Run via `npx wp-build`. Auto-generates `.asset.php` registration files from `package.json` `exports` map. Use for themes that compile Script Modules or TypeScript. Not needed for pure-PHP themes. |
+| `wp_register_script_module( string $id, string $src, array $deps = array(), $version = false, array $args = array() )` | Since 6.5. |
+| `wp_enqueue_script_module( string $id )` | Since 6.5. May be called while a block renders. |
+| `wp_deregister_script_module()` / `wp_dequeue_script_module()` | Since 6.5. |
+| `wp_set_script_module_translations( string $id, string $domain = 'default', string $path = '' ): bool` | Since 7.0. |
+| `load_script_module_textdomain( string $id, string $domain = 'default', string $path = '' )` | Since 7.0. Returns `string|false`. |
+| `wp_interactivity_state( ?string $namespace, array $state )` | Since 6.5. Server-side initial state for a store. |
+| `wp_interactivity_data_wp_context( array $context, string $namespace = '' ): string` | Since 6.5. Returns a ready `data-wp-context='…'` attribute. |
+| `wp_interactivity_process_directives( string $html ): string` | Since 6.5. Core calls it for blocks with `supports.interactivity`. |
+| JS `@wordpress/interactivity` | `store`, `getContext`, `getElement`, `getConfig`, `getServerState`, `getServerContext`, `withScope`, `withSyncEvent`, `splitTask`, and (since 7.0) `watch`. |
+| Directives | `data-wp-interactive`, `data-wp-context`, `data-wp-on--{event}`, `data-wp-on-window--{event}`, `data-wp-on-document--{event}`, `data-wp-bind--{attr}`, `data-wp-class--{name}`, `data-wp-style--{prop}`, `data-wp-text`, `data-wp-init`, `data-wp-run`, `data-wp-watch` (all since 6.5). |
+| `core/router` store `state.url` | Populated on the server since 7.0. |
 
 ## Block Hooks
 
 | Function / filter | Notes |
 |---|---|
-| Filter: `hooked_block_types` | Returns the list of blocks to attach to a relative block. |
-| Filter: `hooked_block_{block-name}` | Per-block-specific hook variant. |
-| Manifest: `blockHooks` in `block.json` | Declarative form. |
-| Filter: `rest_block_hooks_post_types` | WP 7.0+. Filters the array of post-type slugs that run Block Hooks in the Posts REST controller. Whitelist post types that need injection; drop the rest to cut REST latency. Public lever for the WP 7.0 REST-based resolver. |
-| `resolve_pattern_blocks( array $blocks )` | Since 6.6 (wider use in 7.0). Replaces `core/pattern` references in a parsed block tree with their constituent blocks. Returns `array`. For headless/agent block-tree work — not needed for normal authoring (render resolves patterns automatically). |
-| `insert_hooked_blocks_into_rest_response()` (6.6), `apply_block_hooks_to_content_from_post_object()` (6.8) | **Private / core-only** — the mechanism behind REST Block Hooks. Do not call directly; control via `rest_block_hooks_post_types`. |
+| Filter `hooked_block_types` | Since 6.4. `( string[] $hooked_block_types, string $relative_position, string $anchor_block_type, $context )`. Position is `before`, `after`, `first_child` or `last_child`. The anchor is a **block type** such as `core/post-content` — never a pattern slug. |
+| Filter `hooked_block_{$hooked_block_type}` | Since 6.5. Adjust the inserted block's attributes. |
+| `blockHooks` in `block.json` / `block_hooks` arg | Declarative form. |
+| Filter `rest_block_hooks_post_types` | Since 7.0. `( array $post_types, string $post_type, $post )`. Default `post`, `page`, `wp_block`, `wp_navigation`. Add a custom post type here so its hooked blocks appear in the editor. |
+| `resolve_pattern_blocks( $blocks )` | Since 6.6. Expands `core/pattern` references in a parsed block tree. |
 
-## Speculation Rules
+## Performance
 
 | API | Notes |
 |---|---|
-| `<script type="speculationrules">` JSON | Inject via `wp_head` or `wp_footer`. Standard Web Platform feature, no WP-specific wrapper required. |
+| Filter `wp_speculation_rules_configuration` | Since 6.8. Core prints speculation rules itself. Return `array( 'mode' => 'prefetch'|'prerender'|'auto', 'eagerness' => 'conservative'|'moderate'|'eager'|'auto' )` or `null` to disable. Off for logged-in users and plain permalinks. |
+| Filter `wp_speculation_rules_href_exclude_paths` | Since 6.8. `( string[] $paths, string $mode )`. |
+| `wp_get_loading_optimization_attributes( $tag_name, $attr, $context )` | Since 6.3. Returns `loading` / `decoding` / `fetchpriority` for a media tag. |
+
+## Fonts
+
+| API | Notes |
+|---|---|
+| `theme.json` `settings.typography.fontFamilies` | Version-controlled fonts shipped with the theme. |
+| Font Library | Since 6.5; since 7.0 a screen for every theme type at **Appearance → Fonts**. Uploaded fonts are stored in `wp-content/uploads/fonts`. |
+| `wp_register_font_collection( string $slug, array $args )` / `wp_unregister_font_collection( string $slug )` | Since 6.5. Register a collection of installable fonts. |
+
+## Admin, users, security
+
+| API | Notes |
+|---|---|
+| `wp_enqueue_view_transitions_admin_css(): void` | Since 7.0. |
+| `wp_admin_bar_command_palette_menu( WP_Admin_Bar $wp_admin_bar ): void` | Since 7.0. Core callback; do not call directly. |
+| Filter `default_role_dropdown_excluded_roles` | Since 7.0. Roles hidden from Settings → General → New User Default Role. Default `array( 'administrator', 'editor' )`. |
+| Filters `wp_hash_password_algorithm`, `wp_hash_password_options` | Since 6.8. |
+| `wp_get_image_alttext( $file )` | Since 7.0. Takes an image **file path** and returns alt text embedded in the file's metadata. Defined in `wp-admin/includes/image.php` (admin context only). For an attachment's stored alt text use `get_post_meta( $id, '_wp_attachment_image_alt', true )`. |
 
 ## Localisation & escaping
 
-| Function | Notes |
-|---|---|
-| `__( $text, $domain )` | Translate string. |
-| `esc_html__( $text, $domain )` | Translate + escape for HTML. |
-| `esc_attr__()`, `esc_attr_e()` | Attribute escaping. |
-| `esc_html_e()` | Translate + echo + escape. |
-| `esc_url()` | Escape a URL for output. |
-| `wp_kses_post()` | Sanitise HTML allowing post content tags. |
-| `wp_json_encode()` | Safer JSON encoding for output. |
+`__()`, `esc_html__()`, `esc_html_e()`, `esc_attr__()`, `esc_attr_e()`, `esc_html()`, `esc_attr()`, `esc_url()`, `wp_kses_post()`, `wp_json_encode()`.
 
-## DataViews & Field API (WP 7.0+)
+## Calling convention
 
-See `references/dataviews.md` for full coverage. Quick-reference surface:
-
-| API | Notes |
-|---|---|
-| DataViews `groupBy` | Object form `{ field: string, direction?: 'asc'\|'desc', label?: string }`. Legacy string-only form is deprecated — emit the object form for any new view. |
-| DataViews `onReset` | `undefined` → "Reset view" button hidden (view does not persist). `false` → button shown but disabled (persistence active, currently at defaults). `function` → button active; invoked when clicked. Pick by the desired UX state, not by convenience. |
-| Field validation rules | Declarative, JSON-Schema-aligned. `pattern` (text/email/tel/url), `minLength`/`maxLength` (text/email/tel/url), `min`/`max` (integer/number). Set on the field definition; validation runs before submit. |
-| `getValueFormatted( item, field )` | Custom display function. Use for unit conversion (`2048` → `"2.0 KB"`), date formatting, role labels — anything where the stored value and the visible value differ. |
-
-## User registration (WP 7.0+)
-
-| Filter | Notes |
-|---|---|
-| `default_role_dropdown_excluded_roles` | Modifies the list of roles excluded from the new-user registration role selector. Default: `['administrator', 'editor']` (added in WP 7.0 to prevent accidental privilege escalation). Return the modified array. Only add a role back if you have a deliberate workflow that requires it. |
-
-## Site Editor / sync
-
-| Function / behaviour | Notes |
-|---|---|
-| Site Editor database overrides | Documented behaviour; clear via Appearance → Editor → ⋮ → "Reset to defaults" / "Clear Customizations". No PHP API. |
-| Template / Template Part / Pattern Revisions | WP 7.0+. Edit history for templates, template parts, and synced patterns. Access via Site Editor → select entity → ⋮ → "Revisions". Roll back to any saved version. No PHP API — editor-only. Check revisions BEFORE clearing customisations — rolling back is reversible, clearing is not. |
-| `wp_register_style()` / `wp_enqueue_style()` | Standard stylesheet registration. |
-| `wp_style_add_data( $handle, 'path', $absolute_path )` | Enables WordPress's small-CSS inlining. |
-
-## Real-Time Collaboration (WP 7.0+)
-
-See `references/core-7.0-apis.md`. Public gates only — the sync server / storage classes are core-internal.
-
-| API | Notes |
-|---|---|
-| `wp_is_collaboration_enabled()` | WP 7.0+. `bool` — collaboration is on now. Checks `WP_ALLOW_COLLABORATION` + the stored option. |
-| `wp_is_collaboration_allowed()` | WP 7.0+. `bool` — environment permits collaboration. Reads `WP_ALLOW_COLLABORATION` (allowed unless set to `"false"`). |
-| `WP_ALLOW_COLLABORATION` | Constant (wp-config.php) opting the environment in/out. |
-
-## Admin UX (WP 7.0+)
-
-See `references/core-7.0-apis.md`.
-
-| API | Notes |
-|---|---|
-| `wp_enqueue_view_transitions_admin_css()` | WP 7.0+. Enqueues the `wp-view-transitions-admin` stylesheet for cross-document admin View Transitions. Honors reduced-motion. |
-| `wp_admin_bar_command_palette_menu( WP_Admin_Bar $bar )` | WP 7.0+. Core `admin_bar_menu` callback that renders the Command Palette trigger (⌘K / Ctrl+K). Don't call directly; know it exists when customising the admin bar. |
-
-## Security — password hashing (since 6.8)
-
-See `references/core-7.0-apis.md`.
-
-| Filter | Notes |
-|---|---|
-| `wp_hash_password_algorithm` | Filters the algorithm for `password_hash()` / `password_needs_rehash()`. Default `PASSWORD_BCRYPT`. Guard Argon2 with `defined( 'PASSWORD_ARGON2ID' )` — it isn't available on every PHP build. |
-| `wp_hash_password_options` | Filters the `$options` array (`memory_cost`, `time_cost`, `threads`, …). |
-
-## Media & LCP (since 6.3)
-
-| API | Notes |
-|---|---|
-| `wp_get_loading_optimization_attributes( $tag_name, $attr, $context )` | Since 6.3. Public. Returns optimal `loading` / `decoding` / `fetchpriority` attributes for a media tag. Use in a dynamic block's `render_callback`. The companion `wp_maybe_add_fetchpriority_high_attr()` is **private** — do not call it directly. |
+Call core functions with **positional** arguments. WordPress states that named arguments on core functions are not supported; a parameter rename in a later release turns `wp_register_style( handle: … )` into a fatal error.
 
 ## Names that look real but are not (do not use)
 
-| Wrong | Correct |
+| Wrong | Reality |
 |---|---|
-| `register_block_ability()` | `wp_register_ability()` |
-| `wp_register_icons` filter | Does not exist in WP 7.0. The icon registry is internal/private. Custom theme icons cannot be registered against `core/icon` in WP 7.0 — a public API is planned for WP 7.1. Use inline SVG or `<img>` from a dynamic block instead. |
-| `WP_Icons_Registry::get_instance()->register(...)` | The `WP_Icons_Registry` class **does** exist in WP 7.0 (internal singleton) but is **closed to third-party registration** — `register()` is `protected` and only core icons are registered. No public theme/plugin API to add icons in 7.0 (planned for 7.1). Use inline SVG or `<img>` from a dynamic block instead. |
-| `'is_ai_ready' => true` on `register_block_template` | Not a real parameter. Use the documented `title`, `description`, `content`, `post_types` keys. |
-| `__experimentalRole: 'content'` | Removed. Use `metadata.bindings` + `metadata.name` for Pattern Overrides. |
-| `"version": 4` in theme.json | No such version. Use `"version": 3`. |
-| `https://schemas.wp.org/trunk/theme.json` | Points to the development branch — validates against unreleased schema features. Use `https://schemas.wp.org/wp/7.0/theme.json` (pinned to the released version) instead. |
-| `@wordpress/viewport-visibility` | Does not exist. Use the `metadata.blockVisibility.viewport` key directly on the block's metadata attribute. |
-| `wp_register_font_library_font()` | Does not exist. The Font Library is a UI-only feature managed via Appearance → Editor → Styles → Typography → Manage Fonts, or via `theme.json fontFamilies` for version-controlled registration. |
-| `$builder->using_abilities()` | Not a method on the WP 7.0 AI Client prompt builder. The builder has no ability/tool-passing surface. Expose plugin capabilities to AI via the **Abilities API** (`wp_register_ability`) — see `references/abilities-api.md`. |
-| `$builder->set_model(...)` / `$builder->with_options([...])` | Not real builder methods. Use `using_model_preference( $model )` and the explicit `using_*` / `as_*` config methods in `references/ai-client.md`. |
-| `$builder->exception_to_wp_error()` + snake→camel `__call` magic | Not documented in WP 7.0. Generation methods already return `WP_Error` on failure — check with `is_wp_error()`. |
-| `can_user_sync_entity_type()` | No such public global function in WP 7.0. Collaboration entity permissions are handled inside the core sync layer. Gate with `wp_is_collaboration_enabled()` instead. |
-| `'type' => 'ai-provider'` (hyphen) | Wrong. The connector type is `'ai_provider'` (underscore). |
-| `wp_collaboration_inject_setting()`, `apply_block_hooks_to_content_from_post_object()`, `wp_maybe_add_fetchpriority_high_attr()`, `insert_hooked_blocks_into_rest_response()` | All **real but private** (core-only). Don't call directly — use the documented public lever (`wp_is_collaboration_enabled()`, `rest_block_hooks_post_types`, `wp_get_loading_optimization_attributes()`). |
-| `wp_generate_uuid4()` "new in 7.0" | The function is real but exists **since 4.7** — not a WP 7.0 feature. Don't present it as a 7.0 novelty. |
+| `script_module_handle` on `register_block_style()` | No such key. Bind a module to a block with `view_script_module_ids` on `register_block_type()`; load pattern scripts with the pattern-asset loader in `references/architecture.md`. |
+| `wp_is_collaboration_enabled()`, `wp_is_collaboration_allowed()`, `WP_ALLOW_COLLABORATION`, `WP_HTTP_Polling_Sync_Server`, `WP_Sync_Post_Meta_Storage` | Real-time collaboration was removed before 7.0 shipped and is not enabled in 7.1. None of these exist. |
+| `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()` (static call) | Instance method: `wp_ai_client_prompt( … )->is_supported_for_text_generation()`. |
+| `$result->getContent()`, `$usage->input` | `GenerativeAiResult` uses `toText()` / `toFile()`; `TokenUsage` uses `getPromptTokens()` / `getCompletionTokens()` / `getTotalTokens()`. |
+| `$builder->set_model()`, `$builder->with_options()` | Not builder methods. Use `using_model_preference()` and the `using_*` / `as_*` methods. |
+| `WP_Error` code `no_active_connector` | Not a core error code. |
+| `wp_register_block_template_part()` | Does not exist. Template parts are files in `parts/` listed under `templateParts` in `theme.json`. |
+| `register_block_ability()` | `wp_register_ability()`. |
+| Ability category slug with a slash (`my-theme/editorial`) | Rejected. Use `my-theme-editorial`. |
+| `'is_ai_ready' => true` on `register_block_template()` | Not a parameter. |
+| Binding sources `core/post-title`, `core/post-excerpt`, `core/post-date`, `core/post-author-name`, `core/site-title`, `core/site-tagline` | Not registered. Use the sources listed under Block Bindings, or a custom source. |
+| `"__experimentalSettings": {"disableContentOnlyForUnsyncedPatterns": true}` | `__experimentalSettings` is an unrelated block support flag. There is no per-pattern content-only opt-out. |
+| JS filter `blockEditor.settings` | Does not exist. Use the PHP `block_editor_settings_all` filter. |
+| `__experimentalRole: 'content'` | Deprecated since 6.7. Use `"role": "content"`. |
+| `"viewport": ["tablet", "desktop"]` | Wrong shape; ignored. Use the object form under Block visibility. |
+| `settings.blockVisibility.viewport` in `theme.json` | Not a key in any version. |
+| `"lightbox": true` on `core/gallery` | Not an attribute. See Core blocks. |
+| `wp:navigation-overlay-close` inside `wp:navigation` | Not an allowed child. Put it in the overlay template part. |
+| `WP_Icons_Registry::get_instance()->register()` / `wp_register_icons` filter / `register_icon()` | 7.0 has no public icon registration. 7.1+ uses `wp_register_icon_collection()` and `wp_register_icon()`. |
+| Filter `block_editor_rest_api_get_items_query_params` | Does not exist. |
+| `dataviews.json`, a `dataviews` key in `theme.json`, `border.blur` | Not part of the `theme.json` schema. |
+| `"version": 4` in `theme.json` | No such version. |
+| `https://schemas.wp.org/trunk/theme.json` | Tracks the development branch. Pin a release. |
+| `@wordpress/viewport-visibility` | Not a package. |
+| `wp_register_font_library_font()` | Does not exist. |
+| `currentUserCan` from `@wordpress/core-data` | Not an export. Use the `canUser` selector of the `core` store. |
+| `wp_collaboration_inject_setting()`, `can_user_sync_entity_type()` | Do not exist. |
+| `apply_block_hooks_to_content_from_post_object()`, `insert_hooked_blocks_into_rest_response()`, `wp_maybe_add_fetchpriority_high_attr()`, `_wp_connectors_*()` | Real but private. Use `rest_block_hooks_post_types`, `wp_get_loading_optimization_attributes()` and the public connector functions. |
+| `wp_generate_uuid4()` as a 7.0 feature | Exists since 4.7. |

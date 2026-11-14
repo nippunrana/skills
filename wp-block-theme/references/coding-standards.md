@@ -79,7 +79,7 @@ This matches CSS shorthand value order and keeps the code predictable.
 	transition: opacity 0.2s;    /* 5. Other */
 }
 
-/* ❌ wrong — border-radius after color, background after padding */
+/* ❌ wrong — border-radius (box model) placed after color */
 .btn-primary {
 	display: inline-block;
 	padding: 1rem 2.5rem;
@@ -101,7 +101,7 @@ This matches CSS shorthand value order and keeps the code predictable.
 | Rgba (no paren padding) | `rgba(0, 0, 0, 0.5)` | `rgba( 0, 0, 0, 0.5 )` |
 | Leading zero | `0.5` | `.5` |
 | Unitless zero | `margin: 0` | `margin: 0px` (exception: `transition-duration`) |
-| Line-height | `line-height: 1.5` | `line-height: 24px` |
+| Line-height | `line-height: 1.5` (unitless) | `line-height: 1.4em` — a pixel value only when a specific pixel height is genuinely required |
 | Font-weight | `font-weight: 700` | `font-weight: bold` |
 | Quotes | `font-family: "Helvetica Neue", sans-serif` | single quotes |
 | Multi-line shadow | (see below) | `box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.2)` |
@@ -156,7 +156,7 @@ property in use.
 - **Don't restate defaults.** `display: block` on a `<div>` adds noise without meaning.
 - **Subtraction-first.** When debugging layout, remove conflicting code before adding new rules.
   The correct layout is usually already "in there" once the conflicting styles are gone.
-- **Target elements directly.** Use `.is-style-hero h1` rather than deep descendant chains.
+- **Keep selectors shallow.** Scope with the variation class and go no deeper than needed: `.is-style-hero h1`, not a long descendant chain. (The variation-class prefix is this skill's scoping rule. Where a block gives the element its own class, target that class directly, as the handbook advises.)
 
 ---
 
@@ -165,7 +165,7 @@ property in use.
 These apply to any **real HTML** your code emits: PHP patterns, `render_callback` strings,
 `<img>` / `<input>` / `<br />` tags, inline SVGs.
 
-**Always double-quote attributes.** This is a security requirement, not just a style preference.
+**Always double-quote attributes.** (Skill rule — the handbook accepts single or double quotes, but requires quoting.) Quoting is a security requirement, not just a style preference.
 An unquoted attribute value containing a space gets parsed as multiple attributes, which can be
 exploited to inject malicious event handlers (XSS). `esc_attr()` / `esc_url()` escapes the
 content; quoting the attribute closes the injection vector.
@@ -173,7 +173,7 @@ content; quoting the attribute closes the injection vector.
 ```php
 /* ✅ correct — quoted + escaped */
 <img
-	src="<?php echo esc_url( get_stylesheet_directory_uri() ); ?>/assets/hero.webp"
+	src="<?php echo esc_url( get_theme_file_uri( 'assets/hero.webp' ) ); ?>"
 	alt="<?php echo esc_attr( $alt_text ); ?>"
 	width="1200"
 	height="600"
@@ -183,11 +183,11 @@ content; quoting the attribute closes the injection vector.
 <img src=<?php echo esc_url( $src ); ?> alt=Hero />
 ```
 
-**Boolean attributes — prefer the bare form:**
+**Boolean attributes — prefer the bare form** (skill rule; the handbook allows the bare form or `attr="attr"`):
 
 ```html
 <!-- ✅ preferred HTML5 -->
-<input type="checkbox" checked>
+<input type="checkbox" checked />
 <button disabled>Submit</button>
 
 <!-- acceptable (XHTML-style value mirrors the attribute name) -->

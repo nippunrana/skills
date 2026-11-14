@@ -1,5 +1,5 @@
 # theme.json Reference — WordPress Block Themes
-*Default target: WordPress 7.0. Uses `"version": 3` (introduced in 6.6, still current in 7.0).*
+*Target: WordPress 7.0 and later. Uses `"version": 3` (introduced in 6.6, still current in 7.1). Keys that need 7.1 are in `references/core-7.1-apis.md`.*
 
 ## Table of Contents
 1. [Root Structure](#root-structure)
@@ -27,7 +27,7 @@
 }
 ```
 
-`"version": 3` is the current schema as of WordPress 6.6 and is still current in 7.0. There is no version 4. Always pin to the released version schema (`wp/7.0`) — `trunk` points to the development branch and may expose unreleased features that break validation in production.
+`"version": 3` is the current schema as of WordPress 6.6 and is still current in 7.1. There is no version 4. Pin `$schema` to the oldest release the theme supports (`wp/7.0`, or `wp/7.1` for a theme that requires 7.1) — `trunk` points to the development branch and may expose unreleased keys.
 
 **Critical:** JSON must be perfectly valid. A single extra comma causes WordPress to silently
 ignore the entire file. Always validate before saving.
@@ -51,7 +51,7 @@ ignore the entire file. Always validate before saving.
 }
 ```
 
-- `defaultPalette: false` — hides the 20+ WordPress default colors from editors.
+- `defaultPalette: false` — hides WordPress's own default colors from editors. This key is about core's palette only; it has nothing to do with a parent theme's colors.
 - `custom: false` — disables the freeform color picker, enforcing the design system.
 - Use logical semantic slugs (primary, accent, muted) over visual ones (red, blue).
 
@@ -233,15 +233,9 @@ the gutter. Essential for landing pages with full-bleed sections.
 
 ### Viewport Block Visibility (WP 7.0)
 
-Enable viewport-based block visibility globally or per-block type in `settings`:
+Block visibility needs **no** `theme.json` setting on 7.0 — it is available on every block that supports it, and `settings.blockVisibility.viewport` is not a real key. A block is hidden per viewport through its own `metadata.blockVisibility.viewport` attribute, an object such as `{"mobile": false}`. See `references/architecture.md → Viewport Block Visibility` for markup and rules.
 
-```json
-"settings": {
-  "blockVisibility": { "viewport": true }
-}
-```
-
-Once enabled, individual blocks can set `metadata.blockVisibility.viewport` to `["mobile"]`, `["tablet"]`, `["desktop"]`, or any combination. See `references/api-allowlist.md → Viewport Block Visibility` for the full block markup example and decision rules.
+On 7.1+, `settings.blockVisibility.allowEditing` and `settings.viewport` exist — see `references/core-7.1-apis.md`.
 
 ### Preset Dimension Values (WP 7.0)
 
@@ -268,7 +262,6 @@ Define reusable dimension presets in `settings.dimensions` so editors pick from 
 
 - `defaultAspectRatios: false` hides WordPress-provided aspect ratio defaults and enforces only your design system ratios. These slugs appear in the `core/cover` block's "Aspect ratio" control.
 - `dimensionSizes` (WP 7.0) — named width/height tokens that appear in the block inspector's dimension controls. Provides editors a constrained set of size options instead of a freeform input. Slugs resolve to `var(--wp--preset--dimension--small)` etc.
-- **UI rendering threshold:** if the `dimensionSizes` array has **fewer than 8 entries** → the inspector renders a **slider**; **8 or more entries** → the inspector renders a **dropdown**. Design your preset list intentionally — a slider is friendlier for continuous scales; a dropdown is better for named t-shirt sizes.
 - **Block opt-in:** Width and height dimension controls are opt-in per block. In `block.json` (or `register_block_type` args), declare `"supports": {"dimensions": {"width": true, "height": true}}` to surface these controls in the inspector.
 
 ---
@@ -319,7 +312,7 @@ Define reusable dimension presets in `settings.dimensions` so editors pick from 
 
 ### Button Pseudo-Element States (WP 7.0)
 
-WP 7.0 exposes `:hover`, `:focus`, `:active`, and `:focus-visible` for the Button block directly in `theme.json`. Do not replicate these in a scoped `.css` file — the styles engine handles specificity and injects them into both the frontend and the editor iframe automatically.
+WP 7.0 exposes `:hover`, `:focus`, `:active`, and `:focus-visible` for the Button block directly in `theme.json`. For button states that apply site-wide, do not replicate these in a scoped `.css` file — the styles engine handles specificity and injects them into both the frontend and the editor iframe automatically.
 
 ```json
 "styles": {
@@ -375,28 +368,26 @@ Rule: always define `:focus` and `:focus-visible` together with the same outline
 
 To apply only to a specific variation (e.g. a "drop-cap" style), use `styles.blocks.core/paragraph.variations.{name}.typography.textIndent`.
 
-**Global Styles `textIndent` scope selector (WP 7.0):** These are two independent settings that work together — `styles.blocks.core/paragraph.typography.textIndent` sets the *indent amount* (e.g. `"2em"`); `settings.typography.textIndent` sets *which paragraphs receive it*. Both are needed for full global indentation control.
+**Two keys, two jobs.** `styles.blocks.core/paragraph.typography.textIndent` sets the indent *amount* (a CSS length such as `"2em"`). `settings.typography.textIndent` sets *which paragraphs* receive it:
 
-When applied at the Global Styles level via `theme.json`, the `typography.textIndent` setting on `core/paragraph` has two modes controlled by the `subsequent` key:
-
-| Mode | CSS selector generated | Effect |
+| `settings.typography.textIndent` | CSS selector generated | Effect |
 |---|---|---|
-| `subsequent` (default) | `.wp-block-paragraph + .wp-block-paragraph` | Indents only paragraphs that follow another paragraph — the classic "indent all but the first" typographic convention. |
-| `all` | `.wp-block-paragraph` | Indents every paragraph regardless of position. |
+| `true` or `"subsequent"` | `.wp-block-paragraph + .wp-block-paragraph` | Indents only paragraphs that follow another paragraph. |
+| `"all"` | `.wp-block-paragraph` | Indents every paragraph. |
 
-Set the mode in `theme.json` under `settings.typography.textIndent`:
 ```json
 "settings": {
   "typography": {
-    "textIndent": "subsequent"
+    "textIndent": "all"
   }
 }
 ```
-Omit the key or set `"subsequent"` for the default. Use `"all"` only when the design calls for universal paragraph indentation.
 
-### Paragraph Column Layout (WP 7.0)
+Never put `"subsequent"` or `"all"` under `styles` — that key expects a length.
 
-Paragraph blocks now accept a CSS `columns` property via `theme.json`. Use this for long-form text that needs a multi-column newspaper layout without a custom block.
+### Paragraph Column Layout
+
+`typography.textColumns` (in `theme.json` since 6.3) maps to the CSS `column-count` property. In 7.0 the Paragraph block supports it, so editors also get a columns control.
 
 ```json
 "styles": {
@@ -410,7 +401,7 @@ Paragraph blocks now accept a CSS `columns` property via `theme.json`. Use this 
 }
 ```
 
-`textColumns` accepts a string integer (`"2"`, `"3"`, etc.) or `"inherit"`. The column gap is controlled by the block's `spacing.blockGap` value. To apply only to specific paragraphs, use a block style variation.
+To apply it to specific paragraphs only, use a block style variation.
 
 ### Element-Level Targeting
 
@@ -461,7 +452,7 @@ root element.
 
 ## Section Styles (Variations)
 
-Define scoped block variations inside `theme.json` so the Site Editor can control their tokens natively. Each entry under `styles.blocks.{block}.variations.{name}` corresponds to a block style variation that a designer can apply by adding `is-style-{name}` to a block's class list.
+Define scoped block variations inside `theme.json` so the Site Editor can control their tokens natively. Each entry under `styles.blocks.{block}.variations.{name}` styles the block style variation of that name — the same `{name}` the pattern-asset registry registers and the pattern's outermost block carries as `is-style-{name}`. Effects `theme.json` cannot express (such as `backdrop-filter`) go in the pattern's scoped `style.css`.
 
 ```json
 "styles": {
@@ -473,7 +464,7 @@ Define scoped block variations inside `theme.json` so the Site Editor can contro
             "background": "rgba(255, 255, 255, 0.1)",
             "text": "var(--wp--preset--color--white)"
           },
-          "border": { "blur": "10px", "radius": "12px" },
+          "border": { "radius": "12px" },
           "spacing": { 
             "padding": { "top": "var(--wp--preset--spacing--large)", "bottom": "var(--wp--preset--spacing--large)" } 
           }
@@ -501,7 +492,7 @@ WordPress auto-generates CSS custom properties for every preset:
 | Color          | `var(--wp--preset--color--{slug})`            | `var(--wp--preset--color--accent)`        |
 | Font family    | `var(--wp--preset--font-family--{slug})`      | `var(--wp--preset--font-family--inter)`   |
 | Font size      | `var(--wp--preset--font-size--{slug})`        | `var(--wp--preset--font-size--large)`     |
-| Spacing        | `var(--wp--preset--spacing--{slug})`          | `var(--wp--preset--spacing--md)`          |
+| Spacing        | `var(--wp--preset--spacing--{slug})`          | `var(--wp--preset--spacing--medium)`          |
 | Gradient       | `var(--wp--preset--gradient--{slug})`         | `var(--wp--preset--gradient--hero-gradient)` |
 
 Always use these variables in your CSS rather than hardcoded values. This keeps the design system
@@ -514,7 +505,7 @@ consistent and allows future theme changes to propagate everywhere automatically
 The child theme's `theme.json` **merges with** (not replaces) the parent's `theme.json`.
 
 - Array-type settings (e.g. `palette`, `fontFamilies`) are **overwritten** entirely by the child theme.
-- **Token inheritance:** to preserve parent tokens without copying the entire array, set `"defaultPalette": true`. You can then reference parent colors via `var(--wp--preset--color--{slug})` while defining your own child palette.
+- **Keeping parent tokens:** there is no merge switch. A child that defines `palette` must repeat every parent entry it still needs, then add its own. A parent color the child omits no longer generates its `--wp--preset--color--{slug}` variable.
 - Scalar settings (e.g. `contentSize`, `custom`) are **overridden** by the child.
 
 **Practical child theme.json example:**
@@ -542,23 +533,5 @@ The child theme's `theme.json` **merges with** (not replaces) the parent's `them
 ```
 
 ---
-
-## Data Views (dataviews.json)
-
-In WP 7.0, you can define custom views for post types directly in `theme.json` or a separate `dataviews.json` file. This is essential for providing a professional, "SaaS-like" dashboard for clients.
-
-```json
-{
-  "dataviews": {
-    "types": {
-      "product": {
-        "defaultView": "grid",
-        "fields": ["title", "price", "stock_status"],
-        "perPage": 24
-      }
-    }
-  }
-}
-```
 
 Keep child `theme.json` minimal — only override what diverges from the parent.

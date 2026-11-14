@@ -4,13 +4,13 @@
 closures inside `register_block_type()`, or any PHP pattern file that contains function or
 class definitions.
 
-**Scope: new theme/plugin code on PHP 8.3+.** The official WPCS handbook also covers some
-WordPress *Core*-only restrictions — "adding type declarations to existing functions is
-discouraged" and "`use` statements are strongly discouraged" — that **do not apply here**.
-This skill generates new code for themes and plugins, where type declarations and namespaces
-are encouraged. For modern PHP *feature* requirements (typed params, `match`, `??`, etc.) see
-`references/architecture.md → PHP 8.3 Requirements`. That section answers "which features to
-use"; this file answers "how to format WP PHP".
+**Scope: new theme/plugin code on PHP 8.2 and later (8.4 by default).** The official WPCS handbook also carries
+cautions aimed at WordPress *Core* itself — for example that adding type declarations to existing
+Core functions "should be done with extreme care" — that **do not restrict new theme and plugin
+code**. This skill requires type declarations on everything it writes. For modern PHP *feature* requirements (typed params, `match`, `??`, etc.) see
+`references/architecture.md → PHP Requirements`, and for what changes on a site below PHP 8.4
+see `references/php-compatibility.md`. Those answer "which features to use"; this file answers
+"how to format WP PHP".
 
 Source: WordPress PHP Coding Standards (official handbook), formatting and naming conventions
 subset applicable to new theme/plugin code.
@@ -34,7 +34,7 @@ subset applicable to new theme/plugin code.
 13. [Includes — `require_once` without parens](#13-includes--require_once-without-parens)
 14. [Dynamic hooks — interpolation not concatenation](#14-dynamic-hooks--interpolation-not-concatenation)
 15. [Prohibited constructs](#15-prohibited-constructs)
-16. [Relationship to architecture.md § PHP 8.3](#16-relationship-to-architecturemd--php-83)
+16. [Relationship to architecture.md § PHP Requirements](#16-relationship-to-architecturemd--php-requirements)
 
 ---
 
@@ -51,9 +51,8 @@ $colors = array( 'red', 'green', 'blue' );
 register_block_style(
 	'core/group',
 	array(
-		'name'         => 'hero-section',
-		'label'        => 'Hero Section',
-		'style_handle' => 'my-hero-style',
+		'name'  => 'hero-section',
+		'label' => 'Hero Section',
 	)
 );
 
@@ -63,8 +62,8 @@ $colors = [ 'red', 'green', 'blue' ];
 register_block_style( 'core/group', [ 'name' => 'hero-section' ] );
 ```
 
-**Trailing comma.** For multi-item arrays, add a trailing comma after the last item — cleaner
-git diffs when items are added or reordered:
+**Trailing comma.** In a **multi-line** array, add a trailing comma after the last item — cleaner
+git diffs when items are added or reordered. A single-line array takes no trailing comma:
 
 ```php
 // ✅ trailing comma on last item
@@ -95,18 +94,16 @@ Tabs let each developer set their preferred visual width without touching the fi
 
 ```php
 // ✅ correct — tab-indented
-function my_theme_enqueue_styles(): void {
-	wp_enqueue_style(
-		'my-theme-style',
-		get_stylesheet_uri(),
-		array(),
-		wp_get_theme()->get( 'Version' )
+function my_theme_register_pattern_category(): void {
+	register_block_pattern_category(
+		'my-theme',
+		array( 'label' => __( 'My Theme', 'my-theme' ) )
 	);
 }
 
 // ❌ wrong — space-indented
-function my_theme_enqueue_styles(): void {
-    wp_enqueue_style( 'my-theme-style', get_stylesheet_uri() );
+function my_theme_register_pattern_category(): void {
+    register_block_pattern_category( 'my-theme', array( 'label' => __( 'My Theme', 'my-theme' ) ) );
 }
 ```
 
@@ -122,19 +119,19 @@ variable substitution and makes intent clear.
 // ✅ correct
 $label  = 'Hero Section';
 $handle = "{$slug}-style";   // interpolation needs double quotes
+$handle = $slug . '-style';  // concatenation is equally fine outside hook names
 
 // ❌ wrong
 $label  = "Hero Section";    // double quotes with no interpolation
-$handle = $slug . '-style';  // concatenation over interpolation for hooks (see §14)
 ```
 
 ---
 
 ## 4. Spacing — control structures vs. function calls
 
-A single rule covers both: **always space inside the parens of control structures; do not add
-extra inner-paren spaces in function calls** (WordPress uses one space after the opening paren
-and before the closing paren of function *calls* — this is the WP "liberal spacing" variant).
+A single rule covers both: **exactly one space after the opening parenthesis and before the
+closing parenthesis** of control structures, function declarations and function calls — the
+WordPress "liberal spacing" style. Empty parentheses stay empty: `my_fn()`.
 
 ```php
 // ✅ correct
@@ -210,8 +207,8 @@ if ( $visibility === false ) {
 }
 ```
 
-**Strict comparisons.** Use `===` and `!==`. Loose `==` / `!=` coerce types: `0 == ''` is
-`true` in PHP, which is almost never the intent.
+**Strict comparisons.** Use `===` and `!==`. Loose `==` / `!=` coerce types: `'1' == '01'` and
+`100 == '1e2'` are both `true` in PHP, which is almost never the intent.
 
 **No assignments in conditionals.** This is both a correctness rule and a readability rule:
 
@@ -315,12 +312,12 @@ $arr[] = $i++;
 
 | Identifier type | Style | Example |
 |---|---|---|
-| Variables, functions, hooks | `snake_case` | `$user_id`, `my_theme_register_styles()`, `my_theme/hero_loaded` |
+| Variables, functions, hooks | `snake_case` | `$user_id`, `my_theme_register_styles()`, `my_theme_hero_loaded` (hook names use underscores, not slashes or dashes) |
 | Classes, traits, interfaces, enums | `Capitalized_Snake_Case` | `My_Theme_Asset_Loader`, `WP_REST_API` (acronyms fully uppercase) |
 | Constants | `UPPER_SNAKE_CASE` | `MY_THEME_VERSION`, `WP_DEBUG` |
 | PHP function parameters | stable `snake_case` | `function process( string $post_id, bool $is_draft )` (PHP 8.0 named-params are a public API — renaming is a breaking change) |
 
-WP function names and hook names are `snake_case` regardless of PHP 8.3 features — those
+WP function names and hook names are `snake_case` regardless of modern PHP features — those
 come from the WordPress API surface, not from this file.
 
 ---
@@ -445,8 +442,8 @@ tags to switch contexts:
 <!-- /wp:group -->
 ```
 
-Removing `?>` here would cause the block markup to be interpreted as a PHP string — the
-pattern would render nothing.
+Removing `?>` here would leave the block markup inside the PHP tag, where it is parsed as PHP
+code — a parse error.
 
 ---
 
@@ -487,6 +484,31 @@ do_action( $new_status . '_' . $post->post_type, $post );
 
 ---
 
+### Hook callbacks are named functions
+
+The WordPress handbook: closures "should not be passed as filter or action callbacks, as removing
+these via `remove_action()` / `remove_filter()` is complex". A child theme or plugin can only unhook
+a callback it can name, so every `add_action()` / `add_filter()` callback is a named, prefixed
+function passed by name:
+
+```php
+// ✅ correct — removable with remove_action( 'init', 'my_theme_register_patterns' )
+function my_theme_register_patterns(): void {
+	// …
+}
+add_action( 'init', 'my_theme_register_patterns' );
+
+// ❌ wrong — nothing else can remove this
+add_action( 'init', static function (): void {
+	// …
+} );
+```
+
+Closures and arrow functions remain fine where no hook is involved — a block's `render_callback`,
+`array_map()`, `array_find()`, `usort()`.
+
+---
+
 ## 15. Prohibited constructs
 
 These are off-limits regardless of context:
@@ -499,20 +521,21 @@ These are off-limits regardless of context:
 | `goto` | Makes control flow untraceable |
 | Backtick operator `` ` `` | Executes shell commands — same risk category as `exec()` |
 | `/e` regex modifier | Evaluates the replacement string as PHP code — removed in PHP 7.0, still seen in copied snippets |
-| `@` error suppression | Masks real errors; use proper error checking instead |
+| `@` error suppression | Masks real errors. The WordPress handbook calls it "highly discouraged"; this skill does not emit it — check the return value instead |
 
 ---
 
-## 16. Relationship to architecture.md § PHP 8.3
+## 16. Relationship to architecture.md § PHP Requirements
 
-The PHP 8.3 Requirements section in `references/architecture.md` (§ "PHP 8.3 Requirements")
+The PHP Requirements section in `references/architecture.md` (§ "PHP Requirements")
 and this file cover complementary concerns:
 
 | Concern | Where it lives |
 |---|---|
-| Which modern PHP features to use (`match`, `??`, `?->`, `readonly`, typed params) | `architecture.md → PHP 8.3 Requirements` |
+| Which modern PHP features to use (`match`, `??`, `?->`, `readonly`, typed params, PHP 8.4 features) | `architecture.md → PHP Requirements` |
+| What to write instead on PHP 8.2 / 8.3, and how to establish the site's PHP version | `php-compatibility.md` |
 | How to format WP PHP (Yoda, `array()`, tabs, naming, visibility, `$wpdb`) | **This file** |
 
-Read both before writing any PHP. The architecture section answers "what PHP 8.3 can I use?";
+Read both before writing any PHP. The architecture section answers "which PHP features can I use?";
 this file answers "how should WordPress PHP look?". They are designed to complement, not
 contradict, each other.

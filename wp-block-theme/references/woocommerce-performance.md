@@ -46,31 +46,29 @@ Exclude these from **all** cache layers (page and server):
 - `/checkout/*`
 - `/my-account/*`
 
-**Verification:** ensure `is_cart()`, `is_checkout()`, and `is_account_page()` return `FALSE`
-for any response served from cache (i.e. those pages are never cached).
-
 ### 3.2 Cookie Exclusions
 
 | Cookie | Duration | Purpose | Exclusion strategy |
 |---|---|---|---|
 | `woocommerce_cart_hash` | Session | Cart-contents integrity check | String match — exclude from page cache |
 | `woocommerce_items_in_cart` | Session | Cart-state indicator for UI fragments | String match — exclude from page cache |
-| `wp_woocommerce_session_` | 2 days | Maps customer to DB session data | Prefix/regex — `^wp_woocommerce_session_[a-f0-9]+` |
+| `wp_woocommerce_session_` | 2 days (guests), 7 days (logged-in) by default | Maps customer to DB session data | Prefix/regex — `^wp_woocommerce_session_[a-f0-9]+` |
 | `woocommerce_recently_viewed` | Session | Product history tracking | String match — exclude from object/page cache |
 | `store_notice[notice id]` | Session | Dismissal state for global notices | Wildcard — target the specific ID variable |
 
 ### 3.3 Server & Database Layer
 
-- **Varnish:** `vcl_recv` logic must **bypass** the cache whenever the
-  `wp_woocommerce_session_` cookie is present.
+- **Varnish:** WooCommerce's documented rule **passes** (never caches) any request whose URL
+  matches `^/(cart|my-account|checkout|addons)` or contains `?add-to-cart=`.
 - **Database/object cache:** exclude the `_wc_session_` prefix from host-level DB caching so
   session rows persist.
 
 ### 3.4 Causality — the Password-Reset Loop
 
-If the My-Account endpoint is cached at the server level (e.g. Varnish), the cache prevents
-processing of the unique reset nonce and session update, returning the user to the login UI
-indefinitely. Excluding `/my-account/*` and bypassing on the session cookie fixes it.
+If the My-Account page is cached at the server level (some hosts' server-side caching does
+not exclude it), a shopper who tries to reset a password keeps being returned to the login
+screen. Excluding `/my-account/*` from that cache fixes it; on managed hosting, ask the host
+to exclude the page.
 
 ## 4. Database Hygiene
 
@@ -128,8 +126,8 @@ Front-end assets sit on the Critical Rendering Path. Optimize for Core Web Vital
 3. **Script management** — defer non-critical JS; inline critical CSS to avoid render-blocking.
 4. **W3 Total Cache `mfunc`** — add `mfunc` to *Ignored comment stems* in Minify settings so
    dynamic placeholders aren't stripped from minified files.
-5. **Don't minify React block assets** — in WP Rocket, **avoid JS-minifying complex block
-   assets**; it breaks execution in the React Cart/Checkout environment.
+5. **WP Rocket JS minification** — WooCommerce's guidance for WP Rocket is to **avoid
+   JavaScript file minification** (and to keep Cart, Checkout and My Account uncached).
 
 ## 7. Core Web Vitals & Lighthouse Targets
 
@@ -139,7 +137,7 @@ Conversion tracks page speed. Verify with Chrome Lighthouse — target a Perform
 | Metric | Target |
 |---|---|
 | LCP (Largest Contentful Paint) | < 2.5 s |
-| FID (First Input Delay) | < 100 ms |
+| INP (Interaction to Next Paint) | ≤ 200 ms |
 | CLS (Cumulative Layout Shift) | < 0.1 |
 
 ## 8. Common Pitfalls
@@ -147,9 +145,8 @@ Conversion tracks page speed. Verify with Chrome Lighthouse — target a Perform
 | Symptom | Cause | Fix |
 |---|---|---|
 | Shopper sees another user's cart / cart empties | Cart/session cookies cached | Exclude `woocommerce_cart_hash`, `woocommerce_items_in_cart`, `wp_woocommerce_session_` from all caches |
-| Password reset loops back to login | My-Account cached at server level | Exclude `/my-account/*`; Varnish `vcl_recv` bypass on `wp_woocommerce_session_` |
+| Password reset loops back to login | My-Account cached at server level | Exclude `/my-account/*` from server-side caching (ask the host on managed hosting) |
 | Session data lost between requests | `_wc_session_` cached in object/DB cache | Exclude the `_wc_session_` prefix from host DB caching |
-| Cart/Checkout JS throws after enabling minify | Minified React block assets | Disable JS minify for block assets (WP Rocket); add `mfunc` to W3TC ignored stems |
 | Slow product filtering / order admin | Bloated `wp_postmeta` / `wp_options` | Purge spam, revisions, expired transients |
 | Layout shift on product images | No fixed dimensions / no `srcset` | Serve WebP/AVIF with responsive `srcset`; reserve space to protect CLS |
 

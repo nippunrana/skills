@@ -108,7 +108,7 @@ Scientific-method debugging with 7 phase-gated steps: observe → hypothesize �
 ### wp-block-theme
 Expert WordPress FSE theme and plugin development. Covers the full HTML→template conversion workflow, custom page templates, template parts (thin HTML pointer + PHP backing pattern), block patterns with CSS scoping, theme.json design system (v3 schema), PHP-only auto-registered blocks, Block Hooks, the WP AI Client API, Abilities API, DataViews admin screens, and WooCommerce block overrides.
 
-Uses context variables (`{{THEME_SLUG}}`, `{{THEME_NAME}}`, `{{TEXT_DOMAIN}}`, `{{PARENT_THEME_SLUG}}`) resolved from an `AI_CONTEXT.md` file in the theme directory.
+Uses context variables (`{{THEME_SLUG}}`, `{{THEME_PREFIX}}`, `{{THEME_NAME}}`, `{{TEXT_DOMAIN}}`, `{{PARENT_THEME_SLUG}}`) resolved from an `AI_CONTEXT.md` file in the theme directory. Targets WordPress 7.0 and later on PHP 8.4 by default; 7.1-only features and PHP 8.2/8.3 fallbacks are gated on the site's actual versions, which the skill establishes first.
 
 **Triggers on:** WordPress theme, FSE, block theme, theme.json, block pattern, WooCommerce, WP AI client, DataViews
 

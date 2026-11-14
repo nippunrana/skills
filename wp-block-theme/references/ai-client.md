@@ -1,75 +1,103 @@
-# WP AI Client + Connectors (WP 7.0+)
+# WP AI Client + Connectors (WordPress 7.0+)
 
-A provider-agnostic PHP layer for generative AI. Separates *what* you want (prompt and requirements) from *how* it runs (which provider and model). Ships in core in WP 7.0 with OpenAI, Anthropic (Claude), and Google (Gemini) connectors out of the box.
+A provider-agnostic PHP layer for generative AI. It separates *what* you want (the prompt and its requirements) from *how* it runs (which provider and model).
 
-**Load this file when**: the user asks to "call an AI model from PHP", "summarise / translate / classify with AI", "register a custom AI provider", "manage API keys", or implements anything inside an Ability's `execute_callback` that needs an LLM.
+**Core ships the client, not the providers.** WordPress bundles no AI provider. A site can generate nothing until a provider plugin is installed and given credentials. The three official plugins are *AI Provider for Anthropic*, *AI Provider for Google* and *AI Provider for OpenAI*; the Connectors screen lists them and offers to install them. Never assume AI works because the site runs 7.0.
+
+**Load this file when**: the user asks to call an AI model from PHP, summarise / translate / classify / generate with AI, manage provider API keys, register a connector, or let a model call an ability.
 
 ---
 
-## 1. Pre-flight: always feature-detect first
+## 1. Pre-flight: feature-detect before offering a feature
 
-Generation methods make network calls and consume credits. Feature-detection methods are **pure capability checks** — no API call, no latency, no cost. Always gate generation behind one.
+Feature detection is an **instance** call on a configured builder. It matches the builder's configuration against the models the installed providers offer; it makes no API call and costs nothing. Use it to decide whether to show or enable an AI feature. It does not replace error handling: a generating call can still fail, so every example below checks `is_wp_error()` — with or without a support check first.
 
 ```php
-if ( ! WP_AI_Client_Prompt_Builder::is_supported_for_text_generation() ) {
-    return new WP_Error(
-        'no_text_provider',
-        __( 'No AI provider is configured for text generation.', 'my-plugin' )
-    );
+$builder = wp_ai_client_prompt( $prompt_text )
+	->using_temperature( 0.4 );
+
+if ( ! $builder->is_supported_for_text_generation() ) {
+	return new WP_Error(
+		'my_plugin_no_text_provider',
+		__( 'No AI provider is available for text generation.', 'my-plugin' )
+	);
 }
+
+$text = $builder->generate_text();
 ```
 
 | Method | Returns true when… |
 |---|---|
-| `is_supported_for_text_generation()` | Any active connector can produce text |
-| `is_supported_for_image_generation()` | Any active connector can produce images |
-| `is_supported_for_text_to_speech_conversion()` | Any active connector supports TTS |
-| `is_supported_for_speech_generation()` | Any active connector supports native speech generation |
-| `is_supported_for_video_generation()` | Any active connector supports video |
+| `is_supported_for_text_generation()` | A configured provider can produce text for this prompt |
+| `is_supported_for_image_generation()` | …images |
+| `is_supported_for_text_to_speech_conversion()` | …text-to-speech |
+| `is_supported_for_speech_generation()` | …native speech |
+| `is_supported_for_video_generation()` | …video |
 
-These are **static methods** on `WP_AI_Client_Prompt_Builder`. Call them at the call site or during admin notice rendering — not at plugin load (the connector registry may not be ready yet; wait until `init` or later).
+**Never** write `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()`. The class has no static methods of that name and the call is a fatal error.
 
-**`wp_supports_ai()` vs. the `is_supported_for_*` checks.** `wp_supports_ai(): bool` (WP 7.0+) answers a coarser question: *is this environment capable of AI at all* (PHP/runtime requirements met). The `is_supported_for_*` methods answer *can a configured connector do this specific modality right now*. Use `wp_supports_ai()` as the outer gate (e.g. to decide whether to register an AI feature or show its UI), then the modality check at the call site. The result is filterable via the `wp_supports_ai` filter for custom environment requirements.
+Call these only after the `init` action has finished — providers register and API keys reach the client during `init` (up to priority 20). Safe places: `wp_loaded`, `admin_init`, a REST or render callback, an ability's `execute_callback`.
+
+**`wp_supports_ai(): bool`** is a different question: *has AI been switched off on this site?* It returns `false` when the constant `WP_AI_SUPPORT` is defined falsy or when the `wp_supports_ai` filter returns `false`, and `true` otherwise. Use it to decide whether to register an AI feature at all; use `is_supported_for_*()` to decide whether a specific request can run. When `wp_supports_ai()` is `false`, every support check returns `false` and every generating call returns `WP_Error`.
 
 ---
 
 ## 2. The prompt builder
 
-Entry point: `wp_ai_client_prompt( $text = '' )` returns a `WP_AI_Client_Prompt_Builder`. Pass the prompt text directly *or* use `with_text()` later — both forms are equivalent.
+`wp_ai_client_prompt( $prompt = null )` returns a `WP_AI_Client_Prompt_Builder`. Pass the prompt text directly or add it with `with_text()`.
+
+The builder wraps the PHP AI Client SDK: any snake_case method is forwarded to the SDK's camelCase method of the same name. Exceptions are caught and surface as a `WP_Error` from the generating call, so the chain never throws.
 
 ### Configuration methods
 
 | Concern | Method |
 |---|---|
 | Prompt text | `with_text( string $text )` |
-| File input (image, audio, etc.) | `with_file( string $path_or_url, ?string $mime = null )` |
-| Conversation history | `with_history( array $messages )` |
+| File input (image, audio, document) | `with_file( $file, ?string $mime_type = null )` |
+| Conversation history | `with_history( Message ...$messages )` — SDK `Message` objects, variadic |
 | System instruction | `using_system_instruction( string $text )` |
-| Temperature | `using_temperature( float $temp )` |
+| Temperature | `using_temperature( float $temperature )` |
 | Max output tokens | `using_max_tokens( int $max )` |
-| Nucleus sampling | `using_top_p( float $p )` |
-| Top-k sampling | `using_top_k( int $k )` |
-| Stop sequences | `using_stop_sequences( array $sequences )` |
-| Preferred model | `using_model_preference( string $model )` |
-| Output modalities | `as_output_modalities( array $modalities )` |
-| Output file type | `as_output_file_type( string $mime )` |
-| Structured JSON response | `as_json_response( array $json_schema )` |
+| Nucleus / top-k sampling | `using_top_p( float $p )`, `using_top_k( int $k )` |
+| Stop sequences | `using_stop_sequences( string ...$sequences )` — variadic |
+| Preferred models, in order | `using_model_preference( ...$models )` — variadic; a preference, not a requirement |
+| Force a provider | `using_provider( string $provider_id )` |
+| Number of candidates | `using_candidate_count( int $count )` |
+| Abilities the model may call | `using_abilities( ...$abilities )` — see §6 |
+| Output MIME type | `as_output_mime_type( string $mime_type )` |
+| Structured JSON response | `as_json_response( ?array $schema = null )` |
 
-All methods return `$this` and can be chained in any order. Validation happens at the generation call, not at configuration time.
+`as_output_file_type()` and `as_output_modalities()` take SDK enum objects, not strings. To ask for a PNG, use `as_output_mime_type( 'image/png' )`.
+
+All configuration methods return the builder and can be chained in any order.
 
 ### Generation methods
 
-Text and image have **direct** methods that return the content itself; text-to-speech, native speech, and video are only available via the **result-form** (`*_result()`) methods, which return a `GenerativeAiResult` (call `getContent()` on it to retrieve the content). Every generation method can also return `WP_Error` — always check with `is_wp_error()` before using the result.
+Every generating method returns its value **or `WP_Error`** — always check `is_wp_error()`.
 
-| Modality | Direct (single) | Direct (multiple candidates) | Result-form |
+| Modality | Single | Multiple candidates | Full result object |
 |---|---|---|---|
-| Text | `generate_text()` → `string` | `generate_texts( int $n )` → `string[]` | `generate_text_result()` |
-| Image | `generate_image()` → `File` DTO | `generate_images( int $n )` → `File[]` | `generate_image_result()` |
-| Text-to-speech | — | — | `convert_text_to_speech_result()` |
-| Native speech | — | — | `generate_speech_result()` |
-| Video | — | — | `generate_video_result()` |
+| Text | `generate_text()` → `string` | `generate_texts( ?int $count )` → `string[]` | `generate_text_result()` |
+| Image | `generate_image()` → `File` | `generate_images( ?int $count )` → `File[]` | `generate_image_result()` |
+| Text-to-speech | `convert_text_to_speech()` → `File` | `convert_text_to_speeches( ?int $count )` | `convert_text_to_speech_result()` |
+| Native speech | `generate_speech()` → `File` | `generate_speeches( ?int $count )` | `generate_speech_result()` |
+| Video | `generate_video()` → `File` | `generate_videos( ?int $count )` | `generate_video_result()` |
 
-A `File` DTO exposes the generated image via `getDataUri()` (a data URI you can embed or save). Pass a count to `generate_texts()` / `generate_images()` to get several variations of one prompt.
+A `File` exposes `getDataUri()`, `getBase64Data()`, `getUrl()` and `getMimeType()`.
+
+The `*_result()` methods return a `GenerativeAiResult`:
+
+| Method | Returns |
+|---|---|
+| `toText()`, `toFile()`, `toImageFile()` | The generated content |
+| `toMessage()` | The model's reply as an SDK `Message` (needed for ability calls, §6) |
+| `getTokenUsage()` | `TokenUsage`: `getPromptTokens()`, `getCompletionTokens()`, `getTotalTokens()`, `getThoughtTokens()` |
+| `getProviderMetadata()` | `getId()`, `getName()` |
+| `getModelMetadata()` | `getId()`, `getName()` |
+
+### Error codes
+
+`prompt_prevented` (blocked by `wp_supports_ai()` or the filter in §5), `prompt_network_error`, `prompt_client_error`, `prompt_upstream_server_error`, `prompt_token_limit_reached`, `prompt_invalid_argument`, `prompt_builder_error`. Each carries an HTTP `status` in its error data, so the `WP_Error` can be returned straight from a REST callback or an ability.
 
 ---
 
@@ -79,68 +107,65 @@ A `File` DTO exposes the generated image via `getDataUri()` (a data URI you can 
 
 ```php
 $summary = wp_ai_client_prompt()
-    ->using_system_instruction( 'You are a concise editor. One paragraph max.' )
-    ->using_temperature( 0.3 )
-    ->using_max_tokens( 200 )
-    ->with_text( "Summarise this post:\n\n" . wp_strip_all_tags( $post->post_content ) )
-    ->generate_text();
+	->using_system_instruction( 'You are a concise editor. One paragraph max.' )
+	->using_temperature( 0.3 )
+	->using_max_tokens( 200 )
+	->with_text( "Summarise this post:\n\n" . wp_strip_all_tags( $post->post_content ) )
+	->generate_text();
 
 if ( is_wp_error( $summary ) ) {
-    error_log( 'AI summary failed: ' . $summary->get_error_message() );
-    return '';
+	return $summary;
 }
-return $summary;
 ```
 
 ### Structured JSON response
 
-Use `as_json_response()` with a JSON schema when you need the model to return data your code can parse without regex.
-
 ```php
-$result = wp_ai_client_prompt( 'Summarize this post and estimate reading time in minutes.' )
-    ->as_json_response( array(
-        'type'       => 'object',
-        'properties' => array(
-            'summary'      => array( 'type' => 'string' ),
-            'reading_time' => array( 'type' => 'integer' ),
-        ),
-        'required'   => array( 'summary', 'reading_time' ),
-    ) )
-    ->generate_text();
+$json = wp_ai_client_prompt( 'Summarise this post and estimate reading time in minutes.' )
+	->as_json_response(
+		array(
+			'type'       => 'object',
+			'properties' => array(
+				'summary'      => array( 'type' => 'string' ),
+				'reading_time' => array( 'type' => 'integer' ),
+			),
+			'required'   => array( 'summary', 'reading_time' ),
+		)
+	)
+	->generate_text();
+
+if ( is_wp_error( $json ) ) {
+	return $json;
+}
+
+$data = json_decode( $json, true );
 ```
 
-The model is constrained to emit valid JSON matching the schema. You still need to `json_decode()` the result.
-
-### Token usage tracking
-
-Use the `*_result()` form to access usage data:
+### Token usage
 
 ```php
 $result = wp_ai_client_prompt( 'Translate to French: Hello, world.' )
-    ->generate_text_result();
+	->generate_text_result();
 
 if ( is_wp_error( $result ) ) {
-    return $result;
+	return $result;
 }
 
-$usage = $result->getTokenUsage();      // returns object with input/output/thinking counts
-$provider = $result->getProviderMetadata(); // which provider actually served the request
-$model    = $result->getModelMetadata();    // which model was used
-
-log_ai_spend( $usage->input, $usage->output, $provider->name, $model->id );
+$text   = $result->toText();
+$usage  = $result->getTokenUsage();
+$tokens = $usage->getPromptTokens() + $usage->getCompletionTokens();
+$model  = $result->getModelMetadata()->getId();
 ```
 
 ### Image generation
 
-Use the direct `generate_image()` for the image itself (a `File` DTO), or `generate_image_result()` when you also need provider/token metadata:
-
 ```php
 $image = wp_ai_client_prompt( 'A watercolour illustration of a fox in autumn leaves.' )
-    ->as_output_file_type( 'image/png' )
-    ->generate_image();
+	->as_output_mime_type( 'image/png' )
+	->generate_image();
 
 if ( ! is_wp_error( $image ) ) {
-    $data_uri = $image->getDataUri(); // File DTO → data URI you can embed or save
+	$data_uri = $image->getDataUri();
 }
 ```
 
@@ -148,92 +173,133 @@ if ( ! is_wp_error( $image ) ) {
 
 ## 4. Connectors API
 
-Connectors are the discovery/auth layer. Registered connectors automatically appear in **Settings → Connectors** for the site admin.
+A connector is the admin-facing record for a service and its credentials. Connectors appear at **Settings → Connectors**.
 
-### Registering or modifying connectors
+### How AI connectors come to exist
 
-Use the `wp_connectors_init` action; it fires once with a `WP_Connector_Registry` instance.
+Core registers placeholder connectors for `anthropic`, `google` and `openai` (each pointing at its provider plugin). When a provider plugin registers its provider class with the AI Client's provider registry, core creates or completes that connector automatically. **A plugin that only wants to use AI never registers a connector and never handles an API key.**
+
+An AI provider plugin registers its provider on `init`, before priority 15:
 
 ```php
-add_action( 'wp_connectors_init', function ( WP_Connector_Registry $registry ) {
-    if ( $registry->is_registered( 'openai' ) ) {
-        $connector = $registry->unregister( 'openai' );
-        $connector['description'] = __( 'Internal OpenAI proxy (rate-limited per team).', 'my-plugin' );
-        $registry->register( 'openai', $connector );
-    }
-} );
+/**
+ * Registers the provider with the AI Client before connectors are built.
+ */
+function my_plugin_register_ai_provider(): void {
+	\WordPress\AiClient\AiClient::defaultRegistry()->registerProvider( My_Provider::class );
+}
+add_action( 'init', 'my_plugin_register_ai_provider', 5 );
 ```
 
-`WP_Connector_Registry` methods:
-- `is_registered( string $id ): bool`
-- `register( string $id, array $args ): void`
-- `unregister( string $id ): array` — returns the unregistered definition (handy for modify-and-re-register patterns)
+`My_Provider` must implement the PHP AI Client SDK's provider interface — writing one is outside this file's scope.
 
-To read a single connector's definition outside the registry hook, use `wp_get_connector( string $id ): array|null` (WP 7.0+) — available after `init`, returns the connector array or `null` if it isn't registered.
+### Reading connectors
 
-**Connector `type`.** AI connectors register with `'type' => 'ai_provider'` (underscore — *not* `ai-provider`). WP 7.0 generalised the registry so `type` is no longer restricted to AI; other connector categories can register under their own type. Credential masking and key-source resolution are handled internally by core (the underscore-prefixed `_wp_connectors_*` helpers are private — do not call them); the admin UI surfaces the masked key and its source automatically.
+Available after `init`:
 
-### Authentication
+- `wp_is_connector_registered( string $id ): bool`
+- `wp_get_connector( string $id ): ?array`
+- `wp_get_connectors(): array`
 
-Two auth methods are supported: `api_key` and `none`. Most providers use `api_key`.
+### Overriding metadata or adding a non-AI connector
 
-### Credential resolution priority
+`wp_connectors_init` fires once with the `WP_Connector_Registry`, after core and auto-discovered connectors are registered. To change an existing connector, unregister it and register it again:
 
-The Connectors layer resolves the API key for `api_key` connectors in this **strict order**, first match wins:
+```php
+/**
+ * Replaces the description shown for the OpenAI connector.
+ */
+function my_plugin_override_openai_connector( WP_Connector_Registry $registry ): void {
+	if ( $registry->is_registered( 'openai' ) ) {
+		$connector                = $registry->unregister( 'openai' );
+		$connector['description'] = __( 'Internal OpenAI proxy (rate-limited per team).', 'my-plugin' );
+		$registry->register( 'openai', $connector );
+	}
+}
+add_action( 'wp_connectors_init', 'my_plugin_override_openai_connector' );
+```
 
-1. **Environment variable** — e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`. Set in your server's environment or `.env` file loaded by your stack.
-2. **PHP constant** — `define( 'OPENAI_API_KEY', '…' );` typically in `wp-config.php`.
-3. **Database option** — set by the admin at **Settings → Connectors**. Stored under the general pattern `connectors_{type}_{id}_api_key`. In WP 7.0 the type segment is always `ai`, so in practice the key is `connectors_ai_{$id}_api_key` (e.g. `connectors_ai_openai_api_key`). The `{type}` placeholder is reserved for future connector categories beyond AI.
+`register( string $id, array $args ): ?array` accepts `name` (required), `type` (required — AI providers use `ai_provider`, with an underscore), `description`, `logo_url`, `authentication` (`method`: `api_key` or `none`; optional `credentials_url`, `setting_name`, `constant_name`, `env_var_name`) and `plugin` (`file`, `is_active`). Registering a connector does **not** create an AI provider.
 
-The admin screen shows which source supplied the active key (env / constant / DB) per connector. Database keys are masked in the REST API to prevent leakage.
+### Credential resolution
 
-**Where to set keys, by environment**
+For an `api_key` connector the key is looked up in this order; the first non-empty value wins:
+
+1. **Environment variable** — AI providers use `{PROVIDER_ID}_API_KEY`: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`.
+2. **PHP constant** of the same name, typically in `wp-config.php`.
+3. **Database option** saved from the Connectors screen. For AI providers the option is `connectors_ai_{id}_api_key`, e.g. `connectors_ai_openai_api_key`.
+
+The screen shows which source supplied the active key and masks stored keys. Never read or echo a key yourself; let the client resolve it.
 
 | Environment | Recommended source | Why |
 |---|---|---|
-| Local dev | env var via `.env` or shell | Not committed; per-developer |
-| Staging | PHP constant in environment-specific config | Loaded with `wp-config-staging.php` |
-| Production | env var (managed secret) | Secret manager integration; no DB exposure |
-| Demo / client-managed | DB via Settings → Connectors UI | Non-technical user can rotate keys |
-
-### Third-party providers
-
-Plugins can register their own connector inside `wp_connectors_init` by calling `$registry->register( 'my-provider', [...] )` with a definition that includes the auth method, capability flags, and an SDK adapter class. The new provider then becomes available to every `wp_ai_client_prompt()` call.
-
-**Auto-discovery:** providers registered via `AiClient::defaultRegistry()` are automatically discovered by WordPress and integrated into the **Settings → Connectors** admin UI — no extra step needed. The `wp_connectors_init` hook is the correct place to call this; the default registry is populated by core before the hook fires.
+| Local dev | Environment variable | Not committed; per developer |
+| Production | Environment variable or constant from a secret manager | No key in the database |
+| Client-managed | Connectors screen | A non-technical user can rotate it |
 
 ---
 
-## 5. Governance: cost control & timeouts
+## 5. Governance: switch-off, cost control, timeouts
 
-Two filters (WP 7.0+) let you intercept generation before it bills tokens or hangs — the right place for rate-limiting, budget caps, and tuning slow providers.
-
-| Filter | Use |
+| Lever | Use |
 |---|---|
-| `wp_ai_client_prevent_prompt` | Return `true` to block a prompt from executing. The callback receives a read-only clone of the prompt builder, so you can inspect the request (model, text length) and deny based on a budget or per-user quota. The blocked call returns `WP_Error` — handle it like any other failure. |
-| `wp_ai_client_default_request_timeout` | Filters the default HTTP timeout (a `float`, in seconds) applied to AI Client requests. Raise it for slow image/video providers; lower it to fail fast in latency-sensitive paths. |
+| Constant `WP_AI_SUPPORT` | `define( 'WP_AI_SUPPORT', false );` turns AI off for the whole site. |
+| Filter `wp_supports_ai` | Turn AI off per request. |
+| Filter `wp_ai_client_prevent_prompt` | `( bool $prevent, WP_AI_Client_Prompt_Builder $builder )`. Return `true` to block a prompt. The builder passed in is a clone. A blocked generating call returns `WP_Error` (`prompt_prevented`); a blocked support check returns `false`. |
+| Filter `wp_ai_client_default_request_timeout` | Default HTTP timeout in seconds (`float`, default `30.0`). |
 
 ```php
 // Hard budget cap: stop new prompts once today's spend is exceeded.
-add_filter( 'wp_ai_client_prevent_prompt', function ( bool $prevent, $builder ): bool {
-    if ( get_transient( 'ai_budget_exceeded' ) ) {
-        return true; // generation returns WP_Error to the caller
-    }
-    return $prevent;
-}, 10, 2 );
+/**
+ * Blocks new prompts once the daily AI budget is spent.
+ */
+function my_plugin_enforce_ai_budget( bool $prevent ): bool {
+	return $prevent || (bool) get_transient( 'my_plugin_ai_budget_exceeded' );
+}
+add_filter( 'wp_ai_client_prevent_prompt', 'my_plugin_enforce_ai_budget' );
 ```
-
-> **Not in WP 7.0:** the prompt builder has **no** `using_abilities()` method, `set_model()`, or `with_options()`, and there is no documented snake→camel `__call` magic. Configure via the explicit `using_*` / `as_*` methods in §2. To expose plugin capabilities to AI agents, register **Abilities** (`references/abilities-api.md`) — that is the WP 7.0 surface for AI-invokable functions, separate from the prompt builder.
 
 ---
 
-## 6. Common pitfalls
+## 6. Letting the model call abilities
+
+Register the capability as an ability first (`references/abilities-api.md`), then hand it to the builder. `using_abilities()` accepts ability names or `WP_Ability` objects and declares each one to the model as a callable function.
+
+```php
+$abilities = array( 'my-plugin/get-order-status' );
+
+$result = wp_ai_client_prompt( $question )
+	->using_abilities( ...$abilities )
+	->generate_text_result();
+
+if ( is_wp_error( $result ) ) {
+	return $result;
+}
+
+$resolver = new WP_AI_Client_Ability_Function_Resolver( ...$abilities );
+$reply    = $result->toMessage();
+
+if ( $resolver->has_ability_calls( $reply ) ) {
+	// Runs each requested ability (permission and schema checks included)
+	// and returns a Message holding the function responses.
+	$responses = $resolver->execute_abilities( $reply );
+}
+```
+
+The resolver executes only the abilities passed to its constructor, so the model cannot reach anything else. To let the model finish its answer, send the earlier messages and `$responses` back in a follow-up prompt with `with_history()`.
+
+The model decides whether to call an ability; a plain text answer with no ability call is a normal outcome.
+
+---
+
+## 7. Common pitfalls
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `WP_Error: no_active_connector` | No connector configured at Settings → Connectors | Surface the message to the admin; do not retry |
-| Always falls back to one provider | `using_model_preference()` requested a model none of the active connectors support | Drop the preference or add a matching connector |
-| JSON response not parseable | Forgot `as_json_response()` | Add it with a schema; the model will then be constrained |
-| Token usage missing | Called `generate_text()` instead of `generate_text_result()` | Use the `_result()` variant when you need metadata |
-| Feature detection returns false in plugin file | Called too early — registry not built | Move the check inside an `init` (or later) hook |
-| API key not picked up | Env var set after PHP-FPM started | Restart PHP-FPM; env vars are read at process start |
+| Fatal "Call to undefined method" on a support check | Called statically (`::`) | Call it on the builder instance (`->`) |
+| Support checks always `false` | No provider plugin installed, no key configured, or `wp_supports_ai()` is `false` | Install a provider plugin and add a key at Settings → Connectors |
+| `TypeError` from `as_output_file_type()` | Passed a MIME string | Use `as_output_mime_type()` |
+| JSON response not parseable | Forgot `as_json_response()` | Add it with a schema, then `json_decode()` |
+| No token usage | Called `generate_text()` | Use `generate_text_result()` and `getTokenUsage()` |
+| Model preference ignored | No configured provider offers that model | Expected — the client falls back to a compatible model |
+| API key not picked up from the environment | Variable set after PHP started | Restart the PHP process |

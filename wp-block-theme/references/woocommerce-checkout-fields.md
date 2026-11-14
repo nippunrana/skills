@@ -32,17 +32,18 @@ All must pass before writing code. These are **in addition to** the gates in `SK
 `references/woocommerce.md → §2`.
 
 - **Timing gate** — registration must run **on or after `woocommerce_init`**. Registering
-  earlier means the Checkout block and Store API are not ready and the REST handshake fails.
-  Always wrap the call in `add_action( 'woocommerce_init', … )`.
-- **ID-syntax gate** — every `id` must be `namespace/field-name` (a single forward slash).
-  The `/` is a mandatory separator; the namespace must be your unique prefix. Core IDs that
-  do **not** use a slash (`billing_company`, `billing_phone`, …) are only used when
-  *overriding a default field*, never when inventing a new one.
+  too early triggers a `_doing_it_wrong()` notice and can load translations before they are
+  ready. Always wrap the call in `add_action( 'woocommerce_init', … )`.
+- **ID-syntax gate** — every `id` must be `namespace/field-name`. The `/` is a mandatory
+  separator; the namespace must be your unique prefix. An `id` without a `/`, or one that is
+  already registered, is rejected and the field is not registered — so this function cannot
+  re-register or override a default (core) field (§7).
 - **Location gate** — `location` must be exactly one of `contact`, `address`, or `order`.
   No other values exist. The location decides persistence and UI placement (§3) — choosing
   wrong causes data loss or a fragmented customer profile, not an error.
-- **Type gate** — `type` must be exactly `text`, `select`, or `checkbox`. These are the only
-  supported field types. `select` additionally requires an `options` array.
+- **Type gate** — `type` must be exactly `text`, `select`, `checkbox`, or `date` (default
+  `text`). These are the only supported field types. `select` additionally requires an
+  `options` array.
 - **Pointer-escaping gate** — in any JSON Schema rule (§6), a field ID's `/` must be escaped
   as `~1`. `my-plugin/field` is referenced as `my-plugin~1field`. An unescaped slash is read
   as a pointer path segment and silently never matches.
@@ -54,7 +55,7 @@ where the data is stored, and how long it lives.
 
 | Location | Identifier | UI Placement | Persistence | Lifecycle |
 |---|---|---|---|---|
-| Contact information | `contact` | Form header, next to the email field | **Customer Meta** — shows in "Account Details" on My Account | Long-lived, tied to shopper identity (e.g. Loyalty ID) |
+| Contact information | `contact` | Form header, next to the email field | **Customer Meta + Order Meta** — shows in "Account Details" on My Account | Long-lived, tied to shopper identity (e.g. Loyalty ID) |
 | Addresses | `address` | **Both** Shipping and Billing forms | **Customer Meta + Order Meta** (dual-saved) | Reused across orders, pre-fills for returning customers |
 | Order information | `order` | "Order Information" inner block (defaults to form footer; repositionable via Gutenberg block controls) | **Order Meta only** | Transient — new orders start empty (e.g. Gift Message) |
 
@@ -75,30 +76,42 @@ The `$group` parameter in location validation (§5.2) tells you which one you ar
 Registration happens inside the `woocommerce_init` action:
 
 ```php
-add_action( 'woocommerce_init', static function (): void {
-	woocommerce_register_additional_checkout_field( array(
-		'id'            => '{{TEXT_DOMAIN}}/reference-code',
-		'label'         => __( 'Reference Code', '{{TEXT_DOMAIN}}' ),
-		'optionalLabel' => __( 'Reference Code (if available)', '{{TEXT_DOMAIN}}' ),
-		'location'      => 'address',
-		'type'          => 'text',
-		'required'      => false,
-	) );
-} );
+/**
+ * Registers additional checkout fields.
+ */
+function {{THEME_PREFIX}}_register_checkout_fields(): void {
+	woocommerce_register_additional_checkout_field(
+		array(
+			'id'            => '{{TEXT_DOMAIN}}/reference-code',
+			'label'         => __( 'Reference Code', '{{TEXT_DOMAIN}}' ),
+			'optionalLabel' => __( 'Reference Code (if available)', '{{TEXT_DOMAIN}}' ),
+			'location'      => 'address',
+			'type'          => 'text',
+			'required'      => false,
+		)
+	);
+}
+add_action( 'woocommerce_init', '{{THEME_PREFIX}}_register_checkout_fields' );
 ```
 
 ### 4.1 Type Reference
 
-| Type | Required options | Type-specific attributes | Meta prefix |
-|---|---|---|---|
-| `text` | `id`, `label`, `location` | `optionalLabel`, `maxLength`, `readOnly` | `_wc_billing/`, `_wc_shipping/`, `_wc_other/` |
-| `select` | `id`, `label`, `location`, `options` | `placeholder`, `optionalLabel` | `_wc_other/` |
-| `checkbox` | `id`, `label`, `location` | `error_message`, `optionalLabel` | `_wc_other/` |
+| Type | Required options | Type-specific options |
+|---|---|---|
+| `text` | `id`, `label`, `location` | — |
+| `select` | `id`, `label`, `location`, `options` | `placeholder` |
+| `checkbox` | `id`, `label`, `location` | `error_message` (only used when the checkbox is required) |
+| `date` | `id`, `label`, `location` | `min`, `max` |
 
-- **`optionalLabel`** — if omitted, WooCommerce appends `(optional)` to the label
+The meta-key prefix is decided by the field's `location`, not its type (§8.3).
+
+- **`optionalLabel`** (all types) — if omitted, WooCommerce appends `(optional)` to the label
   automatically. Define it explicitly for a clean, custom UI.
 - **`options`** (select only) — array of `{ value, label }` pairs.
 - **`required`** — boolean, or a JSON Schema rule array for conditional requirement (§6).
+- **`attributes`** — array of extra HTML attributes for the input. Only `maxLength`,
+  `readOnly`, `pattern`, `autocomplete`, `autocapitalize`, `title`, `aria-*` and `data-*`
+  are accepted; anything else is dropped with a `_doing_it_wrong()` notice.
 
 ## 5. Sanitization & Validation
 
@@ -107,9 +120,11 @@ always runs before validation** — sanitize formats the data, validation judges
 
 ### 5.1 Single-Field Sanitize then Validate
 
-Two equivalent registration styles exist; both appear in the source docs.
+Two registration styles exist; both appear in the source docs. They reach the same result
+but their callback contracts differ.
 
-**Inline callbacks on the registration:**
+**Inline callbacks on the registration** (each is called with `( $value, $field )`; the
+validate callback **returns** a `WP_Error` to fail):
 
 ```php
 woocommerce_register_additional_checkout_field( array(
@@ -119,30 +134,42 @@ woocommerce_register_additional_checkout_field( array(
 	'type'              => 'text',
 	'sanitize_callback' => static fn( string $value ): string =>
 		strtoupper( str_replace( ' ', '', $value ) ), // "abc 123" -> "ABC123"
-	'validate_callback' => static function ( string $value, string $field_id, WP_Error $errors ): void {
-		if ( ! preg_match( '/^[A-Z0-9]{5}$/', $value ) ) {
-			$errors->add( '{{TEXT_DOMAIN}}-invalid-id', __( 'The ID must be 5 alphanumeric characters.', '{{TEXT_DOMAIN}}' ) );
+	'validate_callback' => static function ( $value, array $field ): ?WP_Error {
+		if ( ! preg_match( '/^[A-Z0-9]{5}$/', (string) $value ) ) {
+			return new WP_Error( '{{TEXT_DOMAIN}}-invalid-id', __( 'The ID must be 5 alphanumeric characters.', '{{TEXT_DOMAIN}}' ) );
 		}
+		return null;
 	},
 ) );
 ```
 
-**Or via the global filter/action hooks** (equivalent; useful when the field is registered elsewhere):
+**Or via the global filter/action hooks** (useful when the field is registered elsewhere; here the error object is passed in):
 
 - `woocommerce_sanitize_additional_field` (filter) — formatting stage.
 - `woocommerce_validate_additional_field` (action) — rule-enforcement stage.
 
 ```php
-add_action( 'woocommerce_validate_additional_field', static function ( WP_Error $errors, string $field_key, $field_value ): void {
-    if ( '{{TEXT_DOMAIN}}/gov-id' === $field_key && ! preg_match( '/^[A-Z0-9]{5}$/', (string) $field_value ) ) {
-        $errors->add( '{{TEXT_DOMAIN}}-invalid-id', __( 'The ID must be 5 alphanumeric characters.', '{{TEXT_DOMAIN}}' ) );
-    }
-}, 10, 3 );
+/**
+ * Validates the government ID field.
+ */
+function {{THEME_PREFIX}}_validate_government_id( WP_Error $errors, string $field_key, mixed $field_value ): void {
+	if ( '{{TEXT_DOMAIN}}/government-id' === $field_key && ! preg_match( '/^[A-Z0-9]{5}$/', (string) $field_value ) ) {
+		$errors->add( '{{TEXT_DOMAIN}}-invalid-id', __( 'The ID must be 5 alphanumeric characters.', '{{TEXT_DOMAIN}}' ) );
+	}
+}
+add_action( 'woocommerce_validate_additional_field', '{{THEME_PREFIX}}_validate_government_id', 10, 3 );
 ```
 
 **Validation rules (non-negotiable):**
 
-- **Return `void` on success** — do not return the `WP_Error` object; call `$errors->add()` to fail.
+- **Match the contract to the style** — an inline `validate_callback` fails by *returning* a
+  `WP_Error` (returning `false` produces a generic "Please provide a valid …" error) and
+  passes by returning nothing. The `woocommerce_validate_additional_field` action and the
+  location actions (§5.2) fail by calling `$errors->add()` on the `WP_Error` they receive;
+  their return value is ignored.
+- **Never give `validate_callback` the action's three-parameter signature** — it is called
+  with two arguments, so the call throws, WooCommerce catches it with a warning, and your
+  check never runs.
 - **Namespace every error code** — prefix with your plugin namespace so codes from core or
   other extensions don't collide and overwrite your message.
 
@@ -155,18 +182,22 @@ the selected country), use the location-scoped action. It receives **all** field
 |---|---|
 | `contact` | `woocommerce_blocks_validate_location_contact_fields` |
 | `address` | `woocommerce_blocks_validate_location_address_fields` |
-| `order` | `woocommerce_blocks_validate_location_other_fields` *(note: `other`, not `order`)* |
+| `order` | `woocommerce_blocks_validate_location_order_fields` |
 
-For the **address** location the third parameter `$group` is `'billing'` or `'shipping'` —
-essential because of address-field bifurcation (§3.1).
+The hook name is built from the **location** (`address`, `contact`, `order`). The third
+parameter `$group` is `'billing'` or `'shipping'` for the **address** location — essential
+because of address-field bifurcation (§3.1) — and `'other'` for `contact` and `order`.
 
 ```php
-add_action( 'woocommerce_blocks_validate_location_address_fields', static function ( WP_Error $errors, array $fields, string $group ): void {
-    // $group is 'billing' or 'shipping'
-    if ( ( $fields['{{TEXT_DOMAIN}}/id'] ?? '' ) !== ( $fields['{{TEXT_DOMAIN}}/confirm-id'] ?? '' ) ) {
-        $errors->add( '{{TEXT_DOMAIN}}-mismatch', __( 'The ID values do not match.', '{{TEXT_DOMAIN}}' ) );
-    }
-}, 10, 3 );
+/**
+ * Checks that the two ID fields of an address match. $group is 'billing' or 'shipping'.
+ */
+function {{THEME_PREFIX}}_validate_matching_ids( WP_Error $errors, array $fields, string $group ): void {
+	if ( ( $fields['{{TEXT_DOMAIN}}/id'] ?? '' ) !== ( $fields['{{TEXT_DOMAIN}}/confirm-id'] ?? '' ) ) {
+		$errors->add( '{{TEXT_DOMAIN}}-mismatch', __( 'The ID values do not match.', '{{TEXT_DOMAIN}}' ) );
+	}
+}
+add_action( 'woocommerce_blocks_validate_location_address_fields', '{{THEME_PREFIX}}_validate_matching_ids', 10, 3 );
 ```
 
 ## 6. Conditional Logic via JSON Schema
@@ -177,8 +208,9 @@ the server — one definition, two enforcement points ("single source of truth")
 
 ### 6.1 The Document Object & Pointers
 
-Rules evaluate against the **Document Object**, which describes current checkout state. All
-of its properties are **snake_case** (`total_price`, `shipping_rates`, `prefers_collection`).
+Rules evaluate against the **Document Object**, which describes current checkout state. Its
+top-level keys are `cart`, `checkout` and `customer`, and all of its properties are
+**snake_case** (`cart.totals.total_price`, `cart.shipping_rates`, `cart.prefers_collection`).
 Navigation uses JSON pointers:
 
 - **Slash escaping** — a field ID containing `/` must use `~1`. `my-plugin/field` →
@@ -191,7 +223,10 @@ Navigation uses JSON pointers:
 
 This field is hidden when Local Pickup is selected, required when it is not, and carries a
 real-time validation message via the **non-standard `errorMessage` keyword** (a WooCommerce
-extension to Draft-07):
+extension to Draft-07). Each of the three properties takes **one schema** (an associative
+array). `required` and `hidden` describe the whole Document Object, so start from `cart`,
+`checkout` or `customer`; `validation` describes only this field's own value. **Never** wrap
+a rule in a list of schemas — the registration is rejected and the field is not registered.
 
 ```php
 woocommerce_register_additional_checkout_field( array(
@@ -200,16 +235,29 @@ woocommerce_register_additional_checkout_field( array(
 	'location' => 'order',
 	'type'     => 'text',
 	'required' => array(
-		array( 'properties' => array( 'prefers_collection' => array( 'const' => false ) ) ),
+		'type'       => 'object',
+		'properties' => array(
+			'cart' => array(
+				'properties' => array(
+					'prefers_collection' => array( 'const' => false ),
+				),
+			),
+		),
 	),
 	'hidden'   => array(
-		array( 'properties' => array( 'prefers_collection' => array( 'const' => true ) ) ),
+		'type'       => 'object',
+		'properties' => array(
+			'cart' => array(
+				'properties' => array(
+					'prefers_collection' => array( 'const' => true ),
+				),
+			),
+		),
 	),
 	'validation' => array(
-		array(
-			'minLength'    => 5,
-			'errorMessage' => __( 'Please provide a valid instruction.', '{{TEXT_DOMAIN}}' ),
-		),
+		'type'         => 'string',
+		'minLength'    => 5,
+		'errorMessage' => __( 'Please provide a valid instruction.', '{{TEXT_DOMAIN}}' ),
 	),
 ) );
 ```
@@ -221,48 +269,72 @@ nesting and minimize the number of conditions per registration, or the checkout 
 
 ## 7. Modifying Default (Core) Fields
 
-To change attributes on a built-in field (e.g. the `optionalLabel` on Company), re-register
-it by its **core identifier** (no namespace slash) rather than using the legacy `unset()`:
+`woocommerce_register_additional_checkout_field` **cannot** change a built-in field: an `id`
+without a `/` is rejected, and so is an `id` that is already registered. **Never** try to
+re-register a core field. The block checkout's core field keys are:
+
+```
+email       country     first_name  last_name
+company     address_1   address_2   city
+state       postcode    phone
+```
+
+Core address fields follow the country locale, so adjust them per country with the
+`woocommerce_get_country_locale` filter. A change applies to both the shipping and the
+billing form:
 
 ```php
-woocommerce_register_additional_checkout_field( array(
-	'id'            => 'billing_company', // core identifier — no namespace
-	'location'      => 'address',
-	'optionalLabel' => __( 'Business Name (optional)', '{{TEXT_DOMAIN}}' ),
-) );
+/**
+ * Hides the postcode field for addresses in Algeria.
+ */
+function {{THEME_PREFIX}}_hide_dz_postcode( array $locale ): array {
+	$locale['DZ']['postcode']['required'] = false;
+	$locale['DZ']['postcode']['hidden']   = true;
+
+	return $locale;
+}
+add_filter( 'woocommerce_get_country_locale', '{{THEME_PREFIX}}_hide_dz_postcode' );
 ```
 
-Common core identifiers for the `address` / `contact` locations:
-
-```
-billing_first_name  billing_last_name   billing_company
-billing_address_1   billing_address_2   billing_city
-billing_postcode    billing_country     billing_state
-billing_email       billing_phone
-```
+Company, Phone and Address line 2 are different: their default state is stored in the
+options `woocommerce_checkout_company_field`, `woocommerce_checkout_phone_field` and
+`woocommerce_checkout_address_2_field`, each `optional`, `required` or `hidden`.
 
 ### 7.1 Editing States — the `XX` Placeholder
 
-When adding or modifying states, **every** state ID in the array must be prefixed with the
-field's two-letter country code in place of the literal `XX`. WooCommerce will not recognize
-state modifications unless each state ID is preceded by its correct country code.
+States are added or changed with the `woocommerce_states` filter, not with the checkout
+fields API. In WooCommerce's reference snippet `XX` is a placeholder: replace it with the
+two-letter country code both as the array key and as the prefix of each state ID
+(`$states['XX'] = array( 'XX1' => …, 'XX2' => … )`).
 
 ## 8. Reading Field Values Back
 
 Always prefer the **helper methods** over direct meta-key access — they survive future schema
-migrations and normalize types.
+migrations. They are methods of the `CheckoutFields` service, not global functions, and both
+take a `$group`: `'billing'` or `'shipping'` for address fields, `'other'` (the default) for
+contact and order fields.
 
 | Helper | Returns |
 |---|---|
-| `get_field_from_object( string $id, $object )` | One field's value from a customer/order object |
-| `get_all_fields_from_object( $object )` | Array of all registered additional fields on the object |
+| `get_field_from_object( string $key, WC_Data $wc_object, string $group = 'other', bool $apply_defaults = true )` | One field's value from a customer/order object |
+| `get_all_fields_from_object( WC_Data $wc_object, string $group = 'other', bool $all = false )` | Array of all registered additional fields in that group on the object |
+
+```php
+use Automattic\WooCommerce\Blocks\Package;
+use Automattic\WooCommerce\Blocks\Domain\Services\CheckoutFields;
+
+$checkout_fields = Package::container()->get( CheckoutFields::class );
+$billing_code    = $checkout_fields->get_field_from_object( '{{TEXT_DOMAIN}}/reference-code', $order, 'billing' );
+$order_fields    = $checkout_fields->get_all_fields_from_object( $order, 'other' );
+```
 
 ### 8.1 The Stale-Data Trap (most common bug)
 
-During the `place_order` lifecycle, **never** read the logged-in customer via
-`wp_get_current_user()` (or similar) — the persistent customer record is only updated *after*
-the order is processed, so you get `null` or stale data. Always read from the **object being
-processed** (the order) using `get_all_fields_from_object( $order )` or the Store API inputs.
+During the `place_order` lifecycle, **never** read a field from a freshly loaded customer
+(`new WC_Customer( $order->get_customer_id() )`) — the persistent customer record is only
+updated *after* the order is processed, so you get `null` or stale data. Always read from the
+**object being processed** (the order) using `get_all_fields_from_object( $order, $group )`,
+from the session customer `wc()->customer`, or from the Store API inputs.
 
 ### 8.2 Guest vs Logged-In Persistence
 
@@ -280,13 +352,14 @@ For email builders or external systems that cannot call PHP helpers, data is sto
 
 Prefer the constants on the `CheckoutFields` class over hardcoding:
 
-- `CheckoutFields::BILLING_ADDRESS_META_KEY_PREFIX` → `_wc_billing/`
-- `CheckoutFields::SHIPPING_ADDRESS_META_KEY_PREFIX` → `_wc_shipping/`
-- `CheckoutFields::OTHER_FIELDS_META_KEY_PREFIX` → `_wc_other/`
+- `CheckoutFields::BILLING_FIELDS_PREFIX` → `_wc_billing/`
+- `CheckoutFields::SHIPPING_FIELDS_PREFIX` → `_wc_shipping/`
+- `CheckoutFields::OTHER_FIELDS_PREFIX` → `_wc_other/`
 
-**Checkbox caveat:** direct DB reads return the strings `"1"`, `"0"`, or `""`. The helper
-methods automatically cast these to real booleans (`true` / `false`) — another reason to
-prefer helpers and keep your business logic type-safe.
+**Checkbox caveat:** direct DB reads return the strings `"1"`, `"0"`, or `""`.
+`get_field_from_object()` casts these to real booleans (`true` / `false`);
+`get_all_fields_from_object()` returns the stored strings unchanged. Read checkboxes with
+`get_field_from_object()` to keep your business logic type-safe.
 
 ## 9. Backward Compatibility with Legacy Meta
 
@@ -302,15 +375,15 @@ The `{$key}` in the read filter is the **full field ID including the namespace**
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| REST handshake / "field not registered" error | Registered before `woocommerce_init` | Wrap registration in `add_action( 'woocommerce_init', … )` |
-| Field collides with another extension | Missing namespace, or non-slash `id` for a new field | Use `namespace/field-name` for all new fields |
+| `_doing_it_wrong()` notice: "should be registered on the woocommerce_init action or later" | Registered too early | Wrap registration in `add_action( 'woocommerce_init', … )` |
+| Field never appears; notice says "A checkout field id must consist of namespace/name" or "The field is already registered" | `id` has no `/` (this includes every core field key), or reuses an already registered ID | Use a unique `namespace/field-name` for every field |
 | Address field saves only one value | Forgot bifurcation — read only billing OR shipping | Handle both `_wc_billing/…` and `_wc_shipping/…`; use `$group` in validation |
-| Validation never fails | Returned `WP_Error` instead of calling `add()`, or returned a truthy value on success | Return `void` on pass; call `$errors->add( 'ns-code', … )` to fail |
+| Inline `validate_callback` never fails | Gave it the action's `( $errors, $key, $value )` signature, or called `add()` on a local error object without returning it | `validate_callback` receives `( $value, $field )` and must **return** the `WP_Error`; `$errors->add()` is for the action hooks |
 | Error message overwritten by another plugin | Un-namespaced error code | Prefix every error code with your namespace |
 | Conditional rule silently never matches | `/` in field ID not escaped in the JSON pointer | Escape as `~1` (`my-plugin~1field`) |
 | Checkbox logic treats `"0"` as truthy | Read meta directly instead of via helper | Use `get_field_from_object()`; it returns real booleans |
-| Custom value is `null` during order processing | Read `wp_get_current_user()` mid-`place_order` (stale-data trap) | Read from the order object via `get_all_fields_from_object( $order )` |
-| State edits ignored by WooCommerce | State IDs not prefixed with the country code | Replace the `XX` placeholder with the real two-letter code on every state ID |
+| Custom value is `null` during order processing | Read a freshly loaded `WC_Customer` mid-`place_order` (stale-data trap) | Read from the order object via `get_all_fields_from_object( $order, $group )` |
+| Address field value comes back empty from a helper | Omitted `$group`, which defaults to `'other'` | Pass `'billing'` or `'shipping'` for `address`-location fields |
 
 ## 11. Architect's Checklist
 
@@ -319,7 +392,7 @@ Before shipping a checkout-fields integration, verify:
 1. **Timing** — registration runs on/after `woocommerce_init`.
 2. **Mapping** — the `location` matches the required persistence (Customer Meta vs Order Meta).
 3. **Sanitization** — formatting runs *before* validation.
-4. **Integrity** — `WP_Error` codes are namespaced and applied via `$errors->add()`, returning `void` on success.
+4. **Integrity** — `WP_Error` codes are namespaced; an inline `validate_callback` returns its `WP_Error`, the action hooks call `$errors->add()`.
 5. **Schema syntax** — every field-ID `/` is escaped as `~1` in JSON pointers; schemas are shallow.
 6. **Compatibility** — legacy filters use the full `namespace/field` ID for data continuity.
 

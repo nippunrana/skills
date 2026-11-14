@@ -1,40 +1,29 @@
-# Core WP 7.0 APIs — collaboration, admin UX, security, LCP
+# Core APIs — collaboration, admin UX, security, media, speculative loading
 
-Cross-cutting public APIs that don't belong to the theme/AI/WooCommerce reference files but ship in
-WP 7.0 (a few are older but newly relevant). Each section is the developer-facing surface only —
-core-private internals are called out so you don't reach for them.
+Cross-cutting public APIs that don't belong to the theme, AI or WooCommerce reference files. Each section is the developer-facing surface only. Everything here is valid on WordPress 7.0 and 7.1.
 
-**Load this file when**: the user asks about real-time collaboration, admin View Transitions, the
-Command Palette, password hashing / Argon2, or image LCP / `fetchpriority` optimisation.
+**Load this file when**: the user asks about real-time collaboration, admin View Transitions, the Command Palette, password hashing / Argon2, image LCP / `fetchpriority`, image alt text import, or speculative loading (prefetch / prerender).
 
 ---
 
-## 1. Real-time collaboration (gates)
+## 1. Real-time collaboration is not in core
 
-WP 7.0 ships the foundation for multi-user editing. The persistence/transport layer
-(`WP_HTTP_Polling_Sync_Server`, `WP_Sync_Post_Meta_Storage`, awareness/cursor handling) is **core
-internal** — a theme or plugin doesn't implement a sync server. What you *do* touch is the small
-set of public gates, so you can branch behaviour when collaboration is active.
+Real-time collaborative editing was removed from WordPress 7.0 before release and is not enabled in 7.1. **Never** emit `wp_is_collaboration_enabled()`, `wp_is_collaboration_allowed()`, `WP_ALLOW_COLLABORATION`, or any `WP_Sync_*` / `WP_HTTP_Polling_Sync_Server` class — none of them exist, and calling them is a fatal error. A `function_exists()` guard around them is dead code; leave it out.
 
-| API | Notes |
-|---|---|
-| `wp_is_collaboration_enabled(): bool` | WP 7.0+. True when real-time collaboration is enabled. Checks the `WP_ALLOW_COLLABORATION` constant **and** the stored option. |
-| `wp_is_collaboration_allowed(): bool` | WP 7.0+. True when the environment permits collaboration. Reads `WP_ALLOW_COLLABORATION` (defaults to allowed unless explicitly set to the string `"false"`). |
-| `WP_ALLOW_COLLABORATION` | Constant (define in `wp-config.php`) that opts the environment in/out. |
-
-Use `wp_is_collaboration_allowed()` for "could this site ever collaborate" (config) and
-`wp_is_collaboration_enabled()` for "is it on right now" (runtime). Gate any UI or save logic that
-assumes single-author editing behind the latter.
+Post locking is still how core signals that someone is editing. When code must avoid overwriting an editor's work (a background job that rewrites post content or meta), check the lock:
 
 ```php
-if ( wp_is_collaboration_enabled() ) {
-    // Avoid clobbering concurrent edits; defer to the sync layer.
+require_once ABSPATH . 'wp-admin/includes/post.php';
+
+// User ID of whoever holds the edit lock, or false when nobody else is editing.
+$editing_user_id = wp_check_post_lock( $post_id );
+
+if ( false !== $editing_user_id ) {
+	return; // Someone has this post open — try again later.
 }
 ```
 
-> **Do not** call `wp_collaboration_inject_setting()` — it is marked private (core wires the
-> client-side setting itself). There is no public `can_user_sync_entity_type()` global function in
-> WP 7.0; entity-level sync permissions are handled inside the core sync layer.
+`wp_check_post_lock()` returns `false` when the post is unlocked **or** locked by the current user, so it answers "is someone *else* editing".
 
 ---
 
@@ -42,47 +31,114 @@ if ( wp_is_collaboration_enabled() ) {
 
 | API | Notes |
 |---|---|
-| `wp_enqueue_view_transitions_admin_css(): void` | WP 7.0+. Enqueues the `wp-view-transitions-admin` stylesheet that drives cross-document View Transitions between admin screens. Core enqueues this for the dashboard; call it only if you're building a custom admin area that should match. Honors OS-level reduced-motion. |
-| `wp_admin_bar_command_palette_menu( WP_Admin_Bar $bar ): void` | WP 7.0+. Core callback (hooked on `admin_bar_menu`) that renders the Command Palette trigger in the admin bar, showing ⌘K / Ctrl+K per OS. You normally don't call it directly; know it exists when customising the admin bar so you don't duplicate or remove it by accident. |
+| `wp_enqueue_view_transitions_admin_css(): void` | Since 7.0. Enqueues the stylesheet that drives cross-document View Transitions between admin screens. Core enqueues it for wp-admin; call it only for a custom admin surface that should match. Respects the OS reduced-motion preference. |
+| `wp_admin_bar_command_palette_menu( WP_Admin_Bar $wp_admin_bar ): void` | Since 7.0. Core callback on `admin_bar_menu` that renders the Command Palette trigger (⌘K / Ctrl+K). Don't call it; know it exists so you don't duplicate or remove it when customising the admin bar. |
 
 ---
 
 ## 3. Security: password hashing filters (Argon2)
 
-Two filters (since **6.8**, still current in 7.0) make the core `password_hash()` pipeline
-configurable, so you can move off bcrypt without waiting for a core release.
+Two filters (since 6.8) make the core `password_hash()` pipeline configurable.
 
 | Filter | Notes |
 |---|---|
-| `wp_hash_password_algorithm` | Filters the algorithm passed to `password_hash()` / `password_needs_rehash()`. Default `PASSWORD_BCRYPT`. As of 7.0 the value is consistently a string. |
-| `wp_hash_password_options` | Filters the `$options` array (e.g. `memory_cost`, `time_cost`, `threads` for Argon2) to match server hardware. |
+| `wp_hash_password_algorithm` | Algorithm passed to `password_hash()` / `password_needs_rehash()`. Default `PASSWORD_BCRYPT`. Since 7.0 the value is always a string. |
+| `wp_hash_password_options` | The `$options` array (e.g. `memory_cost`, `time_cost`, `threads` for Argon2). Receives the algorithm as its second argument. |
 
 ```php
-add_filter( 'wp_hash_password_algorithm', function ( string $algo ): string {
-    // bcrypt is the only algorithm guaranteed available everywhere — verify before switching.
-    return defined( 'PASSWORD_ARGON2ID' ) ? PASSWORD_ARGON2ID : $algo;
-} );
+/**
+ * Switches password hashing to Argon2id where PHP supports it.
+ */
+function my_plugin_password_algorithm( string $algorithm ): string {
+	// bcrypt is the only algorithm available on every PHP build — check before switching.
+	return defined( 'PASSWORD_ARGON2ID' ) ? PASSWORD_ARGON2ID : $algorithm;
+}
+add_filter( 'wp_hash_password_algorithm', 'my_plugin_password_algorithm' );
 ```
 
-> **Caveat:** Argon2I / Argon2ID are only present if PHP was compiled with libsodium/Argon2 support.
-> Always guard with `defined()` (as above) so a missing algorithm doesn't fatal the login path.
+> **Caveat:** Argon2 exists only when PHP was compiled with it. Always guard with `defined()` so a missing algorithm cannot break the login path. There is no wp-admin setting for the algorithm.
 
 ---
 
-## 4. Media & LCP optimisation
+## 4. Media: LCP attributes and alt text
 
 | API | Notes |
 |---|---|
-| `wp_get_loading_optimization_attributes( string $tag_name, array $attr, string $context ): array` | Since **6.3** (public). Returns the optimal `loading`, `decoding`, and `fetchpriority` attributes for a media tag given its context. Use when emitting `<img>`/`<iframe>` from a dynamic block's `render_callback` so your output gets the same lazy-load / LCP treatment as core. |
+| `wp_get_loading_optimization_attributes( string $tag_name, array $attr, string $context ): array` | Since 6.3. Returns the `loading`, `decoding` and `fetchpriority` attributes core would choose. Use it when a dynamic block's `render_callback` prints its own `<img>` or `<iframe>`. |
+| `wp_get_image_alttext( $file ): string` | Since 7.0. Reads alt text embedded in an image **file's** metadata. Defined in `wp-admin/includes/image.php`, so it is only loaded in admin requests. It is not a getter for an attachment's alt text — that is `get_post_meta( $attachment_id, '_wp_attachment_image_alt', true )`. |
 
 ```php
 $optimized = wp_get_loading_optimization_attributes(
-    'img',
-    array( 'width' => 1200, 'height' => 600 ),
-    'my_theme_hero'
+	'img',
+	array(
+		'width'  => 1200,
+		'height' => 600,
+	),
+	'{{THEME_SLUG}}_hero'
 );
-// Merge $optimized (loading, decoding, fetchpriority) into your <img> attributes.
+// Merge $optimized into the <img> attributes.
 ```
 
-> **Do not** call `wp_maybe_add_fetchpriority_high_attr()` directly — it's marked private (core-only).
-> `wp_get_loading_optimization_attributes()` is the supported entry point and applies the same logic.
+> **Do not** call `wp_maybe_add_fetchpriority_high_attr()` — it is private.
+
+---
+
+## 5. Speculative loading (prefetch / prerender)
+
+Core has printed speculation rules itself since 6.8: prefetch with conservative eagerness, for logged-out visitors on sites with pretty permalinks. **Never** hand-write a `<script type="speculationrules">` tag — it duplicates core's.
+
+Change the behaviour with filters:
+
+```php
+/**
+ * Prerenders links with moderate eagerness.
+ */
+function {{THEME_PREFIX}}_speculation_rules( ?array $config ): ?array {
+	if ( null === $config ) {
+		return null; // Core disabled it for this request — keep it disabled.
+	}
+
+	$config['mode']      = 'prerender';
+	$config['eagerness'] = 'moderate';
+	return $config;
+}
+add_filter( 'wp_speculation_rules_configuration', '{{THEME_PREFIX}}_speculation_rules' );
+
+/**
+ * Keeps cart and checkout URLs out of speculative loading.
+ */
+function {{THEME_PREFIX}}_speculation_exclude_paths( array $paths ): array {
+	$paths[] = '/cart/*';
+	$paths[] = '/checkout/*';
+	return $paths;
+}
+add_filter( 'wp_speculation_rules_href_exclude_paths', '{{THEME_PREFIX}}_speculation_exclude_paths' );
+```
+
+| Key | Values |
+|---|---|
+| `mode` | `auto`, `prefetch`, `prerender` |
+| `eagerness` | `auto`, `conservative`, `moderate`, `eager` |
+
+Return `null` from the configuration filter to switch speculative loading off. Exclude any URL whose mere loading has a side effect (cart, checkout, logout, one-time links) before choosing `prerender`.
+
+---
+
+## 6. Classic scripts that need a script module
+
+Since 7.0 a classic script can declare script-module dependencies with the `module_dependencies` key of its `$args` array. The script must be printed in the footer or use the `defer` strategy, otherwise core raises `_doing_it_wrong()` because the import map would not exist yet.
+
+```php
+wp_register_script(
+	'{{THEME_SLUG}}-legacy-widget',
+	get_theme_file_uri( 'assets/js/legacy-widget.js' ),
+	array(),
+	wp_get_theme( '{{THEME_SLUG}}' )->get( 'Version' ),
+	array(
+		'in_footer'           => true,
+		'module_dependencies' => array( '@wordpress/interactivity' ),
+	)
+);
+```
+
+Inside the classic script, load the module with a dynamic `import()`.

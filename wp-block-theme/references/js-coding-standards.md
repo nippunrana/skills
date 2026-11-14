@@ -8,9 +8,8 @@
 Script Modules (`wp_register_script_module()`), and ES2015+ syntax. The official WordPress JS
 Coding Standards handbook also covers legacy delivery mechanics — jQuery
 `( function( $ ) {…} )( jQuery )` wrappers, Underscore type-checks (`_.isArray`, `_.each`),
-`var` single-var patterns, and JSHint/Grunt linting workflow — that **do not apply here**. WP 7.0
-moved JS linting to Espree (see `SKILL.md §7.4`). Ignore those legacy sections; use the
-standards below.
+`var` single-var patterns, and JSHint/Grunt linting workflow — that **do not apply here**.
+Ignore those legacy sections; use the standards below.
 
 Source: WordPress JavaScript Coding Standards (official handbook), evergreen formatting and
 naming conventions subset.
@@ -43,6 +42,7 @@ touching the file.
 store( 'example/hero', {
 	actions: {
 		toggleSave: () => {
+			const context = getContext();
 			context.isSaved = ! context.isSaved;
 		},
 	},
@@ -52,6 +52,7 @@ store( 'example/hero', {
 store( 'example/hero', {
   actions: {
     toggleSave: () => {
+      const context = getContext();
       context.isSaved = ! context.isSaved;
     },
   },
@@ -62,13 +63,13 @@ store( 'example/hero', {
 
 ## 2. Strings
 
-Use **single quotes** for string literals. Reserve double quotes for strings containing a
-literal single quote (to avoid backslash-escaping).
+Use **single quotes** for string literals. When a string contains a single quote, escape it
+with a backslash rather than switching to double quotes.
 
 ```js
 // ✅ correct
 const label = 'Save for Later';
-const html = "<span class='active'>";
+const html = '<span class=\'active\'>';
 
 // ❌ wrong
 const label = "Save for Later";
@@ -88,7 +89,7 @@ Space inside the opening and closing parens:
 ```js
 // ✅ correct
 store( 'example/hero', { … } );
-registerAbility( { id: 'example/do-thing', … } );
+registerAbility( { name: 'example/do-thing', … } );
 document.addEventListener( 'DOMContentLoaded', function () { … } );
 
 // ❌ wrong — no spaces inside parens
@@ -96,7 +97,7 @@ store('example/hero', { … });
 document.addEventListener('DOMContentLoaded', function() { … });
 ```
 
-For arrow functions, wrap the parameter list in parens even for a single parameter:
+For arrow functions, wrap the parameter list in parens even for a single parameter (skill rule — the handbook does not cover arrow functions):
 
 ```js
 // ✅ correct
@@ -132,11 +133,17 @@ A space between `!` and its operand keeps the negation visible and avoids confus
 
 ```js
 // ✅ correct
-if ( ! wrapper ) return;
-if ( ! entry.isIntersecting ) return;
+if ( ! wrapper ) {
+	return;
+}
+if ( ! entry.isIntersecting ) {
+	return;
+}
 
 // ❌ wrong
-if (!wrapper) return;
+if (!wrapper) {
+	return;
+}
 ```
 
 ### 3.4 Ternary
@@ -173,11 +180,15 @@ boundaries explicit.
 ```js
 // ✅ correct
 const wrapper = document.querySelector( '.is-style-example-features' );
-if ( ! wrapper ) return;
+if ( ! wrapper ) {
+	return;
+}
 
 // ❌ wrong — relies on ASI
 const wrapper = document.querySelector( '.is-style-example-features' )
-if ( ! wrapper ) return
+if ( ! wrapper ) {
+	return
+}
 ```
 
 ---
@@ -185,15 +196,22 @@ if ( ! wrapper ) return
 ## 5. Equality
 
 Always use strict equality `===` and `!==`. The loose operators (`==`, `!=`) perform type
-coercion — `0 == ''` is `true` — which is almost never the intent.
+coercion — `0 == ''` is `true` — which is almost never the intent. The one exception the handbook
+allows is `value == null` to test for null-or-undefined in a single check.
 
 ```js
 // ✅ correct
-if ( entry.target === null ) return;
-if ( status !== 'done' ) return;
+if ( entry.target === null ) {
+	return;
+}
+if ( status !== 'done' ) {
+	return;
+}
 
 // ❌ wrong
-if ( entry.target == null ) return;
+if ( count == '0' ) {
+	return;
+}
 ```
 
 ---
@@ -221,13 +239,17 @@ if ( ! wrapper )
 	return;
 ```
 
-Guard/early-return patterns on a single line are acceptable when the body is a bare `return`
-or `return;`:
+There is no single-line exception: guard clauses and early returns take braces and their own
+lines too.
 
 ```js
-// ✅ acceptable guard clause
-if ( ! wrapper ) return;
+// ❌ wrong — single-line guard
 if ( window.frameElement ) return;
+
+// ✅ correct
+if ( window.frameElement ) {
+	return;
+}
 ```
 
 ---
@@ -253,7 +275,9 @@ if ( window.frameElement ) return;
 ```js
 // ✅ correct
 const wrapper = document.querySelector( '.is-style-example-features' );
-if ( ! wrapper ) return;
+if ( ! wrapper ) {
+	return;
+}
 
 let count = 0;
 count++;
@@ -286,7 +310,9 @@ Both are standard editor settings (`trimTrailingWhitespace`, `insertFinalNewline
 const observer = new IntersectionObserver( ( entries ) => {
 	// Skip elements already animated.
 	entries.forEach( ( entry ) => {
-		if ( ! entry.isIntersecting ) return;
+		if ( ! entry.isIntersecting ) {
+			return;
+		}
 		entry.target.classList.add( 'in-view' );
 		observer.unobserve( entry.target );
 	} );
