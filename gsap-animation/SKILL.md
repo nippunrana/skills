@@ -77,7 +77,7 @@ When the user asks for a **JavaScript animation library**, or for **animation in
 ## Core Tween Methods
 
 - **gsap.to(targets, vars)** — animate from current state to `vars`. Most common.
-- **gsap.from(targets, vars)** — animate from `vars` to current state (good for entrances).
+- **gsap.from(targets, vars)** — animate from `vars` to current state (good for below-the-fold entrances; never above the fold, where the start state goes in CSS and the tween is `gsap.to()`).
 - **gsap.fromTo(targets, fromVars, toVars)** — explicit start and end; no reading of current values.
 - **gsap.set(targets, vars)** — apply immediately (duration 0).
 
