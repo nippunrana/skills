@@ -1,4 +1,4 @@
-# Claude Skills
+# AI Agent Skills
 
 A collection of production-ready AI agent skills packaged as `SKILL.md` files. Each skill is a domain-expert workflow that loads on demand to give your AI agent deep, structured expertise in a specific area.
 
@@ -12,11 +12,16 @@ A collection of production-ready AI agent skills packaged as `SKILL.md` files. E
 |---|---|
 | [et-frontend-design](et-frontend-design/) | Conversion-focused frontend UI with 4-phase discovery before coding |
 | [et-copywriting](et-copywriting/) | Sales-psychology copywriting: headlines, CTAs, ad copy, landing page and email copy for a persona |
-| [skill-creator](skill-creator/) | Create, test, benchmark, and iterate on AI skills with an evaluation loop |
+| [gemini-integration](gemini-integration/) | Google Gemini and Gemma integration: SDK setup, structured output, tool calling, model discovery |
+| [gsap-animation](gsap-animation/) | GSAP tweens, timelines, ScrollTrigger and framework integration, with Core Web Vitals-safe loading |
+| [python-engineering](python-engineering/) | Production Python 3.10+: typing, clean architecture, scripts, and quality tooling |
+| [shopify-theme](shopify-theme/) | Shopify Online Store 2.0 themes: Liquid sections, JSON templates, theme blocks, performance |
 | [prompt-checker-builder](prompt-checker-builder/) | Pre-flight prompt scoring or Socratic prompt builder |
 | [debugger](debugger/) | Hypothesis-driven bug diagnosis across visual, code, API, and perf domains |
 | [code-security-and-cleanup](code-security-and-cleanup/) | 8-phase audit: dead code removal + OWASP security hardening |
 | [wp-block-theme](wp-block-theme/) | WordPress FSE block theme development (templates, patterns, theme.json, AI client, WooCommerce) |
+
+`skill-creator` (create, test and benchmark skills) is used locally for the evaluation pipeline below but is not included in this repository.
 
 ---
 
@@ -39,7 +44,7 @@ Codex CLI reads `AGENTS.md` as its primary instruction file and supports the `SK
 ### Cursor
 Cursor loads skills from `.cursor/skills/`. The description-based routing and reference file pattern work identically.
 
-> **Cross-platform note:** The `description` field in each `SKILL.md` frontmatter is the only routing signal any of these platforms use. Write it to match realistic user prompts.
+> **How these skills are used:** they are attached by hand (by `SKILL.md` path or `/skill-name`), not left to automatic triggering. Descriptions are kept to 50 words or fewer because some agents load every description into context on every turn.
 
 ---
 
@@ -116,7 +121,7 @@ Uses context variables (`{{THEME_SLUG}}`, `{{THEME_PREFIX}}`, `{{THEME_NAME}}`, 
 
 ## Evaluation Framework
 
-The `skill-creator` skill ships a complete evaluation pipeline for measuring skill quality.
+The `skill-creator` skill (a local copy, not included in this repository) provides the evaluation pipeline for measuring skill quality.
 
 ### Running an evaluation
 
@@ -144,15 +149,9 @@ python skill-creator/eval-viewer/generate_review.py --benchmark path/to/benchmar
 
 Full JSON schemas are documented in [skill-creator/references/schemas.md](skill-creator/references/schemas.md).
 
-### Optimizing a skill's description
+### Description optimization
 
-The `description` field is the only routing signal across all platforms. To improve it:
-
-```bash
-python skill-creator/scripts/run_loop.py --skill-dir path/to/skill/
-```
-
-This iteratively evaluates triggering accuracy and rewrites the description until it converges.
+Do not run skill-creator's description-optimization loop (`scripts/run_loop.py`) on these skills. It tunes descriptions for automatic triggering, and these skills are attached by hand.
 
 ---
 
@@ -161,9 +160,9 @@ This iteratively evaluates triggering accuracy and rewrites the description unti
 1. Create a directory: `skill-name/`
 2. Write `SKILL.md` with frontmatter (`name`, `description`) and the workflow body
 3. Add focused reference files to `references/` — one file per domain
-4. Write 2–3 test cases in `evals/evals.json`
+4. Write at least three test cases in `evals/evals.json`
 5. Run the eval pipeline and fix issues
-6. Run `run_loop.py` to optimize the description for cross-platform triggering accuracy
+6. Add `skill-name/ai-context.md` for maintainer notes (copy the header of an existing one)
 7. Package with `python skill-creator/scripts/package_skill.py --skill-dir skill-name/`
 
 **Design rules:**
@@ -171,7 +170,7 @@ This iteratively evaluates triggering accuracy and rewrites the description unti
 - Output must be immediately deployable — no placeholders, no hedging
 - Reference files load on demand; keep the `SKILL.md` body focused on workflow
 - Measurement-backed skills (debugger, skill-creator, security) enforce data-before-fix discipline
-- The `description` field should anticipate realistic user phrases across all compatible platforms
+- Keep the `description` to 50 words or fewer, and never name or load another skill
 
 ---
 

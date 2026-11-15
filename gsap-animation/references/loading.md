@@ -474,7 +474,6 @@ Islands take Tier C:
 - **Render-blocking font cascades.** External `@import` or CDN font `<link>` tags
   stall CSS parsing and delay the hero entrance. Use build-time self-hosted fonts
   (`next/font` in Next.js, or local `.woff2` files with `font-display: swap`).
-  See the Zero-Runtime-Cloud Font Rule in `et-frontend-design`.
 - **Text reveals on the hero heading.** Splitting the LCP heading is fine;
   hiding the pieces is not. Characters at `opacity: 0`, and lines pushed fully
   out of an `overflow: hidden` wrapper (`yPercent: 100` with `mask: "lines"`),

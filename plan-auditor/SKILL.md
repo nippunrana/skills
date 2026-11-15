@@ -1,6 +1,6 @@
 ---
 name: plan-auditor
-description: Audits the two hand-offs in a plan-then-build workflow. `plan` mode checks an implementation plan against the user's original request and the real codebase before coding starts (missing requirements, violated constraints, silent assumptions, rebuilt systems, unverifiable steps). `build` mode checks the implementation (uncommitted git changes, or a named commit range) against the plan after coding, producing a traceability table (done / partial / missing / deviated / waived / unverified) plus wiring conflicts, broken callers, leftovers, and unplanned edits, and ends with a remediation list written for the implementing agent. Report only; it never edits code. Run this skill only when the user explicitly invokes it (`/plan-auditor plan` or `/plan-auditor build`) or asks by name to audit a plan or an implementation. Never trigger it on your own.
+description: Audits a plan against the user's request (`plan` mode) or an implementation against its plan (`build` mode), and reports gaps with evidence. Report only; never edits code. Run only when the user explicitly invokes it or names it; never trigger it on your own.
 disable-model-invocation: true
 argument-hint: "plan | build  [repo path, base commit, or notes]"
 ---
