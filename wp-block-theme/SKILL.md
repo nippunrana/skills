@@ -27,14 +27,7 @@ Also establish two facts about the target site before writing code — they are 
 
 **Record both versions.** If the project has a context file, add or update `PHP version:` and `WordPress version:` lines in it so the next session starts from facts. If it has none, report the versions and offer to record them — do not create the file unasked.
 
-All examples below use these placeholders. Replace them with actual values from the project context.
-
-A skill for creating and extending WordPress Full Site Editing (FSE) block themes — templates,
-template parts, block patterns, theme.json design systems, and modular asset pipelines.
-
-The most common entry point is **converting an existing HTML/CSS/JS design into a block theme
-template**. This is the primary workflow covered in Section 0. All other sections cover the
-underlying building blocks used during that process.
+All examples below use these placeholders. The most common entry point is **converting an existing HTML/CSS/JS design into a block theme template** (Section 0); the other sections cover the building blocks used during that process.
 
 ## How to approach a request
 
@@ -75,7 +68,7 @@ underlying building blocks used during that process.
 - **Native-first conversion.** Recreate designs using Core Blocks (`core/group`, `core/columns`, `core/heading`, `core/image`, `core/icon`, etc.). Use the Grid layout (`{"layout": {"type": "grid"}}` on `core/group`) for grid layouts. This keeps colors, typography, and spacing under Site Editor control. **NEVER use `wp:html`. NEVER paste raw HTML into a template file.** When a design cannot be expressed in core blocks, use this fallback hierarchy:
   1. Compose with `core/group`, `core/columns`, and the Grid layout. *(Default.)*
   2. Register a **PHP-only block**: `register_block_type()` with `'supports' => array( 'autoRegister' => true )` and a `render_callback`. No `block.json`, no JS, no build step. WP 7.0 auto-generates Inspector Controls for string, number, integer, and boolean attributes. **Constraint:** Attributes must be stored in the block's JSON boundary; "sourced" attributes (e.g., from HTML) are not supported.
-  3. **Classic dynamic block** (`register_block_type()` with full `block.json` + `render_callback`) — only when the block needs custom JS-driven editor controls beyond auto-generated ones.
+  3. **Classic dynamic block** (`register_block_type()` with full `block.json` + `render_callback`) — only when the block needs custom JS-driven editor controls beyond auto-generated ones. Use `"apiVersion": 3`; on 7.0 a block below API version 3 stops the post editor from being iframed.
   See `references/architecture.md → Native-First Decision Algorithm` for the full decision tree.
 - **Template registration — use exactly one mechanism per template name:**
   - Use `theme.json` `customTemplates` if the template ships inside a theme (parent or child).
@@ -106,17 +99,14 @@ underlying building blocks used during that process.
   | Custom block used inside any of the above | Hidden from List View unless it declares content. | `"role": "content"` on each editable attribute (or `"contentRole": true` in `supports`). |
 
   The only opt-out is site-wide: the `disableContentOnlyForUnsyncedPatterns` editor setting through `block_editor_settings_all`. **There is no per-pattern opt-out** — never emit an `__experimentalSettings` attribute. See `references/architecture.md → Content-Only Editing`.
-- **Block locking — three non-overlapping rules** (structural lock only; see table above):
-  - **Sub-patterns and inserter-visible patterns:** outermost block MUST carry `"lock": {"move": true, "remove": true}` AND `"className": "is-style-{pattern-slug}"`.
-  - **Master/assembler patterns** (`Inserter: false`, called only via `wp:pattern`): MUST contain only a flat list of `<!-- wp:pattern -->` comments. No wrapper block. No lock attribute. No styles. No `className`.
-  - **Template parts** (outermost block of the backing PHP pattern): MUST carry `"lock": {"move": true, "remove": true}` AND `"className": "is-style-{pattern-slug}"`.
+- **Block locking:** the pattern-types table above is binding. Sub-patterns, inserter-visible patterns and template-part backing patterns MUST carry both `"lock": {"move": true, "remove": true}` and `"className": "is-style-{pattern-slug}"` on the outermost block; master patterns MUST NOT (flat `<!-- wp:pattern -->` list only, no styles, no `className`).
 - **CSS scoping via Block Style Variations.** Scope CSS strictly to the block's variation class (e.g. `.is-style-hero-section`). Do not enqueue pattern CSS yourself and do not pass `style_handle` to `register_block_style()` — in a block theme that stylesheet reaches the editor but never the frontend. Instead add the slug to the **pattern-asset registry** (`inc/pattern-assets.php`): it registers the variation, enqueues the CSS only where a block with that class renders, and loads it into the editor canvas. Full file: `references/architecture.md → Asset Pipeline`. All hand-authored CSS must follow `references/coding-standards.md` (tabs, logical property order, value formatting).
 - **JavaScript — two lanes:**
   - **Reactive** (state, user-driven UI, Interactivity API). `data-wp-*` directives cannot be typed into a core block in a pattern file. Two routes, in order of preference: **(A)** the element is a core block already in the pattern → add the directives at render time with `WP_HTML_Tag_Processor`; the store is a script module at `patterns/{sub-pattern}/view.js`, loaded by `'module' => true` in the pattern-asset registry. **(B)** the markup is custom → a PHP-only dynamic block prints it, with its store at `inc/blocks/{block}/view.js` bound through `view_script_module_ids`. `register_block_style()` has no script key. See `references/architecture.md → Script Modules: loading Interactivity code`.
   - **Non-reactive** (IntersectionObserver, scroll or GSAP animation, no shared state): a classic script at `patterns/{sub-pattern}/index.js`, loaded per variation by setting `'script' => true` in the pattern-asset registry. Wrap it in a `DOMContentLoaded` listener, scope every selector to the variation class, and make the listener's first statement `if ( window.frameElement ) { return; }`.
   - Never put reactive state in an `index.js`. All JS follows `references/js-coding-standards.md`.
 - **Block Hooks** insert a block before, after, or inside every instance of an anchor **block type** (never a pattern slug). In the editor they apply to `post`, `page`, `wp_block` and `wp_navigation`; add a custom post type with the `rest_block_hooks_post_types` filter (WP 7.0). See `references/architecture.md → Block Hooks`.
-- **Viewport block visibility.** `metadata.blockVisibility.viewport` is an **object**: `{"mobile": false}` hides the block on mobile. Keys are `mobile`, `tablet`, `desktop`; `false` means hidden. Hiding is CSS-based — the block stays in the DOM, so never use it for access control. Nothing needs enabling in `theme.json` on 7.0.
+- **Viewport block visibility.** `metadata.blockVisibility.viewport` is an **object**: `{"mobile": false}` hides the block on mobile. Keys are `mobile`, `tablet`, `desktop`; `false` means hidden. Hiding is CSS-based — the block stays in the DOM, so never use it for access control. Nothing needs enabling in `theme.json` on 7.0. In PHP, `metadata.blockVisibility` can also be the boolean `false`: check `false === $visibility` before `is_array( $visibility )`.
 - **Font Library.** Since 7.0 every theme type has a font screen at Appearance → Fonts. Use `theme.json` `fontFamilies` for fonts the theme ships. When a user says "install a font", direct them to Appearance → Fonts. Do not enqueue a font that `theme.json` or the Font Library already provides.
 - **Synced patterns are not something a theme can ship.** Every `patterns/*.php` file is an unsynced pattern. A synced pattern (and its Pattern Overrides) is created by a user in the Site Editor and stored in the database. When a user wants one shared, overridable section, give them the pattern file plus the editor steps — never promise override behaviour from the file alone. Custom blocks opt attributes into overrides with the `block_bindings_supported_attributes` filter.
 - **Block Bindings API** wires dynamic data into Core Blocks. Built-in sources are `core/post-meta`, `core/post-data`, `core/term-data` and `core/pattern-overrides` — nothing else. See `references/architecture.md → Block Bindings API`.
@@ -172,16 +162,7 @@ Before handing off, verify every item:
 
 ### Common conversion pitfalls
 
-| Problem | Symptom | Fix |
-|---|---|---|
-| "Black box" templates | Can't edit colors/text in the Site Editor | Rebuild custom sections using Core Blocks; only fall back to a dynamic block (`register_block_type()` + `render_callback`) when the design truly cannot map to core. |
-| Raw HTML stripped | Content disappears in editor | Wrap in a dynamic block registered via `register_block_type()`; do not paste raw HTML into a template. |
-| CSS bleeds into editor UI | Styles affect menus/toolbars | Scope rules strictly to `.is-style-{slug}` variation class |
-| Template not accessible | A11y warnings/fail | Use semantic tags (nav, main) and ARIA labels |
-| Client breaks layout | Sections deleted accidentally | Apply `"lock": {"move": true, "remove": true}` to structural blocks |
-| Editor doesn't match frontend | WYSIWYG mismatch | The slug is missing from the pattern-asset registry, so the loader's `enqueue_block_assets` hook never loads it into the editor |
-| Animations fire in a preview iframe | Jarring experience | Gate the script on `window.frameElement` |
-| theme.json colors missing | Parent palette deleted | Child `theme.json` must include parent palette entries before appending |
+See `references/troubleshooting.md → Conversion pitfalls` when a converted template misbehaves.
 
 ---
 
@@ -310,26 +291,11 @@ approach**: a thin `.html` template part that delegates to a PHP pattern.
 <!-- /wp:group -->
 ```
 
-> **Why this works:** WordPress resolves `wp:pattern` through its block pattern registry, which
-> executes the PHP file. The `.html` template part itself has no PHP, but the pattern it calls does.
-
-> 💡 **System Patterns & `Inserter: false`:** Always add `Inserter: false` to patterns that act
-> as backend logic for template parts or master templates. This keeps the user's UI clean.
-> WordPress perfectly renders these hidden patterns whenever they are called via `wp:pattern`
-> inside your `.html` template parts.
+This works because WordPress resolves `wp:pattern` through its pattern registry, which executes the PHP file. Give every backing pattern `Inserter: false`; it still renders when called via `wp:pattern`.
 
 ### Placing Template Parts in the Root `.html` Template
 
-Always call template parts directly in the root `templates/{slug}.html` file — never nest them inside a master pattern:
-
-```html
-<!-- wp:template-part {"slug":"header","tagName":"header","area":"header"} /-->
-<!-- wp:pattern {"slug":"{{THEME_SLUG}}/{slug}"} /-->
-<!-- wp:post-content {"layout":{"type":"constrained"}} /-->
-<!-- wp:template-part {"slug":"footer","tagName":"footer","area":"footer"} /-->
-```
-
-This ensures true modularity and lets the developer choose which header/footer variant to use per-template.
+Always call template parts directly in the root `templates/{slug}.html` file (as in Section 1, Option A) — never nest them inside a master pattern or a dynamic block's output. This lets each template choose its header/footer variant.
 
 ### Asset Enqueuing for Template Parts
 
@@ -349,13 +315,7 @@ Because the template part relies on a backing PHP pattern, its CSS loads exactly
 
 Valid `area` values: `header`, `footer`, `uncategorized`, `navigation-overlay` (WP 7.0 — for mobile menu overlays).
 
-**Navigation Overlay setup (WP 7.0):** To register a custom mobile overlay:
-1. Add `{"area": "navigation-overlay", "name": "mobile-menu", "title": "Mobile Menu"}` to `templateParts` in `theme.json`.
-2. Create `parts/mobile-menu.html` — **always include `core/navigation-overlay-close` in this part**, otherwise WordPress adds a fallback close button that will not match the design. The close block is never placed inside `core/navigation`.
-3. Point the Navigation block at the part with its `overlay` attribute, using the **slug only** (no theme prefix): `{"overlayMenu":"mobile","overlay":"mobile-menu"}`.
-4. Optional: register patterns with `Block Types: core/template-part/navigation-overlay` to offer alternative overlay designs in the editor.
-
-See `references/architecture.md → Custom Navigation Overlays` for the full implementation reference.
+**Navigation Overlay (WP 7.0):** register the part with `"area": "navigation-overlay"`, **always put `core/navigation-overlay-close` inside that part** (never inside `core/navigation`; without it WordPress adds a fallback close button that will not match the design), and point the Navigation block at it by **slug only**: `{"overlayMenu":"mobile","overlay":"mobile-menu"}`. Full steps: `references/architecture.md → Custom Navigation Overlays`.
 
 ---
 
@@ -381,11 +341,7 @@ WordPress requires `Title` and `Slug`; the other fields are recommended. `Block 
 
 ### Required attributes on the outermost block
 
-Every standalone/sub-pattern's outermost block MUST have all three:
-
-1. `"className": "is-style-{pattern-slug}"` — registers the variation class that scopes its CSS.
-2. `"lock": {"move": true, "remove": true}` — prevents accidental deletion.
-3. Its slug listed in the pattern-asset registry (`inc/pattern-assets.php`) — never `wp_enqueue_style()` directly for pattern-level CSS.
+Every standalone/sub-pattern's outermost block MUST have `"className": "is-style-{pattern-slug}"` and `"lock": {"move": true, "remove": true}`, and its slug MUST be listed in the pattern-asset registry (`inc/pattern-assets.php`) — never `wp_enqueue_style()` directly for pattern-level CSS.
 
 ### Image paths in patterns
 
@@ -417,64 +373,17 @@ and block-specific targeting. Key rules:
 
 ## 5. Debugging Common Issues
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| Template not in Page Attributes dropdown | Not registered in `theme.json` `customTemplates` | Add the entry; check the `name` matches the filename (without `.html`) |
-| Raw HTML disappears in editor | Non-block HTML pasted directly into a template | Register a dynamic block (`register_block_type()` + `render_callback`) and emit the HTML from the callback |
-| CSS not loading on frontend | Slug missing from the pattern-asset registry, or it does not match the folder / class | The registry key, the `patterns/{slug}/` folder and the `is-style-{slug}` class on the outermost block must be identical. Confirm `functions.php` requires `inc/pattern-assets.php`. |
-| Editor doesn't match frontend | Stylesheet enqueued for the frontend only | Pattern CSS must go through the registry — the loader also enqueues it on `enqueue_block_assets`, which is what reaches the editor canvas. |
-| theme.json style changes ignored | The user's Global Styles override the theme's | In the Site Editor's Styles panel use **Reset styles**. That discards the user's style customisations, so confirm first. |
-| Old content persists after file change | A customised copy of the template or part is stored in the database | Use the template's **Reset** action in the Site Editor. Its revisions can restore earlier edits if the user wants them back. |
-| Block never renders | `metadata.blockVisibility` is `false` | Remove the attribute to show the block. |
-| Viewport hiding has no effect | `viewport` written as an array (`["desktop"]`) | Use the object form: `{"viewport": {"mobile": false, "tablet": false}}`. |
-| Pattern images broken | Hardcoded path, or a parent-theme pattern using the child theme's directory | Use `get_theme_file_uri( 'assets/images/…' )` in the PHP pattern — it returns the child theme's copy when one exists and the parent's otherwise |
-| Block validation error | Nesting issue or stray HTML | Validate markup; ensure every chunk of raw HTML lives inside a registered dynamic block, not loose in the template |
-| **Template part renders as empty `<div class="wp-block-template-part">`** | `wp:template-part` placed inside a dynamic block's `render_callback` output | Move `wp:template-part` comments to the root of the `.html` template, outside any dynamic block |
-| **Template part exists in DOM but content is empty** | Pattern is missing or typo in the slug | Check the `slug` inside the `wp:pattern` comment matches the PHP registration exactly |
-| **Template part CSS not loading** | Outermost block missing style class, or slug not in the registry | The backing pattern's root block needs `is-style-{slug}` and `{slug}` must be in the pattern-asset registry. |
-| **PHP functions not running in template part** | Trying to put PHP directly in `.html` file | `.html` files cannot run PHP — put PHP in a `.php` pattern and call it via `<!-- wp:pattern {"slug":"..."} /-->` |
-| **`blockVisibility` PHP type error** | Treating `metadata.blockVisibility` as always an array — it can also be the boolean `false` | Check `false === $visibility` first, then `is_array( $visibility )`. The block **support** key is `visibility`; the **metadata attribute** is `blockVisibility`. |
-| **Post editor canvas is not iframed (7.0)** | A block with `apiVersion` below 3 is in the post | 7.0 drops the iframe when such a block is present. Upgrade the block to API version 3. On 7.1+ the editor is always iframed. |
-| **Pattern script never loads** | `'script' => true` / `'module' => true` missing from the registry entry, or the file is not `patterns/{slug}/index.js` / `view.js` | Fix the registry entry. `register_block_style()` cannot attach a script. |
-| **White screen / parse error after deploying** | Code uses syntax newer than the server's PHP (e.g. property hooks on 8.3) | Establish the site's PHP version and rewrite with `references/php-compatibility.md`; declare `Requires PHP` in `style.css`. |
-| **`core/icon` renders nothing** | Icon name is not registered | On 7.0 only built-in `core/{name}` icons exist. Custom icons need 7.1+ (`references/core-7.1-apis.md`). |
-
-For DOM-level diagnostics, see the **Diagnostic Console Snippet** in `references/architecture.md`.
+When the user reports a symptom — a template missing from the dropdown, CSS or a script not loading, the editor not matching the frontend, old content after a file change, an empty template part, a white screen — **load `references/troubleshooting.md`** before answering. The most common cause of "my file changes are not showing" is a customised copy in the database: explain the Site Editor **Reset** action and that the template's revisions can restore earlier edits.
 
 ---
 
 ## 6. Modular Sub-Pattern Architecture
 
-When a template is complex (e.g. a full landing page), decompose it into sub-patterns. WordPress requires the `.php` file for each pattern to exist in the `patterns/` directory to automatically register them:
+When a template is complex (e.g. a full landing page), decompose it into sub-patterns:
 
-```
-patterns/
-  my-landing-page.php        ← master pattern (assembles sub-patterns)
-  hero-section.php           ← Hero PHP pattern (name MUST match its directory)
-  faq-section.php            ← FAQ PHP pattern
-  cta-section.php            ← CTA PHP pattern
-  faq-section/
-    style.css                ← Scoped CSS for FAQ only
-    index.js                 ← FAQ JS (non-reactive, e.g. scroll reveal)
-  cta-section/
-    style.css                ← Scoped CSS for CTA only
-  hero-section/
-    style.css                ← Scoped CSS for Hero only
-```
-
-Because the pattern-asset loader enqueues by variation class, a page that uses only the
-`faq-section` pattern loads only the FAQ CSS/JS, not the entire landing page bundle.
-
-The master pattern calls each sub-pattern:
-
-```php
-<!-- wp:pattern {"slug":"{{THEME_SLUG}}/hero-section"} /-->
-<!-- wp:pattern {"slug":"{{THEME_SLUG}}/faq-section"} /-->
-<!-- wp:pattern {"slug":"{{THEME_SLUG}}/cta-section"} /-->
-```
-
-This keeps individual files manageable and makes each section independently editable in the
-Site Editor.
+- One `patterns/{slug}.php` per section, plus a `patterns/{slug}/` folder with its `style.css` (and `index.js` / `view.js` only where needed). The PHP file name, the folder name, the registry key and the `is-style-{slug}` class MUST be identical.
+- The master pattern is a flat list of `<!-- wp:pattern {"slug":"{{THEME_SLUG}}/{section}"} /-->` calls.
+- Because the pattern-asset loader enqueues by variation class, a page using only one section loads only that section's CSS/JS. Each section stays independently editable in the Site Editor. Full layout: `references/scaffold-tree.md`.
 
 ---
 
@@ -497,31 +406,7 @@ Always annotate `meta.annotations` honestly: clients and AI agents read those fl
 
 Entry point is `wp_ai_client_prompt( $prompt = null )` → `WP_AI_Client_Prompt_Builder`. WordPress core bundles **no AI provider** — generation works only after a provider plugin is installed and given a key at Settings → Connectors. So **feature-detect on the builder instance before offering an AI feature** (showing its UI, enabling its control); the check makes no API call. Every generating call can still return `WP_Error`, and every call site handles it. For structured data use `->as_json_response( $schema )` and `json_decode()` the returned string. For metadata (token usage, provider, model) use the `*_result()` variant, which returns a `GenerativeAiResult`.
 
-Common shape inside an ability's `execute_callback`:
-
-```php
-$builder = wp_ai_client_prompt()
-	->using_system_instruction( '…' )
-	->using_temperature( 0.4 )
-	->with_text( $input['prompt'] )
-	->as_json_response(
-		array(
-			'type'       => 'object',
-			'properties' => array(
-				'summary' => array( 'type' => 'string' ),
-			),
-		)
-	);
-
-if ( ! $builder->is_supported_for_text_generation() ) {
-	return new \WP_Error( 'no_text_provider', __( 'No AI provider is available.', '{{TEXT_DOMAIN}}' ) );
-}
-
-$result = $builder->generate_text();
-if ( is_wp_error( $result ) ) {
-	return $result;
-}
-```
+The canonical builder example (system instruction, JSON schema, feature check, `WP_Error` handling) is at the top of `references/ai-client.md`.
 
 **Never** call `WP_AI_Client_Prompt_Builder::is_supported_for_text_generation()` statically — it is a fatal error.
 
@@ -585,6 +470,7 @@ Overriding a WooCommerce template (`single-product.html`, `archive-product.html`
 | `references/html-conversion.md` | The user provides raw HTML/CSS/JS to convert. |
 | `references/architecture.md` | Before writing ANY theme code (mandatory pre-write read). Holds the pattern-asset loader. |
 | `references/theme-json.md` | Modifying `theme.json` beyond a `customTemplates` entry. |
+| `references/troubleshooting.md` | The user reports a symptom: something not showing, not loading, not matching the editor, or a white screen. |
 | `references/api-allowlist.md` | Before every WordPress function, hook, block name or `theme.json` key you are not certain exists. |
 | `references/scaffold-tree.md` | Creating a new theme directory, a companion plugin or a build step, or adding new top-level folders. |
 | `references/ai-client.md` | The user wants to call an LLM from PHP, let a model call abilities, work with Connectors, or manage AI API keys and cost. |

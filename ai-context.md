@@ -11,7 +11,7 @@
 - **No skill names, points to, or loads another skill.** Why: the user combines skills per prompt by hand; a cross-reference makes one skill pull in another.
 - **Platform-agnostic instructions.** Never use one agent's tool names (`view_file`, `run_command`, `Read tool`, …). Describe actions logically ("read the file", "run a command") or name POSIX tools (cat, grep, git). Claude-only frontmatter (`disable-model-invocation`, `argument-hint`) is allowed only when the description also states the behaviour in words, because other agents ignore those keys (see `plan-auditor`).
 - **A ban lives in `SKILL.md`, not only in a reference.** Why: skills tell agents to read only the references they need, so a ban kept only in a reference gets skipped. This happened with the font limit in `et-frontend-design`.
-- **Keep each `SKILL.md` under 500 lines** (Agent Skills and Anthropic guidance); move depth into `references/`, linked directly from `SKILL.md`. `wp-block-theme/SKILL.md` is over the limit; slimming it is Roadmap and needs a baseline eval run first. Never slim it as a side task, and never move a ban out of `SKILL.md` while doing so.
+- **Keep each `SKILL.md` under 500 lines** (Agent Skills and Anthropic guidance); move depth into `references/`, linked directly from `SKILL.md`. Slim a `SKILL.md` only with a before/after eval run, and never move a ban out of `SKILL.md` while doing so.
 
 ## 3. Single Sources of Truth
 - **Maintenance notes for one skill:** `<skill>/ai-context.md`. Read it before editing that skill and record that skill's new decisions there.
