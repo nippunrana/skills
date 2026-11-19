@@ -1,0 +1,53 @@
+.shelfmark-books ul {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.shelfmark-book {
+	border: 1px solid currentColor;
+	border-radius: 0.5rem;
+	padding: 1rem;
+}
+
+.shelfmark-book.is-featured {
+	border-width: 2px;
+}
+
+.shelfmark-stars,
+.shelfmark-price,
+.shelfmark-availability {
+	display: block;
+	margin-top: 0.25rem;
+}
+
+.shelfmark-summary {
+	display: none;
+	margin-top: 0.5rem;
+}
+
+.shelfmark-summary.is-open {
+	display: block;
+}
+
+.shelfmark-picks {
+	padding-block: 2rem;
+}
+
+.shelfmark-callout {
+	border-inline-start: 4px solid currentColor;
+	margin-block: 1.5rem;
+	padding: 1rem 1.25rem;
+}
+
+.shelfmark-search form {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.shelfmark-search-results {
+	margin-top: 1rem;
+}

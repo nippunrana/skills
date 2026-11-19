@@ -14,3 +14,13 @@ Notes for editing this skill. They are not part of the skill: `SKILL.md` never l
 - **A registered handler is never "dead".** It is unused but reachable. Removing it needs confirmation from the user or access logs.
 - **OWASP labels follow the 2025 edition, with the CWE number first.** The mapping in `references/owasp-checklist.md` was checked against the OWASP 2025 category pages on 2026-11-19. Re-check it when a new edition appears. Why: the 2021 numbers had reached a client-facing report.
 - **Search patterns must run under `grep -E`.** No lookaheads and no `(?:` groups. Why: those fail or misbehave on stock grep.
+
+## Evals
+- **Evals run on generated git fixtures.** `evals/fixtures/setup.sh <scenario> <dest>` builds a fresh repository for one run and writes `<dest>.state/` beside it; `evals/fixtures/check.sh` reads that folder.
+- **Never store a secret-shaped string, a vulnerable version pin, or a file the root `.gitignore` drops inside a fixture.** `setup.sh` generates them. Why: this repo is public, so a stored key can trip push protection and a stored pin can raise dependency alerts; ignored files would silently go missing from a clone.
+- **Fixture file names, function names and comments carry no hints.** No "legacy", "deprecated", "unused" or similar. Why: a name that gives a planted item away makes the eval measure reading names.
+- **A run must use a copy of the skill without `evals/`.** Why: that folder holds the planted issues, the reference fixes and the assertions.
+- **Examples in `SKILL.md` and `references/` must not reuse a fixture's planted issues.** Why: the evals would then measure recall of the examples.
+- **Run `evals/fixtures/selftest.sh` after changing any fixture or check;** it must end with 0 wrong. Set `PHP_DOCKER_IMAGE` (or have `php` on PATH) so the PHP parse check and the stub run are included.
+- **Check names start with `safety_`, `rule_` or `target_`.** Keep a safety failure (true for any agent) apart from a skill rule. Why: a no-skill baseline should not be marked unsafe for skipping a rule only the skill states.
+- **The baseline "old skill" is commit `60475b2`,** the version before the 2026-11-19 corrections.

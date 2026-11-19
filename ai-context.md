@@ -24,7 +24,7 @@
 ## 4. Built Systems vs Roadmap
 | Skill | Status | `evals/evals.json` |
 | :--- | :--- | :--- |
-| `code-security-and-cleanup` | Built | Roadmap |
+| `code-security-and-cleanup` | Built | Yes |
 | `debugger` | Built | Roadmap |
 | `et-copywriting` | Built | Yes |
 | `et-frontend-design` | Built | Roadmap |
