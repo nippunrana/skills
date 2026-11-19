@@ -1,6 +1,7 @@
 ---
 name: code-security-and-cleanup
-description: Pre-delivery code audit and dead code removal for PHP and JavaScript projects. Use for baseline code metrics, AST-aware dead code detection, OWASP security hardening, and safe, surgical cleanup of unused code and secrets.
+description: Pre-delivery code audit and dead code removal for PHP and JavaScript projects. Use for baseline code metrics, dead code detection, OWASP security hardening, and safe, surgical cleanup of unused code and secrets. Run only when the user explicitly invokes it or names it; never trigger it on your own.
+disable-model-invocation: true
 ---
 
 # Pre-Delivery Code Audit & Dead Code Removal
@@ -30,6 +31,10 @@ to stakeholders.
 3. **Bundle size** — If `package.json` exists with a build script, record the output size of `dist/` or `build/`
 4. **File count** — Total source files in scope
 5. **Git reference point** — Record current branch and commit hash as the "before" marker
+
+Count first-party code only. Leave `vendor/`, `node_modules/`, build output (`dist/`, `build/`),
+minified files and bundled third-party libraries out of these counts and out of every search in
+the later phases.
 
 Store these values as your **Baseline Snapshot**. You will compare against them in Phase 7.
 
@@ -70,28 +75,26 @@ If `webpack.config.*`, `vite.config.*`, or `package.json` with bundler config ex
 
 ### 1.5 Feature Flags & Conditional Logic
 Identify feature flags, environment checks, or conditional includes. A flag that has
-been at 100% rollout for 30+ days (or whose feature shipped permanently) means the
-alternate branch is dead code.
+been at 100% rollout for 30+ days (or whose feature shipped permanently) makes the
+alternate branch a Category B candidate. The flag's real state is not in the code, so
+confirm it with the user before treating that branch as dead.
 
 ---
 
-## Phase 2: AST-Aware Deep Analysis
+## Phase 2: Deep Analysis
 
 Categorize every finding with high confidence. The dual-category system protects you
 from false positives while ensuring verified waste gets removed.
 
-### Category A: Verified Dead (100% Certainty — Safe to Auto-Remove)
+### Category A: Verified Dead (Evidence Listed — Removed Only After Approval)
 
 | Type | Detection Method |
 |------|-----------------|
-| Commented-out logic | Blocks of code in comments (not JSDoc/PHPDoc) |
-| Unreferenced variables | Declared but never read in any execution path |
+| Commented-out logic | Blocks of code in comments. Not JSDoc/PHPDoc, and not comments that tools or the runtime read: WordPress block markup (`<!-- wp:… -->`), translator comments, linter and bundler directives, license headers |
+| Unreferenced variables | Declared but never read in any execution path. In PHP, first rule out a template that is `include`d from the same scope, and `compact()` / `extract()`, which read variables by name |
 | Orphaned functions/methods | Zero callers across the entire project |
-| Unused imports/requires | Import statements with no reference to the imported symbol |
+| Unused imports/requires | Import statements with no reference to the imported symbol. Never a side-effect import (`import './setup.js'`, a CSS import) or a PHP `require` / `include`: those run code without naming a symbol |
 | Unreachable code | Code after `return`, `throw`, `exit`, `die`, unconditional `break` |
-| Dead CSS selectors | Selectors with no matching HTML elements in any template |
-| Stale feature flags | Flags permanently enabled; the "off" branch is dead |
-| Duplicate logic | Identical functions in different files (consolidation target) |
 
 ### Category B: Suspicious / Dynamic (Requires Human Review)
 
@@ -102,6 +105,9 @@ from false positives while ensuring verified waste gets removed.
 | Global/exported functions | May have external consumers (plugins, APIs, third-party code) |
 | Magic methods & reflection | `__call`, `__get`, `ReflectionClass` usage hides references |
 | Config-referenced strings | Code referenced only in config files or environment variables |
+| Dead CSS selectors | Classes can come from database content, plugins, or scripts that add them at runtime; a search of the templates cannot see those |
+| Stale feature flags | Whether a flag is permanently on is recorded by the flag service or the team, not in the code |
+| Duplicate logic | Merging copies rewrites live code. Recommend it; never apply it as a removal |
 
 ### The "Proper Search" Protocol
 
@@ -110,7 +116,8 @@ When investigating a potentially dead identifier:
 2. Search for **partial fragments** (e.g., for `theme_header_main`, also search `theme_header_`)
 3. Search for the name as a **string literal** (it might be called dynamically)
 4. Check **configuration files** (JSON, YAML, .env) for references
-5. If you cannot prove it dead after these 4 searches, it goes to Category B
+5. Check **naming conventions** that load code with no reference at all: template files chosen by file name (WordPress template hierarchy, framework route files), hook and shortcode callbacks, and names stored in the database
+6. If you cannot prove it dead after these 5 checks, it goes to Category B
 
 ---
 
@@ -121,29 +128,29 @@ SQL injection is just as exploitable as an active one. This phase catches securi
 hiding in dead and live code alike.
 
 ### Critical Severity
-- **Hardcoded secrets**: API keys, tokens, passwords, private keys in source files
+- **Hardcoded secrets**: API keys, tokens, passwords, private keys in source files. Never print the value in the report, the chat or a commit message. Tell the user to revoke or rotate it first: deleting it from the files leaves it in git history
 - **Exposed debug endpoints**: `phpinfo()`, debug routes, admin backdoors
 - **Debug output in production paths**: `var_dump()`, `print_r()` with sensitive data
+- **SQL injection**: Raw queries without prepared statements in any function (dead or alive)
 
 ### High Severity
-- **Unsanitized input in dead handlers**: Orphaned AJAX/REST handlers accepting raw `$_GET`/`$_POST`
+- **Unsanitized input in unused handlers**: AJAX/REST handlers with no caller in the project that accept raw `$_GET`/`$_POST`. A registered handler is still reachable from outside, so it is live attack surface. Report it here; its removal is Category B unless the user or access logs confirm nothing calls it
 - **XSS vectors**: Unescaped output (`echo $var` without `esc_html`, `innerHTML` with user data)
-- **SQL injection**: Raw queries without prepared statements in any function (dead or alive)
 - **Deserialization**: `unserialize()` on user-controlled input
-- **Unbounded Input Lengths**: Accept strings without enforcement of max character lengths (`mb_substr` or validation checks)
+- **Missing authentication or authorization**: Routes/endpoints that skip the login check, the capability check, or the check that the object belongs to the caller. A nonce only stops forged requests; it is not authorization
 
 ### Medium Severity
-- **Missing authentication**: Dead routes/endpoints without auth checks
 - **CSRF gaps**: Form handlers without nonce/token verification
 - **Overly permissive permissions**: Dead files with `777` or world-writable permissions
-- **Stale dependencies**: `require`/`import` of packages with known CVEs
-- **Missing HTTP Security Headers**: API responses without security protection headers (`X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Referrer-Policy`, or exposing server runtime info via `X-Powered-By`)
+- **Vulnerable dependencies**: Packages with published advisories. Find them by running the package manager's audit command (`npm audit`, `composer audit`) when a lockfile exists. Never name a CVE from memory; if the audit cannot run, say so in the report
+- **Missing HTTP Security Headers**: Responses without `Strict-Transport-Security`, `X-Content-Type-Options`, `Content-Security-Policy` (its `frame-ancestors` directive replaces `X-Frame-Options`) or `Referrer-Policy`, or that expose server runtime info via `X-Powered-By`. Headers are often set by the web server or CDN outside the repository; if so, report "confirm at the server", not a finding. Introduce a new CSP in report-only mode first
+- **Loose comparison of secrets**: Tokens, hashes or keys compared with `==`, or `in_array()` without its strict flag. Fix with `hash_equals()`, `===` and the strict flag. `declare(strict_types=1)` does not change how `==` works and is not a security fix; never add it to existing files as one
 
 ### Low Severity
-- **Console.log with data**: `console.log()` exposing internal state in production JS
+- **Console.log with data**: `console.log()` exposing internal state in production JS. Logging a token, password or key is Medium
 - **Verbose error messages**: Stack traces or internal paths leaked to users
 - **Leftover TODO/FIXME**: Security-related TODOs that were never addressed
-- **Weak Type Safety**: PHP files missing `declare(strict_types=1);`, allowing type-juggling bypasses
+- **Unbounded input lengths**: Strings accepted with no maximum length. Validate and reject over-long input; do not silently cut it, which corrupts data
 
 For the complete detection patterns and grep commands, read `references/owasp-checklist.md`.
 
@@ -151,9 +158,8 @@ For the complete detection patterns and grep commands, read `references/owasp-ch
 
 ## Phase 4: Complexity Analysis
 
-Quantify the maintainability improvement your cleanup will achieve. These metrics
-transform "I removed some code" into "I reduced complexity by 23% and improved the
-maintainability index from 62 to 78."
+Quantify the maintainability improvement your cleanup will achieve. Report only numbers
+you computed in this audit, and when a metric barely moves, say so.
 
 ### 4.1 Cyclomatic Complexity
 Count decision points per function: `if`, `else if`, `case`, `for`, `while`, `foreach`,
@@ -177,25 +183,16 @@ Dead code removal reduces Ce for files that imported unused modules.
 Flag functions exceeding 50 lines. After dead branch removal, recalculate — many
 functions shrink naturally when dead conditions are removed.
 
-### 4.4 Maintainability Index (Simplified)
-Estimate using: `171 - 5.2 * ln(Volume) - 0.23 * CC - 16.2 * ln(LOC)`
-
-| Score | Rating | Color |
-|-------|--------|-------|
-| 85+ | Highly maintainable | Green |
-| 65-84 | Moderately maintainable | Yellow |
-| <65 | Difficult to maintain | Red |
-
-### 4.5 Duplication Ratio
+### 4.4 Duplication Ratio
 Percentage of logic duplicated across files. Each duplicate is a consolidation
 opportunity — extract to a shared utility or module.
 
 For formulas and manual calculation methods, read `references/metrics-definitions.md`.
 
-### 4.6 Performance & Data I/O Audit
+### 4.5 Performance & Data I/O Audit
 Identify and log performance bottlenecks, specifically looking for:
 - **High-Frequency Polling Consolidation**: Multi-request polling loops on the frontend that should be batched to minimize connection overhead.
-- **Wildcard Queries**: Database queries using `SELECT *` instead of selecting specific required fields.
+- **Wildcard Queries**: `SELECT *` on a frequently run query against a wide table (many columns, or long text/blob columns) where only a few fields are used. Elsewhere it is rarely a real cost; do not flag every occurrence.
 - **Autoloader Classmaps**: PHP environments missing Composer autoloader optimization (`composer dump-autoload -o`).
 
 For detailed optimization guidelines, read `references/performance-io-guide.md`.
@@ -223,8 +220,11 @@ Numbered action list. Each entry follows this format:
 
 Actions: `REMOVE` | `CONSOLIDATE` | `DELETE` | `INLINE`
 
-Group by file for readability. This is the list of changes that WILL be executed
-in Phase 6 (unless the user objects).
+`CONSOLIDATE` and `INLINE` rewrite live code. List them in the risk matrix first; they
+appear here only once the user has approved that specific item.
+
+Group by file for readability. Only the items the user approves from this list are
+executed in Phase 6.
 
 ### Section 3: Risk Matrix (Category B)
 
@@ -240,7 +240,7 @@ in Phase 6 (unless the user objects).
 
 ### Section 4: Security Findings
 
-Same risk-matrix format as Section 3, but tagged with OWASP category (e.g., `[A03:Injection]`).
+Same risk-matrix format as Section 3, but tagged with the CWE number and the OWASP Top 10:2025 category (e.g., `[CWE-89 · A05:2025 Injection]`). Use the CWE alone when no category fits.
 Security findings that overlap with dead code get priority in Phase 6 execution.
 
 For exact templates and formatting, read `references/report-templates.md`.
@@ -253,6 +253,9 @@ After the report is presented and the user approves, execute the cleanup with fu
 rollback safety. Every change must be individually revertible.
 
 ### 6.1 Branch Strategy
+First run `git status`. If the working tree has uncommitted changes, stop and ask the user
+how to proceed. Never stash, reset or commit their work yourself.
+
 Create a dedicated branch: `cleanup/dead-code-YYYY-MM-DD` from current HEAD.
 This keeps the cleanup isolated and reviewable as a single PR.
 
@@ -261,12 +264,12 @@ This keeps the cleanup isolated and reviewable as a single PR.
 2. Unused imports/requires (caught immediately by any build/lint)
 3. Unreferenced variables (low risk)
 4. Orphaned functions (medium risk — verify no dynamic calls)
-5. Consolidate duplicates (medium risk — behavior must be identical)
-6. Dead CSS selectors (low risk, but verify visually if possible)
-7. Security-flagged dead code (high priority, verify auth context)
+5. Consolidate duplicates — Category B, only if the user approved the specific item (behavior must be identical)
+6. Dead CSS selectors — Category B, only if the user approved the specific item (verify visually)
+7. Security-flagged dead code (high priority; first confirm nothing outside the project calls it)
 
 ### 6.3 Atomic Commits
-One commit per logical group. Commit message format:
+One commit per logical group. Follow the repository's existing commit message convention (check `git log`). Where it has none, use:
 ```
 chore(cleanup): [action] [what]
 
@@ -276,11 +279,16 @@ chore(cleanup): [action] [what]
 ### 6.4 Post-Removal Verification
 After EACH commit:
 1. Grep for every removed identifier across the project — catch missed references
-2. If a build pipeline exists, run it — confirm no import/require errors
-3. If tests exist, run them — confirm no regressions
-4. If a reference appears in a string, template, or config — investigate before proceeding
+2. Parse-check every changed file (`php -l`, `node --check`, or the project's type-check)
+3. If a build pipeline exists, run it — confirm no import/require errors
+4. If tests exist, run them — confirm no regressions
+5. If a reference appears in a string, template, or config — investigate before proceeding
+
+If none of the checks in steps 2-4 can run (no runtime, no build, no tests), tell the user
+before committing, and label the change untested in the final report.
 
 ### 6.5 Safety Rules
+- Never start on a dirty working tree, and never stash or reset the user's uncommitted work
 - Never force-push
 - Never skip pre-commit hooks
 - Never delete files without checking git blame for recent activity
@@ -299,26 +307,30 @@ After EACH commit:
 | Function Count | X | Y | -Z | -N% |
 | Avg Cyclomatic Complexity | X | Y | -Z | -N% |
 | Bundle Size (KB) | X | Y | -Z | -N% |
-| Security Issues Found | X | 0 | -X | -100% |
-| Maintainability Index | X | Y | +Z | +N% |
+| Security Issues Open | X | Y | -Z | -N% |
 | Duplication Ratio | X% | Y% | -Z% | — |
+
+A security issue counts as closed only when it was fixed or removed and then verified.
+Issues that were only reported stay open. Leave out any row you did not measure.
 
 ### Part B: Executive Statement
 
 One paragraph, copy-paste ready for a status update or PR description:
 ```
-This audit removed [X] lines of dead code across [Y] files, reducing
-average cyclomatic complexity by [Z]%, eliminating [N] security
-vulnerabilities, and improving the maintainability index from [X] to [Y].
-Bundle size reduced by [X] KB ([N]% improvement). [X] suspicious items
-flagged for team review in the attached risk matrix.
+This audit removed [X] lines of dead code across [Y] files and reduced
+average cyclomatic complexity by [Z]%. It found [N] security issues:
+[F] were fixed and [O] remain open. Bundle size reduced by [X] KB
+([N]% improvement). [X] suspicious items flagged for team review in the
+attached risk matrix.
 ```
+
+Drop any clause whose number you did not measure.
 
 ### Part C: Prevention Recommendations
 
 Based on what was found, recommend systemic fixes so this debt doesn't accumulate again:
 
-1. **Linting rules**: `eslint no-unused-vars` (error, not warn), `no-unreachable`, `no-console` for production. PHPStan at level 5+ for PHP unused detection.
+1. **Linting rules**: `eslint no-unused-vars` (error, not warn), `no-unreachable`, `no-console` for production. PHPStan at level 4+ for dead branches and unreachable PHP code (it does not report unused functions).
 2. **Bundle budgets**: Set a size threshold in bundler config — fail the build if exceeded by >5%.
 3. **Feature flag lifecycle**: Create a cleanup ticket when creating a flag. After 30 days at 100%, the flag must be removed or justified.
 4. **PR review gate**: Add "no dead code introduced" as a checklist item in your PR template.
@@ -333,6 +345,6 @@ Based on what was found, recommend systemic fixes so this debt doesn't accumulat
 - **Principle of Least Surprise**: Do not refactor architecture or rename things for style. Only change what is dead, redundant, or dangerous.
 - **Report Before Execute**: Never modify code before the user reviews findings. Phase 5 comes before Phase 6 for a reason.
 - **Atomic Reversibility**: Every commit must be individually revertible via `git revert <hash>` without affecting other cleanup work.
-- **Security Is Never Optional**: Even if dead code "works fine," exposed secrets and debug endpoints must be addressed. These are not Category B — they are urgent.
+- **Security Is Never Optional**: Even if dead code "works fine," exposed secrets and debug endpoints must be addressed. Report them at full severity and never park them as low-priority review items; removing or changing the code still needs the user's approval.
 - **When in Doubt, Category B**: It is better to flag a suspicious finding for human review than to break production. Professional judgment means knowing when NOT to act.
 - **Documentation Travels With Code**: If you remove a function, remove its docblock. If you move logic, move the documentation with it.

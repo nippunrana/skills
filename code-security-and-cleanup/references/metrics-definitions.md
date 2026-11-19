@@ -7,11 +7,10 @@ for the complexity metrics used in Phase 4 of the audit.
 
 ## Table of Contents
 1. [Cyclomatic Complexity](#cyclomatic-complexity)
-2. [Maintainability Index](#maintainability-index)
-3. [Coupling Metrics](#coupling-metrics)
-4. [Function Length](#function-length)
-5. [Duplication Ratio](#duplication-ratio)
-6. [Manual Estimation Without Tooling](#manual-estimation-without-tooling)
+2. [Coupling Metrics](#coupling-metrics)
+3. [Function Length](#function-length)
+4. [Duplication Ratio](#duplication-ratio)
+5. [Manual Estimation Without Tooling](#manual-estimation-without-tooling)
 
 ---
 
@@ -56,57 +55,13 @@ function processOrder($order, $user) {    // Start: 1
     foreach ($order->items as $item) {     // +1 (foreach)
         if ($item->inStock()) {            // +1 (if)
             $total += $item->price;
-        } else {                           // +1 (else path has different logic)
+        } else {                           // no increment: a plain else is not a decision point
             $backorder[] = $item;
         }
     }
     return $total > 0 ? $total : 0;        // +1 (ternary)
 }
-// Total CC = 8 (Moderate — acceptable)
-```
-
----
-
-## Maintainability Index
-
-### Formula (Microsoft variant, widely used)
-```
-MI = 171 - 5.2 * ln(HV) - 0.23 * CC - 16.2 * ln(LOC)
-```
-Where:
-- HV = Halstead Volume (see below)
-- CC = Cyclomatic Complexity (average per function)
-- LOC = Lines of Code
-
-### Halstead Volume (Simplified)
-```
-HV = N * log2(n)
-```
-Where:
-- N = total number of operators + operands (program length)
-- n = number of distinct operators + distinct operands (vocabulary)
-
-For quick estimation without exact Halstead calculation, use:
-```
-HV ≈ LOC * 5  (rough approximation for typical code density)
-```
-
-### Thresholds
-
-| Score | Rating | Color | Interpretation |
-|-------|--------|-------|----------------|
-| 85-171 | Highly maintainable | Green | Clean, well-structured code |
-| 65-84 | Moderately maintainable | Yellow | Some complexity, manageable |
-| 0-64 | Difficult to maintain | Red | Needs refactoring attention |
-
-### Worked Example
-```
-Given: LOC = 200, CC_avg = 12, HV ≈ 200 * 5 = 1000
-
-MI = 171 - 5.2 * ln(1000) - 0.23 * 12 - 16.2 * ln(200)
-   = 171 - 5.2 * 6.91 - 2.76 - 16.2 * 5.30
-   = 171 - 35.9 - 2.76 - 85.9
-   = 46.4 (Red — difficult to maintain)
+// Total CC = 7 (Moderate — acceptable)
 ```
 
 ---
@@ -196,15 +151,9 @@ available, use these manual methods:
 
 ### Quick CC Estimate
 1. Open the function
-2. Count keywords: `if`, `else`, `for`, `foreach`, `while`, `case`, `catch`, `&&`, `||`, `?`
+2. Count keywords: `if`, `elseif` / `else if`, `for`, `foreach`, `while`, `case`, `catch`, `&&`, `||`, `?` (a plain `else` adds nothing)
 3. Add 1 (base complexity)
 4. That's your CC
-
-### Quick MI Estimate
-1. Count LOC for the file
-2. Estimate average CC (pick 3 representative functions, average their CC)
-3. Use `HV ≈ LOC * 5`
-4. Plug into formula
 
 ### Quick Coupling Estimate
 1. Count `import`/`require`/`use` statements = Ce

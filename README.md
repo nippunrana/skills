@@ -104,9 +104,9 @@ Scientific-method debugging with 7 phase-gated steps: observe â†’ hypothesize â†
 ---
 
 ### code-security-and-cleanup
-8-phase audit producing an executive-ready report. Classifies dead code into Category A (verified safe to delete) and Category B (needs review), then runs an OWASP-aligned security scan (hardcoded secrets, injection, XSS, SQL injection, CSRF, debug endpoints). Executes changes as atomic git commits and delivers a before/after scorecard.
+8-phase audit producing an executive-ready report. Classifies dead code into Category A (verified dead, removed only after approval) and Category B (needs review), then runs an OWASP-aligned security scan (hardcoded secrets, injection, XSS, SQL injection, CSRF, debug endpoints). Executes approved changes as atomic git commits and delivers a before/after scorecard.
 
-**Triggers on:** clean up code, dead code, unused code, security audit, OWASP, remove deprecated, technical debt
+**Invocation:** explicit only. Attach the skill or name it; it never triggers on its own.
 
 ---
 

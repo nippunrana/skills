@@ -25,14 +25,14 @@ Especially watch for multiple independent polling loops in the same component or
 
 ### Remediation
 1. **Batching**: Consolidate multiple endpoints into a single status/aggregation endpoint (e.g., `api/status.php` returning system status, alerts, and notifications in a single payload).
-2. **WebSockets/SSE**: For real-time updates, recommend migrating from polling to WebSockets or Server-Sent Events (SSE).
+2. **WebSockets/SSE**: Consider WebSockets or Server-Sent Events (SSE) only when updates must arrive within about a second and the hosting supports long-lived connections. For most sites, batched polling at a sensible interval is the simpler and safer choice.
 3. **Adaptive Intervals**: Implement exponential backoff or dynamic intervals that slow down when the browser tab is in the background (`document.hidden`).
 
 ---
 
 ## Wildcard Queries (SELECT *)
 
-Retrieving all columns (`SELECT *`) increases database memory utilization, slows down query execution, increases network transfer size, and prevents the query planner from using covering indexes (where all requested columns are in the index).
+Retrieving all columns (`SELECT *`) costs something real in two cases: the table has long text or blob columns the code never uses, or a covering index could answer the query if only its columns were requested. On narrow tables, or when most columns are used, it is rarely a real cost. Flag it only on frequently run queries, and confirm with the query plan (`EXPLAIN`) when a database is available.
 
 ### Detection Patterns
 Check codebases (PHP, JS backends) for SQL strings using wildcards:
@@ -72,4 +72,4 @@ composer dump-autoload (without --optimize or -o)
    ```bash
    composer dump-autoload -a
    ```
-   This prevents the autoloader from falling back to the filesystem if a class is not found in the classmap.
+   This prevents the autoloader from falling back to the filesystem if a class is not found in the classmap. Use it with care: a class generated at runtime, or any class missing from the classmap, then fails with "class not found" in production. Plain `-o` has no such trade-off.

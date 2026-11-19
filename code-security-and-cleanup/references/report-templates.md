@@ -44,8 +44,8 @@ no dynamic invocation patterns detected"].
 ```markdown
 ## Verified Cleanup Manifest
 
-The following items have been verified as dead code with 100% confidence.
-They will be removed in atomic commits unless objected to.
+The following items have been verified as dead code; the evidence is listed with each one.
+Only the items you approve will be removed, in atomic commits.
 
 ### [filename.php] ([N] items)
 
@@ -72,6 +72,9 @@ They will be removed in atomic commits unless objected to.
 ---
 Total: [X] items across [Y] files | Estimated [Z] lines removed
 ```
+
+Entries marked `[INLINE]` or `[CONSOLIDATE]` rewrite live code. They belong in the risk
+matrix first and appear in this manifest only after the user approved that specific item.
 
 ---
 
@@ -108,16 +111,16 @@ The following security issues were identified during the audit. Items in dead co
 are prioritized for removal (attack surface reduction). Items in live code are
 flagged for immediate remediation.
 
-| # | Finding | Location | OWASP | Severity | In Dead Code? | Action |
-|---|---------|----------|-------|----------|---------------|--------|
-| 1 | Hardcoded API key | config.php:L15 | A02 | Critical | No | Rotate key, move to .env |
-| 2 | SQL injection in unused handler | legacy-api.php:L45 | A03 | Critical | Yes | Remove entire file |
-| 3 | XSS via unescaped output | old-template.php:L30 | A07 | High | Yes | Remove (dead template) |
-| 4 | Debug phpinfo() endpoint | debug.php:L1 | A05 | High | Yes | Delete file |
-| 5 | Missing CSRF on form handler | ajax.php:L80 | A01 | Medium | No | Add nonce verification |
+| # | Finding | Location | CWE / OWASP 2025 | Severity | In Dead Code? | Action |
+|---|---------|----------|------------------|----------|---------------|--------|
+| 1 | Hardcoded API key | config.php:L15 | CWE-798 / A07 | Critical | No | Rotate key, move to .env |
+| 2 | SQL injection in unused handler | legacy-api.php:L45 | CWE-89 / A05 | Critical | Yes | Remove entire file |
+| 3 | XSS via unescaped output | old-template.php:L30 | CWE-79 / A05 | High | Yes | Remove (dead template) |
+| 4 | Debug phpinfo() endpoint | debug.php:L1 | CWE-489 / A02 | Critical | Yes | Delete file |
+| 5 | Missing CSRF on form handler | ajax.php:L80 | CWE-352 / A01 | Medium | No | Add nonce verification |
 
 ### Summary
-- **Dead code security issues**: [X] (will be removed in Phase 6)
+- **Dead code security issues**: [X] (removed in Phase 6 once approved)
 - **Live code security issues**: [X] (flagged for team remediation)
 - **Attack surface reduction**: Removing dead code eliminates [X] exploitable vectors
 ```
@@ -136,12 +139,15 @@ flagged for immediate remediation.
 | Total Functions | [X] | [Y] | -[Z] | -[N]% | Improved |
 | Avg Cyclomatic Complexity | [X] | [Y] | -[Z] | -[N]% | Improved |
 | Bundle Size (KB) | [X] | [Y] | -[Z] | -[N]% | Improved |
-| Security Issues | [X] | [Y] | -[Z] | -[N]% | Improved |
-| Maintainability Index | [X] | [Y] | +[Z] | +[N]% | Improved |
+| Security Issues Open | [X] | [Y] | -[Z] | -[N]% | [F] fixed, [Y] open |
 | Duplication Ratio | [X]% | [Y]% | -[Z]% | — | Improved |
 | Files Affected | — | — | [Z] | — | — |
 | Commits Created | — | — | [Z] | — | — |
 ```
+
+Fill the Status column from the numbers: write "Improved" only where the value improved,
+and "No change" where it did not. A security issue counts as closed only when it was fixed
+or removed and then verified. Leave out any row you did not measure.
 
 ---
 
@@ -154,11 +160,12 @@ For copy-paste into PR descriptions, status updates, or stakeholder communicatio
 
 This pre-delivery audit of [project/module] removed [X] lines of dead code
 across [Y] files in [Z] atomic commits. Average cyclomatic complexity reduced
-from [X] to [Y] (-[N]%), maintainability index improved from [X] to [Y],
-and [N] security vulnerabilities were eliminated. Bundle size reduced by
-[X] KB ([N]%). [X] items flagged for team review (see risk matrix).
+from [X] to [Y] (-[N]%). [N] security issues were found: [F] fixed, [O] still
+open. Bundle size reduced by [X] KB ([N]%). [X] items flagged for team review
+(see risk matrix).
 
-All changes are individually revertible. No behavioral changes to live features.
+All changes are individually revertible. [Either "No live behavior was changed",
+or name each change that alters behavior (a fix, a consolidation) and how it was tested.]
 ```
 
 ---
@@ -186,7 +193,7 @@ No dynamic invocation patterns detected (checked partial string matches).
 chore(cleanup): remove unused imports from [file]
 
 [N] import(s) referencing symbols never used in this module.
-Verified via AST-level reference check.
+Verified by a project-wide search for each symbol, plus the linter or build where one was run.
 ```
 
 ### For duplicate consolidation
@@ -202,16 +209,17 @@ All [N] call sites updated.
 ```
 fix(security): remove [vulnerability type] in dead [file/endpoint]
 
-[OWASP category] vulnerability in unused code. While dead, the endpoint
-remained reachable and exploitable. Removed to reduce attack surface.
+[OWASP category] vulnerability in unused code. Nothing in the project calls
+this endpoint, but it remained reachable and exploitable. Removed to reduce
+attack surface after confirming nothing external depends on it.
 ```
 
-### For dead CSS removal
+### For dead CSS removal (only for selectors the user approved)
 ```
 chore(cleanup): remove orphaned CSS selectors from [file]
 
-[N] selectors targeting elements that no longer exist in any template.
-Verified via grep across all HTML/PHP template files.
+[N] selectors with no match in any template or script file.
+Approved after confirming no content, plugin or script uses them.
 ```
 
 ---
