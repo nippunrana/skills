@@ -18,7 +18,7 @@ A collection of production-ready AI agent skills packaged as `SKILL.md` files. E
 | [shopify-theme](shopify-theme/) | Shopify Online Store 2.0 themes: Liquid sections, JSON templates, theme blocks, performance |
 | [prompt-checker-builder](prompt-checker-builder/) | Pre-flight prompt scoring or Socratic prompt builder |
 | [debugger](debugger/) | Hypothesis-driven bug diagnosis across visual, code, API, and perf domains |
-| [code-security-and-cleanup](code-security-and-cleanup/) | 8-phase audit: dead code removal + OWASP security hardening |
+| [code-security-and-cleanup](code-security-and-cleanup/) | Evidence-based security review and dead-code cleanup: read-only audit, then only approved changes |
 | [wp-block-theme](wp-block-theme/) | WordPress FSE block theme development (templates, patterns, theme.json, AI client, WooCommerce) |
 
 `skill-creator` (create, test and benchmark skills) is used locally for the evaluation pipeline below but is not included in this repository.
@@ -104,7 +104,11 @@ Scientific-method debugging with 7 phase-gated steps: observe â†’ hypothesize â†
 ---
 
 ### code-security-and-cleanup
-8-phase audit producing an executive-ready report. Classifies dead code into Category A (verified dead, removed only after approval) and Category B (needs review), then runs an OWASP-aligned security scan (hardcoded secrets, injection, XSS, SQL injection, CSRF, debug endpoints). Executes approved changes as atomic git commits and delivers a before/after scorecard.
+Security review and dead-code cleanup for any codebase, built on evidence.
+
+- **Audit first, read-only.** Each security finding is traced from attacker input to the dangerous call and marked confirmed, needs validation or rejected. Each dead-code candidate is marked remove, review or keep, with its search evidence.
+- **Applies only the items you approve,** on a new branch. Each finding or kind of removal gets its own commit, with checks after each. It stops and asks if the working tree holds uncommitted work.
+- **Honest reports.** It never claims code is secure, never names a CVE from memory, and always says what was and was not checked.
 
 **Invocation:** explicit only. Attach the skill or name it; it never triggers on its own.
 
